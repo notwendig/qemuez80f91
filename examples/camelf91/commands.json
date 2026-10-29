@@ -335,5 +335,29 @@
     "command": "0 1 ACCEPT .",
     "input": "\b\r",
     "result": "\b0 "
+  },
+  {
+    "command": "-42 6 .R",
+    "result": "   -42"
+  },
+  {
+    "command": "42 6 .R",
+    "result": "    42"
+  },
+  {
+    "command": "0 3 .R",
+    "result": "  0"
+  },
+  {
+    "command": "-42 -1 7 D.R",
+    "result": "    -42"
+  },
+  {
+    "command": "-1 8388607 18 D.R",
+    "result": "   140737488355327"
+  },
+  {
+    "command": "0 -8388608 18 D.R",
+    "result": "  -140737488355328"
   }
 ]

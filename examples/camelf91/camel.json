@@ -1,5 +1,5 @@
 {
-  "patch_sha256": "704ec00c21fb9df49a64cc83f081951bcd26f916a08c025d0c401ac9c3f2963a",
+  "patch_sha256": "8753b4995e5e3abdb554e8f6b22df9497f148a80666bb290b2aa4673f9061d5f",
   "symbols": {
     "ENTRY": 927,
     "BYE": 1311,
@@ -10,17 +10,19 @@
   },
   "upstream_commit": "b975f3acac08c70c05d951aad22e5c1824446206",
   "board": "ez80f91-freertos,ram-boot=on",
-  "binary_sha256": "ab3083df8e84951a1db8d8545300aaa6f13fcafb39cda87539985eb825fd7ff6",
+  "binary_sha256": "77dd8cb459b3e3e83ae551c4e956733aee618b088f5d5b426442be1901c40617",
   "sources": {
     "CAMLF91.inc": "4d6faf185206984add51e64385bdabc11e1ecd14f80480ffd3d85b85d8940774",
     "CAMLF91d.asm": "78940b6af03bc0f7ce11fdad8b10fc27dabd695547de7588e7d65fc0a336fd16",
     "CAMLF91e.asm": "1f10000f45143ef7806944d44a483cb65c8d063be6e384eaaea46a0679e9dc88",
-    "CAMLF91h.asm": "f248b8b36ecc72c3250f90d932107e76be65dc198507fc927a48f06b943c202e",
+    "CAMLF91h.asm": "bbd9bab41ea9abb2a57926edf108dae3762cf6d6c6ed86b8833b852ab90df812",
     "CAMLF91t.asm": "32ff2f2bbbf31ccca362a106e9f886e8f1140ae924a9a85cef44ce9d17d71c27",
     "CAMLF91t.inc": "d9947248e9c95e24dd0a0d2384834da3390949f635c4f9709deb3b03b8b6a709",
     "console.inc": "34a5976145d7281fcbbab65f2ed782299a62291613ef459a73793c73a7830417",
     "cstartup.asm": "697803471cc7d34f33a011db7fee2f12d482872475189551ae5120210226ff46",
     "init_params_f91.asm": "fdae9a2aef04956acd3911d6f28fe96dbb7b3805060dc271fcf9ed87ea95faae",
+    "kit.inc": "60c4b53a4942e9ad9a2db7a538660c24a1434ec5ce956a8435918147d0a0f8cd",
+    "kit_font.inc": "9312084c3e8a5e82d51a78f2f9e38eef75a8df8ded5df8ac8fb7f6f0080d70f6",
     "main.asm": "bf7e426df76dcefa2d6cbf7ff654cda69c4e1b94dd9d62077ac938833ebb090a",
     "poll_bsp.asm": "82df196296baec289925da209621900bb5370a13342e4d44ecdc202d63b67a10",
     "vectors24.asm": "5df3a575eb63d7a6fa5e545dd78c865d4b33c7b50038f0273f98031bc9f77137",

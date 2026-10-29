@@ -1367,9 +1367,10 @@ index 0000000..83b4fbf
 +type_init(intc_register_types);
 diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
 new file mode 100644
+index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 --- /dev/null
 +++ b/hw/ez80/memory.c
-@@ -0,0 +1,767 @@
+@@ -0,0 +1,797 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 memory decoding and Flash information-page I/O. */
 +#include "qemu/osdep.h"
@@ -1413,8 +1414,8 @@ new file mode 100644
 +    char *kit_led_file;
 +    QEMUTimer *kit_timer;
 +    uint8_t kit_latch[3];
-+    uint64_t kit_energy[35], kit_current, kit_mask;
-+    int64_t kit_last_ns, kit_frame_ns;
++    uint64_t kit_energy[35], kit_row_time[7], kit_current, kit_mask;
++    int64_t kit_last_ns, kit_frame_ns, kit_static_ns;
 +    bool kit_enabled;
 +
 +};
@@ -1490,7 +1491,37 @@ new file mode 100644
 +            s->kit_energy[i] += elapsed;
 +        }
 +    }
++    for (unsigned row = 0; row < 7; row++) {
++        if (s->kit_enabled && (s->kit_latch[0] & (1 << row))) {
++            s->kit_row_time[row] += elapsed;
++        }
++    }
 +    s->kit_last_ns = now;
++}
++static void kit_clear_energy(EZ80F91MemoryState *s)
++{
++    memset(s->kit_energy, 0, sizeof(s->kit_energy));
++    memset(s->kit_row_time, 0, sizeof(s->kit_row_time));
++    s->kit_frame_ns = s->kit_last_ns;
++}
++static void kit_complete_scan(EZ80F91MemoryState *s)
++{
++    uint64_t elapsed = s->kit_last_ns - s->kit_frame_ns;
++    uint64_t mask = 0;
++
++    for (unsigned row = 0; row < 7; row++) {
++        if (!s->kit_row_time[row]) {
++            return;
++        }
++    }
++    for (unsigned i = 0; i < 35; i++) {
++        if (s->kit_energy[i] && s->kit_energy[i] >= elapsed / 100) {
++            mask |= 1ULL << i;
++        }
++    }
++    /* Animation may change on every scan; never require repeated images. */
++    s->kit_mask = mask;
++    kit_clear_energy(s);
 +}
 +static void kit_pixels(EZ80F91MemoryState *s)
 +{
@@ -1510,33 +1541,28 @@ new file mode 100644
 +{
 +    EZ80F91MemoryState *s = opaque;
 +    uint64_t mask = 0;
-+    int64_t elapsed;
++    uint8_t rows;
 +    g_autofree char *json = NULL;
 +    g_autoptr(GError) error = NULL;
 +    kit_accumulate(s);
-+    elapsed = s->kit_last_ns - s->kit_frame_ns;
-+    /* A 300 Hz row scan takes 23 ms of guest time per glyph. Integrate
-+     * in guest time as well: slow icount execution must not expose lone rows.
-+     * Keep the last complete frame while collecting the next one.
++    /* The real-time GUI poll never publishes a partial multiplex scan.
++     * kit_write commits only after all seven rows have finished their dwell.
 +     */
 +    mask = s->kit_mask;
-+    if (elapsed >= 40 * 1000 * 1000 || !s->kit_enabled) {
++    rows = s->kit_latch[0] & 0x7f;
++    if (!s->kit_enabled) {
 +        mask = 0;
-+        for (unsigned i = 0; i < 35; i++) {
-+            if (s->kit_enabled && elapsed > 0 &&
-+                s->kit_energy[i] >= (uint64_t)elapsed / 100 &&
-+                s->kit_energy[i]) {
-+                mask |= 1ULL << i;
-+            }
-+            s->kit_energy[i] = 0;
-+        }
-+        s->kit_frame_ns = s->kit_last_ns;
-+        s->kit_mask = mask;
-+    } else if (elapsed <= 0) {
-+        /* Paused debugger writes still update the panel immediately. */
++        kit_clear_energy(s);
++    } else if (!s->kit_last_ns) {
++        /* Static debugger probes before the guest starts are not row scans. */
 +        mask = s->kit_current;
-+        s->kit_mask = mask;
++    } else if ((!rows || (rows & (rows - 1))) &&
++               s->kit_last_ns - s->kit_static_ns >= 40 * 1000 * 1000) {
++        /* A stable blank or parallel drive has no seven-row scan boundary. */
++        mask = s->kit_current;
++        kit_clear_energy(s);
 +    }
++    s->kit_mask = mask;
 +    json = g_strdup_printf("{\"mask\":\"%09" PRIx64 "\",\"anode\":%u,"
 +                           "\"cathode\":%u,\"gpio\":%u,\"buttons\":%u,\"enabled\":%s}\n",
 +                           mask, s->kit_latch[0], s->kit_latch[1],
@@ -1556,6 +1582,10 @@ new file mode 100644
 +{
 +    EZ80F91MemoryState *s = opaque;
 +    kit_accumulate(s);
++    if (addr == 0 && ((s->kit_latch[0] ^ value) & 0x7f)) {
++        kit_complete_scan(s);
++        s->kit_static_ns = s->kit_last_ns;
++    }
 +    s->kit_latch[addr] = value;
 +    kit_pixels(s);
 +}
@@ -1857,8 +1887,9 @@ new file mode 100644
 +    button_irq_update(s);
 +    s->kit_latch[0] = s->kit_latch[2] = 0;
 +    s->kit_latch[1] = 0xff;
-+    memset(s->kit_energy, 0, sizeof(s->kit_energy));
-+    s->kit_frame_ns = s->kit_last_ns;
++    kit_clear_energy(s);
++    s->kit_static_ns = s->kit_last_ns;
++    s->kit_mask = 0;
 +    memset(s->cs, 0, sizeof(s->cs));
 +    memset(s->bmc, 2, sizeof(s->bmc));
 +    s->cs[0][1] = 0xff;
@@ -2137,6 +2168,7 @@ new file mode 100644
 +{
 +    return EZ80F91_MEMORY(dev)->ram_ctl & 0x40;
 +}
+
 diff --git a/hw/ez80/meson.build b/hw/ez80/meson.build
 new file mode 100644
 --- /dev/null

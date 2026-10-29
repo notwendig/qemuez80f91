@@ -1,4 +1,8 @@
-# Ausführbarer Stand: ADL, Register, Stack und UART0
+# Historischer Meilenstein: ADL, Register, Stack und UART0
+
+Die folgenden Einschränkungen beschreiben den ersten CPU-/UART-Stand vom
+27.10.2026. Für den aktuellen Build und Funktionsumfang gelten
+[Erste Schritte](getting-started.md) und [Status](status.md).
 
 Erster CPU-/UART-Meilenstein; erweitert durch
 [FreeRTOS-C-Startup und Speichersteuerung](freertos-boot.md).

@@ -116,9 +116,10 @@ unbegrenzten C-Schleife zu laufen. 24-Bit-Lasten und Stores bleiben bytegenau.
 
 Die bisherigen CPU-/UART-Tests bleiben Teil der Regression.
 
-## Nächste echte FreeRTOS-Hürde
+## Weiterführende Nachweise
 
 Original-Vektorinitialisierung, Handlerinstallation, IRQ-Sicherungswrapper,
-Timer0 und RETI.L sind inzwischen geprüft. Es fehlen der Nachweis zweier
-echter FreeRTOS-Tasks mit Kernel-Scheduler sowie Teile des vollständigen
-init_params_f91-/PLL-Starts. Details und Fortsetzung: [Pausenstand](PAUSE.md).
+Timer0 und RETI.L sind geprüft. Die darauf aufbauenden Nachweise zweier
+echter FreeRTOS-Tasks und des vollständigen Board-/PLL-Starts stehen unter
+[Tasks](freertos-tasks.md) und [Boardstart](board-startup.md).
+Der aktuelle Funktionsumfang ist im [Entwicklungsstand](status.md) zusammengefasst.

@@ -26,8 +26,9 @@ separaten Nexus-Integrationstest erforderlich. Der CAMEL-Build verwendet die
 installierten ZDS-Assembler-/Linkerprogramme. Standardinstallation:
 `~/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5`.
 Der IDE-/Buildprozess verwendet das eigene Wine-Präfix
-`/tmp/qemuez80f91-zds-wine`; das bestehende ZDS-Installationsverzeichnis und
-das CAMEL-Upstreamprojekt bleiben unverändert.
+`/tmp/qemuez80f91-zds-wine`. Das bestehende ZDS-Installationsverzeichnis
+bleibt unverändert; die Buildkopie wird getrennt vom nativen CAMEL-Projekt
+gepflegt.
 
 Weitere Aufrufe:
 
@@ -52,7 +53,7 @@ RAM-Debugprofil keinen externen Flashbaustein zu identifizieren.
 Geprüft am 28.10.2026 mit ZDS II 5.3.5: automatischer Projektstart, Ethernet-
 Verbindung, fehlerfreier Download von `camel.lod`, Quellcodeanzeige und Halt am
 Einstieg (PC 00039Bh). Das mit Debugdaten gebaute Rohimage ist bytegleich mit
-dem bereits durch 83 CAMEL-Testfälle geprüften `examples/camelf91/camel.bin`.
+dem durch 89 CAMEL-Testfälle geprüften `examples/camelf91/camel.bin`.
 Die Einschränkungen des Emulators und der ZDI-Brücke stehen in
 [zds-ethernet.md](zds-ethernet.md).
 

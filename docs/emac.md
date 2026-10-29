@@ -33,7 +33,8 @@ Netzwerkbytefolge, danach den Frame ohne Präambel und FCS. Ein normaler
 TCP-Echo-Dienst ist dafür kein geeigneter Netzwerkpeer. Andere QEMU-Backends
 sind über `--nic` ebenfalls wählbar, soweit der jeweilige QEMU-Build sie enthält.
 Der aktuelle Minimalbuild enthält kein Slirp; `--nic user` funktioniert dort
-nicht. TAP wurde hier nicht geprüft.
+nicht. Der Standardstarter verwendet die vorhandene Bridge `br0` über den
+QEMU-Bridge-Helper; die Voraussetzungen stehen in [Erste Schritte](getting-started.md).
 
 Standard des Starters ist `--nic none`: Register und RAM bleiben vorhanden,
 der PHY meldet ohne Peer keinen Link. Der bisherige Ethernet-ZDI-Kanal auf

@@ -1,57 +1,83 @@
-# Entwurf
+# Architektur
 
-## CPU und Maschine
+## Komponenten
 
-CPU und SoC/Platine werden getrennt modelliert. Der CPU-Kern behandelt den
-eZ80-Befehlssatz, die Register und die Ausführungsmodi. Das F91-Modell enthält
-die integrierten Geräte und deren Speicher-/I/O-Dekodierung. Ein separates
-Platinenmodell legt externe Bausteine, Takt und Speicher fest.
+```mermaid
+flowchart LR
+  ZDS[ZDS II / Nexus DLL] --> Cable[Ethernet Smart Cable / DTL]
+  Cable --> ZDI[ZDI-Registermodell]
+  ZDI --> GDB[Privater QEMU-GDB-Socket]
+  GDB --> CPU[eZ80-TCG-Ziel]
+  CPU --> SoC[F91-Geräte und Speicherdekodierung]
+  SoC --> UART[UART0-Konsole]
+  SoC --> NIC[QEMU-Netzwerkbackend]
+  SoC --> Kit[Matrix-/Tastermodell]
+  Kit --> JSON[Kit-Zustandsdatei]
+  JSON --> GUI[Tkinter-Kit-Fenster]
+```
 
-Ein gewöhnlicher Z80-Kern genügt nicht als eZ80-Kern. Insbesondere müssen
-ADL, 24-Bit-Arithmetik, Befehlslängen, Moduspräfixe, Rücksprungadressen,
-Stackauswahl und Interrupt-Rückkehr zusammenhängend implementiert werden.
+Der kanonische Emulatorstand ist der Patch
+`patches/0001-ez80f91-minimal.patch`. Er ergänzt einen separaten CPU-Kern und
+ein F91-Gerätemodell auf der festgelegten QEMU-Basis. Der ignorierte Checkout
+`qemu/` ist die lokale Entwicklungs-/Buildkopie, kein weiteres Root-Submodul.
 
-## Erste ausführbare Ausbaustufe
+## CPU
 
-Die erste Ausbaustufe soll ein kleines, dokumentiertes Test-ROM ausführen
-und dessen UART-Ausgabe liefern. Nicht implementierte Geräte sollen als
-solche erkennbar bleiben. Erfolgreiche ROM-Ausführung ist kein Nachweis
-vollständiger F91-Kompatibilität.
+`target/ez80/` enthält CPU-Zustand, gemeinsamen Decoder, TCG-Anbindung,
+Befehlshilfen und GDB-Registerabbildung. Ein Translation Block führt derzeit
+einen dekodierten Gastbefehl aus. Die Befehlshelfer haben keine separate
+CPU-Ausführungsschleife; Scheduling und virtuelle Zeit bleiben bei QEMU.
 
-Die Speicher- und Registeradressen werden vor der Implementierung aus dem
-eZ80F91-Datenblatt übernommen und in einer eigenen Speicherübersicht dokumentiert.
-Das im anderen Projekt entworfene `mmuport`-Banking gilt hier nicht automatisch.
+ADL, Präfixe und MBASE steuern 16-/24-Bit-Register-, Stack- und Adressbreiten.
+Architektonische Werte bleiben trotz 32-Bit-Hostrepräsentation auf ihre
+jeweiligen Breiten begrenzt. Der Decoder berücksichtigt Adress-Wrapping und
+Moduswechsel. Nicht unterstützte Befehle werden diagnostiziert bzw. lösen
+für die implementierten Fälle den F91-TRAP aus.
 
-## QEMU-Anbindung
+## SoC und Board
 
-Vor der Festlegung auf eine Implementierung werden folgende Punkte geprüft:
+`hw/ez80/` enthält getrennte Modelle für Speicher/Flash, UART, Interrupts,
+Timer, Takt/PLL, RTC und EMAC. Die Maschinen `ez80f91-minimal` und
+`ez80f91-freertos` verwenden unterschiedliche Startprofile derselben Geräte.
+Das RAM-Bootprofil erlaubt den Original-Boardstart aus SRAM.
 
-- Verwendbare offizielle QEMU-Basis und Reproduzierbarkeit des Builds.
-- TCG-Integration gegenüber einem eingebetteten Interpreter und deren
-  Auswirkungen auf Debugging, Zeitmodell und Wartung.
-- Verfügbarkeit und Lizenz eines bestehenden eZ80-Kerns.
-- Abgrenzung von CPU-Eigenschaften und F91-spezifischen Peripheriefunktionen.
+CS0–CS3 schalten externe RAM-/AMD-Flash-Bänke dynamisch. Interner Speicher
+und höher priorisierte Chip Selects behalten Vorrang. Das Kit wird nur mit
+aktivierter Zustandsdatei und passendem CS2-Fenster bei 800000h eingeblendet.
+[Speicher](chip-selects.md) und [Kit](kit.md) enthalten die Registerdetails.
 
-Gewählt ist die reguläre TCG-Anbindung auf QEMU 11.1.2.
-Version, Integrationspunkte und Basisbuild: [QEMU-Basis](qemu-base.md).
-Es ist noch kein fremder eZ80-Kern übernommen.
+Flash-Persistenz speichert den Inhalt pro Debugport im Arbeitsverzeichnis.
+Das sind Nutzdaten, keine Buildprodukte. Tests verwenden dafür eigene
+Temporärverzeichnisse.
 
-## Zeitmodell und Genauigkeit
+## Debugging und Netzwerk
 
-Funktionale Ausführung, Befehlslaufzeiten und elektrische Bus-Signalverläufe
-sind getrennte Anforderungen. QEMU-TCG allein garantiert keine Busgenauigkeit.
-Falls eine Takt- oder Flankenschnittstelle benötigt wird, muss sie ausdrücklich
-entworfen und gegen das eZ80F91-Verhalten geprüft werden. NMOS-Z80-Laufzeiten
-werden nicht auf den eZ80 übertragen.
+`--dbgport` startet die Python-Brücke mit einem privaten GDB-Unixsocket.
+Die originalen ZDS-EthernetSC-Kommandos werden über DTL/ZDI auf QEMU-Zustand
+abgebildet. Die Helperdateien unter `tools/zds/` und ihre Bundlekopien in
+QEMU müssen identisch sein; `test_dbgport.py` prüft diese Voraussetzung.
 
-## Prüfschwerpunkte
+Der Debuggerkanal ist unabhängig vom Gast-MAC. DHCP/TCP/IP laufen in der
+Gastfirmware über das gewählte QEMU-Netzwerkbackend, beim Standardstarter
+über `br0`. Die Verbindung zum Debugger verwendet die Host-IP.
 
-- 16-/24-Bit-Adressgrenzen und Moduswechsel.
-- Registerbreiten, Präfixe, zusätzliche eZ80-Befehle und Flags.
-- Calls, Returns und Interrupts über Modusgrenzen hinweg.
-- Resetbelegung, Speicherdekodierung und Schreibschutz.
-- UART und danach Interrupt-/Timerverhalten mit eigener Firmware.
+## Anzeige und Zeitmodell
 
-Prüfergebnisse müssen die getestete CPU-/SoC-Ausbaustufe nennen. Eine
-pauschale Zusage von 100 Prozent Kompatibilität erfolgt erst bei entsprechendem
-Nachweis.
+Die Matrix wird aus echten Gastzugriffen auf die beiden Board-Latches
+rekonstruiert. Die Anzeigelogik sammelt alle sieben Zeilen und veröffentlicht
+vollständige Scans. Sie verlangt keine identischen Folgeframes, damit
+Laufschrift in jedem Durchlauf weiterlaufen kann. Das Tkinter-Fenster liest
+abgeschlossene Pixelmasken und die unabhängig aktualisierten Taster-/Registerwerte.
+
+CPU-Ausführung, Gerätetimer und Matrix-Leuchtzeiten verwenden Gastzeit;
+das Fenster wird in Hostzeit abgefragt. `-icount` unterstützt reproduzierbare
+Tests, ersetzt aber keine korrekten eZ80-Befehlslaufzeiten. Elektrische
+Signalverläufe, analoge PLL-Effekte und exaktes Baudtiming sind nicht modelliert.
+
+## Firmware und Nachweise
+
+Test-ROMs, gespeicherte Firmware-Images und Metadaten befinden sich unter
+`examples/`. Die Tests prüfen UART, Speicher, Register, IRQs und Reset über
+QMP/GDB. SDK- und Live-Netzwerkprüfungen sind getrennt gekennzeichnet.
+[Status](status.md), [Testkatalog](testing.md) und [Quellen](sources.md)
+benennen den geprüften Umfang und die verbleibenden Grenzen.

@@ -13,6 +13,7 @@ import tempfile
 
 COMMIT = 'b975f3acac08c70c05d951aad22e5c1824446206'
 ROOT = Path(__file__).resolve().parents[2]
+KIT_INCLUDE = b'    .INCLUDE "kit.inc"\r\n\r\n'
 
 def wine_path(p): return 'Z:' + str(p.resolve()).replace('/', '\\')
 
@@ -21,9 +22,7 @@ def build(args):
     if out == source or source in out.parents:
         raise ValueError('Build output must be outside the source checkout')
     actual = subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
-    if actual != COMMIT: raise ValueError('Expected CAMELF91_24 commit ' + COMMIT)
-    if subprocess.check_output(['git','-C',str(source),'diff','HEAD','--','asm','Debug'],text=True):
-        raise ValueError('Upstream assembly/linker sources must be unmodified')
+    subprocess.run(['git','-C',str(source),'merge-base','--is-ancestor',COMMIT,actual],check=True)
     out.mkdir(parents=True,exist_ok=True)
     source_files = subprocess.check_output(
         ['git','-C',str(source),'ls-tree','-r','--name-only',COMMIT,'asm'],
@@ -32,7 +31,10 @@ def build(args):
     for filename in source_files:
         path = source/filename
         if path.suffix in ('.asm','.inc'):
-            shutil.copyfile(path,out/path.name)
+            # Always derive the reviewed build from the pinned upstream bytes.
+            original = subprocess.check_output(
+                ['git','-C',str(source),'show',COMMIT+':'+filename])
+            (out/path.name).write_bytes(original)
             input_names.append(path.name)
     patch = ROOT/'patches/camelf91/0001-fix-24bit-core.patch'
     with tempfile.TemporaryDirectory(prefix='camel-fixes-') as td:
@@ -43,6 +45,36 @@ def build(args):
         subprocess.run(['git','apply',str(patch)],cwd=staging,check=True)
         for name in ('CAMLF91e.asm','CAMLF91h.asm'):
             shutil.copyfile(staging/'asm'/name,out/name)
+        # The native project initializes its interrupt-driven UART explicitly;
+        # the test adapter initializes its own polling UART in init_bsp.
+        subprocess.run(['git','apply',str(ROOT/'patches/camelf91/0002-init-native-uart.patch')],cwd=staging,check=True)
+        native_console_source = (staging/'asm/CAMLF91e.asm').read_bytes()
+    for filename in source_files:
+        path = source/filename
+        if path.suffix in ('.asm','.inc'):
+            original = subprocess.check_output(
+                ['git','-C',str(source),'show',COMMIT+':'+filename])
+            allowed = (original, (out/path.name).read_bytes())
+            if path.name == 'CAMLF91e.asm': allowed += (native_console_source,)
+            current = path.read_bytes()
+            if path.name == 'CAMLF91h.asm' and current.count(KIT_INCLUDE) == 1:
+                current = current.replace(KIT_INCLUDE, b'')
+            if current not in allowed:
+                raise ValueError('Unreviewed assembly changes: '+filename)
+    # The native project and polling build share the same reviewed kit driver.
+    for name in ('kit.inc','kit_font.inc'):
+        asset = Path(__file__).parent/name
+        local = source/'asm'/name
+        if local.exists() and local.read_bytes() != asset.read_bytes():
+            raise ValueError('Native kit source differs from shared source: '+name)
+        shutil.copyfile(asset,out/name)
+        input_names.append(name)
+    high = out/'CAMLF91h.asm'
+    high.write_bytes(high.read_bytes().replace(
+        b'\tXDEF CAMEL91H_LAST', KIT_INCLUDE+b'\tXDEF CAMEL91H_LAST'))
+    link_name = 'Debug/camel_f91_Debug.linkcmd'
+    original_link = subprocess.check_output(
+        ['git','-C',str(source),'show',COMMIT+':'+link_name])
     for name in ('console.inc','poll_bsp.asm'):
         shutil.copyfile(Path(__file__).parent/name,out/name)
     input_names.extend(('console.inc','poll_bsp.asm'))
@@ -65,7 +97,7 @@ def build(args):
     for module in modules:
         run('ez80asm.exe','-cpu:eZ80F91','-define:_DEBUG','-define:FLASHED=0',
             '-include:'+inc,'-list',*(['-debug'] if getattr(args,'debug_info',False) else []),module+'.asm')
-    link=(source/'Debug/camel_f91_Debug.linkcmd').read_text()
+    link=original_link.decode().replace('\r\n','\n')
     link=link[:link.index('\n"Z:')]
     if not getattr(args,'debug_info',False):
         link=link.replace('-FORMAT=OMF695,INTEL32','-FORMAT=INTEL32')

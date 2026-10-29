@@ -17,6 +17,7 @@ weiteren Änderungen am Emulator nötig.
 | Vorzeichen in 48-Bit-Summe | `0 1 -1 M+ . .` | `1 -1` | `0 -1` |
 | Voller Eingabepuffer | vier Zeichen bei `ACCEPT` mit Kapazität 4 | Länge 3 trotz vier gespeicherter Zeichen | Länge 4 |
 | Eingabe ohne Kapazität | `ACCEPT` mit Kapazität 0, Eingabe XYZ | Länge -1 und Speicher verändert | Länge 0, Speicher unverändert |
+| Zahlenformatierung | `-42 6 .R` und `-42 -1 7 D.R` | Minuszeichen fehlt | Minuszeichen und korrekte Feldbreite |
 
 Bei `/MOD . .` wird zuerst der Quotient, dann der Rest ausgegeben.
 Bei `M+ . .` wird zuerst die obere, dann die untere 24-Bit-Zelle ausgegeben.
@@ -77,8 +78,9 @@ Puffer; getestet sind Kapazitäten 0, 1 und 4, Überlänge und Backspace.
 Die Änderungen stehen im überschaubaren Patch
 `patches/camelf91/0001-fix-24bit-core.patch`. Er ändert ausschließlich
 `CAMLF91e.asm` und `CAMLF91h.asm`. Startup, Dictionary-Modell und Konsolen-ABI
-bleiben erhalten. Das Git-Submodul bleibt auf dem unveränderten Upstream-Commit.
-Der Builder kopiert die Quellen, wendet den Patch isoliert an und übersetzt
+bleiben erhalten. Der native Checkout enthält diese Korrekturen ebenfalls;
+der Polling-Builder liest seine Kernquellen aus dem historischen Basiscommit.
+Er wendet den Patch isoliert an und übersetzt
 die korrigierte Kopie. Er speichert den Patchhash und die Hashes der tatsächlich
 verwendeten Quellen in `camel.json`.
 
@@ -87,14 +89,24 @@ Quellcheckouts und nimmt nur die bekannten Eingabedateien in sein Manifest
 auf. Alte zusätzliche ASM-Dateien in einem wiederverwendeten Buildverzeichnis
 werden dadurch nicht fälschlich als Quellen des neuen Builds ausgewiesen.
 
-Das neue `camel.bin` hat 9350 Bytes; die Map weist 9353 belegte ROM-Bytes aus.
-Der unveränderte RAM-Bedarf liegt bei 432 Bytes plus den reservierten
-Forth-Stacks/Arbeitsbereichen. Die drei zusätzlichen reservierten ROM-Bytes
+Das korrigierte Kernimage ohne Kit-Erweiterung hat 9353 Bytes; die Map
+weist 9356 belegte ROM-Bytes aus. Das aktuelle Fixture einschließlich
+Kit-Wörtern hat 10688 Bytes; dessen Metadaten stehen in `camel.json`.
+Der Kern-RAM-Bedarf liegt bei 432 Bytes, mit Kit-Treiber bei 441 Bytes,
+jeweils plus den reservierten Forth-Stacks/Arbeitsbereichen. Die drei reservierten ROM-Bytes
 werden wie bisher nicht ins Raw-Image ausgegeben.
 
 ## Regression
 
-`examples/camelf91/commands.json` enthält 83 konkrete Fälle. Der UART-Test
+Der ergänzende [Worttest](camelf91-words.md) führte am 29.10.2026 alle
+zunächst 226 Wörterbuch-Einträge aus und bestand 197 Prüfungen. Mit den
+Kit-Wörtern sind es aktuell 237 Einträge und 201 Prüfungen. Der Test fand das
+fehlende `ROT` vor `SIGN` in `D.R`; dadurch wurde die falsche Stackzelle als
+Vorzeichen verwendet. Die Korrektur gilt auch für `.R`, das `D.R` aufruft.
+Sechs weitere Formatierungsfälle erweitern die ursprünglichen 83 Fälle
+auf jetzt 89; alle bestanden vor und nach Reset.
+
+`examples/camelf91/commands.json` enthält jetzt 89 konkrete Fälle. Der UART-Test
 führt sämtliche Fälle vor und nach Systemreset aus und prüft die Antworten
 zeichengetreu, anschließend auch Dictionary-Neustart, User-Zeiger und HALT.
 
@@ -117,9 +129,10 @@ der getestete Einbindungspfad.
 
 ## Abschlussprüfung
 
-Alle zwölf Integrationstestskripte bestanden. Die 83 Forth-Fälle wurden
-vollständig vor und nach Reset ausgeführt. Ein unabhängiger Neubau erzeugt
+Die ursprünglichen zwölf Integrationstestskripte bestanden. Die aktuell
+89 Forth-Fälle wurden vollständig vor und nach Reset ausgeführt. Ein unabhängiger Neubau erzeugt
 dasselbe Image und dieselben Metadaten. Der gespeicherte Patch lässt sich
 auf die ursprünglichen Quellen anwenden; die resultierenden Quellhashes
-stimmen mit den tatsächlich übersetzten Dateien überein. Das Submodul
-bleibt unverändert auf dem festgelegten Commit.
+stimmen mit den tatsächlich übersetzten Dateien überein. Der native Checkout
+enthält die dokumentierten Korrekturen und Kit-Wörter;
+der Polling-Build leitet seine Kernquellen weiter vom festgelegten Basiskern ab.

@@ -12,7 +12,7 @@ F91-Variante festgehalten. Die lokalen Herstellerdokumente liegen in `../doc/`: 
 Die geprüfte Abgrenzung und Resetbelegung stehen in
 [Implementierungsgrundlage](ez80f91-baseline.md).
 
-## Zu untersuchender Quellcode
+## Upstream und Referenzprojekte
 
 - [Offizielles QEMU](https://gitlab.com/qemu-project/qemu)
 - [QEMU-Architekturen](https://www.qemu.org/docs/master/about/emulation.html)
@@ -28,15 +28,19 @@ getrennt festgehalten. CAMELF91_24 ist als Git-Submodul eingebunden;
 ## FreeRTOS-Referenzprojekt
 
 - https://github.com/notwendig/FreeRTOS-eZ80f91
-- Geprüfter Commit: `cc64b750e7a5c6dfd19dd8eb3a644a9243ce10a9`.
-- RAM-Target, veröffentlichte Linker-Map und unveränderter C-Startup dienen
+- Historische Referenzbasis: `cc64b750e7a5c6dfd19dd8eb3a644a9243ce10a9`.
+- Den aktuellen Projektstand legt der Workspace-Gitlink fest. Kernel,
+  TCP/IP und uzlib verwenden öffentliche Basistags plus dokumentierte Patches.
+- RAM-Target, die zum Build gehörige Linker-Map und der C-Startup dienen
   als konkrete Referenz. Umfang und Prüfergebnis: [FreeRTOS-C-Startup](freertos-boot.md).
 
 ## CAMELF91_24
 
 - https://github.com/notwendig/CAMELF91_24
-- Festgelegter Commit: `b975f3acac08c70c05d951aad22e5c1824446206`.
+- Historische Kernbasis: `b975f3acac08c70c05d951aad22e5c1824446206`.
 - Submodul: `subprojects/CAMELF91_24`.
-- Festgelegter Kern mit separat dokumentierten Korrekturpatches, Original-Startup
-  und Polling-Test-BSP; Details und
-  Hinweise zur nicht abrufbaren Original-BSP-Abhängigkeit: [CamelForth](camelf91.md).
+- Der aktuelle native Checkout enthält Kernkorrekturen und Kit-Wörter;
+  der Polling-Testbuild leitet die Kernquellen aus der historischen Basis ab.
+- Das native BSP ist unter [notwendig/ez80f91bsp](https://github.com/notwendig/ez80f91bsp)
+  als öffentliches verschachteltes Submodul eingebunden.
+- [Build und Tests](camelf91.md), [Herkunft und Lizenzen](licenses.md).

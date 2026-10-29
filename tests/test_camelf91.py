@@ -17,6 +17,8 @@ meta=json.loads(fixture.with_suffix('.json').read_text())
 assert hashlib.sha256(fixture.read_bytes()).hexdigest()==meta['binary_sha256']
 assert meta['patch_sha256']==hashlib.sha256(
     (base.parents[1]/'patches/camelf91/0001-fix-24bit-core.patch').read_bytes()).hexdigest()
+for name in ('kit.inc','kit_font.inc'):
+    assert meta['sources'][name]==hashlib.sha256((base/name).read_bytes()).hexdigest(),name
 cases=json.loads((base/'commands.json').read_text())
 banner=b'\r\n\r\neZ80F91 Camel FORTH 1.1.0 (24bit) - Debug, 16.09.2021 12:31:21 CEST\r\n'
 with tempfile.TemporaryDirectory(prefix='f91-camel-') as td:

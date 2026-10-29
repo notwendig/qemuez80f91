@@ -93,6 +93,8 @@ def main():
             valid=(out/'camel.lod').exists() and digest(out/'camel.bin') == metadata['binary_sha256']
             valid=valid and digest(ROOT/'patches/camelf91/0001-fix-24bit-core.patch') == metadata['patch_sha256']
             valid=valid and all(digest(out/name)==value for name,value in metadata['sources'].items())
+            valid=valid and all(metadata['sources'].get(name)==digest(ROOT/'examples/camelf91'/name)
+                                for name in ('kit.inc','kit_font.inc'))
         except (OSError,ValueError,KeyError): valid=False
         if args.rebuild or not valid:
             subprocess.run([sys.executable,str(ROOT/'examples/camelf91/build.py'),

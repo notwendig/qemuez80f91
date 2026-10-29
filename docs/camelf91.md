@@ -1,131 +1,115 @@
-# CAMELF91_24 als festes Sub- und Testprojekt
+# CamelForth für eZ80F91
 
-## Einbindung und Quellstand
+`subprojects/CAMELF91_24` ist ein eigenständiges Git-Submodul mit einem
+24-Bit-CamelForth, Original-ZDS-Boardstart und Development-Kit-Wörtern.
+Der historische geprüfte Kern basiert auf Commit
+`b975f3acac08c70c05d951aad22e5c1824446206`; der aktuelle Projektstand wird
+über den Gitlink des Workspace festgelegt und enthält die nativen Korrekturen.
 
-`subprojects/CAMELF91_24` ist ein Git-Submodul von
-https://github.com/notwendig/CAMELF91_24, festgelegt auf Commit
-`b975f3acac08c70c05d951aad22e5c1824446206`.
-Der Build prüft diesen Commit und unveränderte Upstream-ASM-/Debugquellen.
-Anschließend wendet er die [analysierten Kernkorrekturen](camelf91-analysis.md)
-als separaten Patch auf eine Buildkopie an.
-Der Forth-Kern meldet Version 1.1.0, 24 Bit, Debug.
+## Zwei Buildwege
+
+| Weg | Konsole und Ausgabe | Zweck |
+| --- | --- | --- |
+| Natives ZDS-Projekt | `libbsp`, interruptgesteuertes UART0; `Debug/camel_f91.lod`/`.hex` | Originalprojekt und Board-/ZDS-Debugging |
+| Workspace-Builder | Eigener Polling-Adapter; `build/camelf91/camel.bin`/`.json`/`.map` | Reproduzierbare Regression und separater ZDS-Start |
+
+Der vollständige Worttest führt alle **237 Wörterbuch-Einträge** aus und
+enthält **201 Ergebnisprüfungen**. Die zusätzliche UART-Regression enthält
+89 Fälle, jeweils vor und nach Systemreset.
+[Worttest](camelf91-words.md), [Kit-Wörter](camelf91-kit.md).
+
+## Checkout und nativer Build
 
 ```sh
 sh scripts/setup-camelf91.sh
-python3 examples/camelf91/build.py --zds /pfad/zu/ZDSII_eZ80Acclaim!_5.3.5
 ```
 
-Der Setup ruft Submodule absichtlich nicht rekursiv ab. Das Originalprojekt
-verweist bei `libbsp` auf eine lokale SSH-Hostkonfiguration und den Commit
-`f459c87dcf631ffe594f517892fe0497aa1a0a3b`, der beim angegebenen öffentlichen
-BSP-Upstream nicht mehr abrufbar ist. Ein aktueller, anderer BSP-Commit wird
-für diesen Test nicht stillschweigend an dessen Stelle eingesetzt.
+Das Setup initialisiert CAMEL und dessen BSP. Der BSP-Gitlink zeigt auf einen
+öffentlichen `ez80f91bsp`-Stand; die frühere lokale SSH-URL und der ungültige
+Symlink wurden ersetzt. Der ursprüngliche alte BSP-Commit war öffentlich
+nicht abrufbar und ist nicht mehr Voraussetzung des aktuellen nativen Builds.
 
-Stattdessen enthält `examples/camelf91/poll_bsp.asm` einen getrennten
-Polling-Adapter für `init_bsp`, `putc`, `getc` und `kbhit`; `console.inc`
-deklariert die verwendete Konsolen-ABI. Er initialisiert UART0 für 115200,
-8N1 bei 50 MHz und verwendet weder FIFO noch UART-Interrupts. Das passt zum
-bisherigen UART-Modell. Dieser Adapter ersetzt das BSP für den Emulatortest;
-er ist kein Nachweis für das originale BSP, dessen Interrupttreiber oder EMAC.
+1. `libbsp/libbsp.zdsproj` in ZDS II 5.3.5 mit **Debug → Rebuild All** bauen.
+2. `camel_f91.zdsproj` öffnen und **Debug** neu bauen.
+3. Das RAM-Target mit Ethernet Smart Cable bzw. passendem Hardwaredebugger
+   wählen, `Debug/camel_f91.lod` laden und mit F5 starten.
 
-Die vier Kernelmodule und ihre Includes stammen aus dem festgelegten Commit;
-`CAMLF91e.asm` und `CAMLF91h.asm` erhalten vor der Übersetzung den
-Korrekturpatch für DEPTH, FM/MOD, M+ und ACCEPT. `vectors24.asm`,
-`init_params_f91.asm`, `cstartup.asm` und `zsldevinitdummy.asm` bleiben
-unverändert. Dictionary-Modell und Konsolen-ABI werden beibehalten.
-Die originalen Lizenzhinweise bleiben im Submodul erhalten. Das Repository
-enthält sowohl eine GPLv3-Datei als auch gesonderte Hinweise in README und
-Quellköpfen; die Einbindung ändert diese Hinweise nicht.
-
-## Build und Speicherprofil
-
-Der gespeicherte Builder verwendet ZDS 5.3.5 unter Wine statt der im Original
-fest eingetragenen lokalen ZDS-5.3.4-Pfade. Buildprodukte landen außerhalb des
-Submoduls in `build/camelf91` oder dem mit `--out` gewählten Verzeichnis.
-Die Speicher-/Taktdefinitionen stammen aus der Original-Debug-Linkerdatei:
-
-| Bereich | Belegung |
-| --- | --- |
-| ROM/Modul-SRAM | 000000–07FFFF |
-| RAM-Linkerbereich | B7D000–BFFFFF |
-| Interner SRAM/EMAC-RAM | auf Seite B7 umgelegt |
-| Externes hohes SRAM | B80000–BFFFFF |
-| Oberes Stackende | C00000, erstes Push darunter |
-| Takt | 50-MHz-Oszillator, PLL aus |
-
-Für den Test werden Ausgabepfade und Objektliste der Linkerdatei angepasst,
-das Test-BSP statt `libbsp` eingebunden und `__cstartup=1` explizit gesetzt.
-So werden BSS und DATA durch den Original-C-Startup initialisiert.
-Der QEMU-Start verwendet das vorhandene `ez80f91-freertos,ram-boot=on`-Profil;
-die Originalinitialisierung setzt danach die CAMEL-eigene Speicherbelegung.
-
-`examples/camelf91/camel.bin` ist 9350 Bytes groß. Die Linker-Map meldet
-9353 belegte ROM-Bytes einschließlich nicht ausgegebener Reservierungen.
-`camel.map` und `camel.json` sichern Symboladressen, Commit und SHA-256 der
-Quellen, des Korrekturpatches bzw. des Images. Die Originalquellen bleiben im Submodul.
-
-## Interaktiver Start
+Alternativ nach Erzeugung der ZDS-Make-Datei:
 
 ```sh
-build/ez80/qemu-system-ez80 -M ez80f91-freertos,ram-boot=on -kernel examples/camelf91/camel.bin -icount shift=0 -display none -monitor none -serial mon:stdio
+make -C subprojects/CAMELF91_24
 ```
 
-Nach dem Banner beispielsweise eingeben:
+`ZDS_HOME`, `WINE` und `BUILD` sind überschreibbar. `_main` ruft nach
+`init_bsp` explizit `init_uart0` für 115200 8N1 auf. Ohne diesen zusätzlichen
+Aufruf initialisiert das aktuelle BSP nur die Board-Pins und die Konsole
+bleibt leer. Das Debug-Target hat `externalAutoSelect=false`, da CS0 für
+einen externen Flashbaustein in diesem RAM-Profil nicht freigegeben ist.
+
+## Reproduzierbarer Polling-Build
+
+```sh
+python3 examples/camelf91/build.py --zds "$ZDS_HOME"
+python3 tools/zds/f24.py --prepare-only
+```
+
+Der Builder liest die bekannten ASM-Dateien aus dem festgelegten historischen
+Commit, wendet `patches/camelf91/0001-fix-24bit-core.patch` in einer Buildkopie
+an und ergänzt die gemeinsamen Kit-Includes. Er akzeptiert im nativen
+Checkout die ursprünglichen oder exakt korrigierten Kernfassungen sowie die
+bekannte UART-Startup-Anpassung. Fremde Kernänderungen werden abgewiesen.
+Lokale IDE-Einstellungen ändern das Polling-Image nicht.
+
+`console.inc` deklariert die gemeinsame Konsolen-ABI. `poll_bsp.asm`
+initialisiert UART0 und stellt `init_bsp`, `putc`, `getc` und `kbhit` ohne
+UART-Interrupts bereit. `__cstartup=1` aktiviert die Original-BSS-/DATA-
+Initialisierung. Die beiden Kit-Includes müssen im nativen Checkout und
+unter `examples/camelf91/` identisch sein.
+
+Die Metadaten speichern Basiscommit, Patch-/Quellhashes, Symboladressen und
+Image-SHA256. Das aktuelle gespeicherte Polling-Image hat 10688 Bytes und
+441 Bytes statischen RAM-Bedarf zuzüglich Forth-Stacks/Arbeitsbereichen.
+Die Map weist 10691 ROM-Bytes einschließlich drei nicht ausgegebener
+Reservierungsbytes aus.
+
+## Speicher und Takt im geprüften Debugprofil
+
+| Bereich | Verwendung |
+| --- | --- |
+| 000000h–07FFFFh | Externes SRAM als Code-/ROM-Bereich |
+| B7D000h–BFFFFFh | Linker-RAM, interner RAM und hohes externes SRAM |
+| C00000h | Oberes Stackende; erstes Push darunter |
+| 800000h–800002h | Kit-Latches bei aktiviertem Kit und passendem CS2 |
+| Systemtakt | 50-MHz-Oszillator, PLL aus |
+
+Die Release-/Chiponly-Konfigurationen haben eigene Linker-/Targetdateien.
+Die hier beschriebenen Tests betreffen das Debug-RAM-Profil.
+
+## Verwenden und testen
+
+```sh
+python3 tools/zds/f24.py
+python3 tests/test_camelf91.py "$QEMU_EZ80"
+python3 tests/test_camelf91_words.py "$QEMU_EZ80"
+python3 tests/test_camelf91_kit.py "$QEMU_EZ80"
+```
 
 ```forth
 1 2 + .
-: SQUARE DUP * ;
-123 SQUARE .
+: QUADRAT DUP * ;
+12 QUADRAT .
+BUTTONS .
+CHAR A MATRIX-CHAR
+MATRIX-OFF
 ```
 
-Erwartet werden `3`, `OK` und anschließend `15129`, `OK`.
-`bye` hält die Gast-CPU an; Ctrl-A X beendet QEMU.
+Der interaktive Starter öffnet ein getrenntes Projekt unter `build/f24/`.
+[ZDS-Bedienung](start-f24.md) und [Kernanalyse](camelf91-analysis.md)
+beschreiben Debuggerkommandos und die fünf korrigierten Fehlerbereiche.
 
-## Automatischer Test
+## Herkunft
 
-```sh
-python3 tests/test_camelf91.py build/ez80/qemu-system-ez80
-python3 tests/test_camelf91.py build/ez80/qemu-system-ez80 build/camelf91/camel.bin
-```
-
-Der Test benötigt einen lokalen Unix-Socket für den UART-Ein-/Ausgabestrom.
-Er prüft das genaue Banner und sämtliche Antworten auf die 83 Testfälle in
-`examples/camelf91/commands.json`:
-
-- Addition und 24-Bit-Überlauf von FFFFFF nach null.
-- Division mit Rest und Multiplikation.
-- Kompilieren und Ausführen eigener Wörter.
-- DO/LOOP und IF/ELSE/THEN.
-- 24-Bit-Variablen, Bytezugriffe und überlappenden rückwärtigen Speichertransfer.
-- Logische Schiebeoperationen und Rücksprungstack.
-
-Nach `bye` prüft der Test den Halt-PC, ADL und den User-Zeiger. Der
-Dictionary-Pointer muss durch das Kompilieren gewachsen sein. Anschließend
-folgen Systemreset, erneuter Banner, Dictionary-Pointer auf Originalwert und
-alle Eingaben ein zweites Mal. Es ist ein konkreter Integrationstest und
-keine vollständige ANS-Forth-Konformitätsprüfung. Details der gefundenen
-Fehler und ihrer Grenzfalltests: [Analyse](camelf91-analysis.md). Release-/Chiponly-Flashbuild,
-Original-BSP und Netzwerkfunktion sind nicht Teil dieses Testpfads.
-
-## Ergänzte CPU-Funktionen
-
-- CPI/CPIR/CPD/CPDR mit Zähler, Adressrichtung und dokumentierten Flags.
-- LDD/LDDR für rückwärtige Speichertransfers.
-- Byte-ALU über `(IX+d)` und `(IY+d)`.
-- CB-Rotationen/Schieben sowie indizierte BIT/RES/SET; der undokumentierte
-  SLL-Opcode bleibt ungültig und löst den Hardware-TRAP aus.
-- CPL, DJNZ und bedingte CALLs.
-
-Grundlage sind die Befehlsbeschreibungen in UM007715-0415, insbesondere
-Blockvergleich, Blocktransfer, bedingter CALL, DJNZ und CB-Befehle.
-`tests/test_cstartup_ops.py` prüft gezielt Flags, Vorzeichenoffsets,
-überlappende Transfers, Stackbreite und alle acht CALL-Bedingungen.
-
-## Validierung
-
-Alle zwölf Integrationstestskripte bestanden. Ein unabhängiger Neubau
-reproduziert `camel.bin` und `camel.json` exakt. Das Submodul ist unverändert
-und der Setup prüft seinen festgelegten Commit; der Builder patcht nur die
-Buildkopie. Die QEMU-Änderungen sind im
-aktualisierten Gesamtpatch gesichert; die Anwendung auf unveränderte
-Basisdateien wurde geprüft.
+Die ursprünglichen CamelForth-Port-/Nutzungshinweise stehen weiterhin in
+`ReadMe.txt`, `LICENSE` und den Quellköpfen des Teilprojekts. Sie werden durch
+die Integration und die neuen Anleitungen nicht ersetzt.
+[Quellen und Lizenzhinweise](licenses.md).

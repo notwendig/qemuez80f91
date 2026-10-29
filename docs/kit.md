@@ -11,6 +11,9 @@ wartet die CPU weiterhin auf ZDS. Das Schließen des Kit-Fensters beendet
 nur die Anzeige; das Beenden der UART-Konsole beendet auch das Kit-Fenster.
 Python mit Tkinter ist erforderlich.
 
+CAMELF91 bietet dafür [Forth-Wörter für Taster und Matrix](camelf91-kit.md),
+zum Beispiel `BUTTONS .` und `CHAR A MATRIX-CHAR`.
+
 Die Abbildung folgt UM014220-0508, Tabellen 8, 9 und 15 sowie der
 Zilog-QuickStart-LED-Demo-Ausrichtung: sieben Zeilen, fünf Spalten.
 
@@ -30,9 +33,19 @@ aktiviertes Speicherfenster über 800000h besitzen. Höher priorisierte CS0/CS1
 und interner Speicher behalten Vorrang. Ohne `--kit` bleiben diese Adressen
 Bestandteil der bisherigen Speicherabbildung.
 
-QEMU integriert die Leuchtdauer je LED über 40 ms Gastzeit pro Anzeigefenster und filtert
-sehr kurze Umschaltimpulse. Damit wird eine von der Firmware gemultiplexte
-Matrix lesbar. Die Anzeige ist eine funktionale Darstellung, keine Simulation
+QEMU integriert die Leuchtdauer je LED über einen vollständigen Scan aller
+sieben Zeilen und filtert sehr kurze Umschaltimpulse. Erst wenn auch die
+letzte Zeile ihre Leuchtzeit beendet hat, wird das neue Bild veröffentlicht.
+Bis dahin hält das Kit-Fenster das vorige vollständige Bild, auch bei einem
+langsamen oder im Debugger angehaltenen Scan. Das Fenster zeichnet die LEDs
+nur bei einer geänderten vollständigen Pixelmaske neu; Register und Taster
+werden unabhängig davon weiter aktualisiert. Jeder vollständige Scan wird
+übernommen, auch wenn sich die Laufschrift in jedem Durchlauf verändert.
+Identische Wiederholungen sind nicht erforderlich: Eine solche Bedingung
+kann fortlaufend wechselnde Bilder blockieren. Statisch dunkle oder parallel
+angesteuerte Anzeigen werden nach 40 ms unverändertem Anodenregister
+übernommen. Statische Debuggerproben vor dem ersten CPU-Start bleiben direkt
+sichtbar. Die Anzeige ist eine funktionale Darstellung, keine Simulation
 von LED-Strom, elektrischer Helligkeit oder des GAL-Timings. Die vier optionalen
 Modem-Status-LEDs D1–D4 werden mangels Modemmodell nicht simuliert; die im
 Fenster angezeigten Modem-/Triggerwerte sind ausschließlich die Latchbits.
@@ -43,10 +56,20 @@ Der Starter verwaltet Anzeige und Zustandsdatei gemeinsam mit der Instanz.
 
 ```sh
 python3 tests/test_kit.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_kit_frames.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
 ```
 
 Der Test prüft Polarität/Ausrichtung, GPIO-Richtung, CS-Freigabe/Priorität,
 Reset und ein echtes Gastprogramm mit siebenfacher Multiplexdarstellung.
+Der Frame-Test hält den Gast nach jeder einzelnen Zeile an. Er prüft,
+dass selbst bei mehr als 40 ms Gastzeit pro Zeile keine Teilbilder erscheinen
+und neue Zeichen sowie ein vollständig dunkles Bild erst nach Zeile sieben
+sichtbar werden. Der Forth-Treiber wird hierfür nicht verändert.
+Die Regression verwendet außerdem Live-Pixelmasken der FreeRTOS-Laufschrift
+und wechselt das Bild in jedem Scan. Der Test reproduzierte den Stillstand
+mit der früheren Bestätigung durch zwei identische Bilder und prüft nun,
+dass jede vollständige neue Position erscheint, einschließlich eines
+anschließend vollständig dunklen Bildes.
 
 ## Kit-Taster
 

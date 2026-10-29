@@ -2,6 +2,11 @@
 /upstream-qemu/
 __pycache__/
 *.pyc
+/.ruff_cache/
+/.pytest_cache/
+/.agents/
+/.aws/
+/.codex/
 /qemu/
 
 /ez80f91_*.[0-9]*

@@ -117,11 +117,12 @@ def panel(state_path, port, snapshot=None, qmp_path=None):
             data = json.loads(state_path.read_text())
             if data != last:
                 mask = int(data['mask'], 16)
-                for i, (glow, dot) in enumerate(leds):
-                    on = mask & (1 << i)
-                    canvas.itemconfigure(glow, fill='#5e2723' if on else '#181d20')
-                    canvas.itemconfigure(dot, fill='#ff5143' if on else '#392325',
-                                         outline='#ffb08b' if on else '#64302e')
+                if last is None or data['mask'] != last['mask']:
+                    for i, (glow, dot) in enumerate(leds):
+                        on = mask & (1 << i)
+                        canvas.itemconfigure(glow, fill='#5e2723' if on else '#181d20')
+                        canvas.itemconfigure(dot, fill='#ff5143' if on else '#392325',
+                                             outline='#ffb08b' if on else '#64302e')
                 canvas.itemconfigure(status, text='CS2 aktiv' if data['enabled'] else 'CS2 nicht freigegeben')
                 a, c = data['anode'], data['cathode']
                 canvas.itemconfigure(registers, text=f'800000h  ANODE      {a:02X}\n800001h  CATHODE    {c:02X}')

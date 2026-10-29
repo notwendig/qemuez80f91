@@ -106,3 +106,13 @@
  
  ;C ENVIRONMENT?  c-addr u -- false   system query
  ;                         -- i*x true
+--- a/asm/CAMLF91h.asm
++++ b/asm/CAMLF91h.asm
+@@ -1129,6 +1135,6 @@
+ ;  D.R  dword nlen --       print dword in field nlen long
+ ;
+         head    DDOTR,{"D.R"},docolon
+-        DW24      TOR,SWOP,OVER,DABS,LESSNUM,NUMS,SIGN
++        DW24      TOR,SWOP,OVER,DABS,LESSNUM,NUMS,ROT,SIGN
+         DW24      NUMGREATER,RFROM,OVER,MINUS,SPACES,TYPE
+         DW24      EXIT
