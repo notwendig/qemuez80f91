@@ -1,0 +1,5369 @@
+diff --git a/hw/Kconfig b/hw/Kconfig
+index c92ca2b..0dc562c 100644
+--- a/hw/Kconfig
++++ b/hw/Kconfig
+@@ -53,6 +53,7 @@ source arm/Kconfig
+ source cpu/Kconfig
+ source alpha/Kconfig
+ source avr/Kconfig
++source ez80/Kconfig
+ source hexagon/Kconfig
+ source hppa/Kconfig
+ source i386/Kconfig
+diff --git a/hw/block/pflash_cfi02.c b/hw/block/pflash_cfi02.c
+index 6f952fe..031e12c 100644
+--- a/hw/block/pflash_cfi02.c
++++ b/hw/block/pflash_cfi02.c
+@@ -993,6 +993,11 @@ static void pflash_cfi02_register_types(void)
+ 
+ type_init(pflash_cfi02_register_types)
+ 
++MemoryRegion *pflash_cfi02_get_memory(PFlashCFI02 *fl)
++{
++    return &fl->orig_mem;
++}
++
+ PFlashCFI02 *pflash_cfi02_register(hwaddr base,
+                                    const char *name,
+                                    hwaddr size,
+diff --git a/hw/meson.build b/hw/meson.build
+index 7fa81db..00b3091 100644
+--- a/hw/meson.build
++++ b/hw/meson.build
+@@ -2,6 +2,7 @@
+ subdir('alpha')
+ subdir('arm')
+ subdir('avr')
++subdir('ez80')
+ subdir('hppa')
+ subdir('hexagon')
+ subdir('xenpv') # i386 uses it
+diff --git a/include/hw/block/flash.h b/include/hw/block/flash.h
+index 3671f01..4b7dc83 100644
+--- a/include/hw/block/flash.h
++++ b/include/hw/block/flash.h
+@@ -30,6 +30,8 @@ void pflash_cfi01_legacy_drive(PFlashCFI01 *dev, DriveInfo *dinfo);
+ #define TYPE_PFLASH_CFI02 "cfi.pflash02"
+ OBJECT_DECLARE_SIMPLE_TYPE(PFlashCFI02, PFLASH_CFI02)
+ 
++MemoryRegion *pflash_cfi02_get_memory(PFlashCFI02 *fl);
++
+ 
+ PFlashCFI02 *pflash_cfi02_register(hwaddr base,
+                                    const char *name,
+diff --git a/include/qemu/base-arch-defs.h b/include/qemu/base-arch-defs.h
+index f334657..64b27b8 100644
+--- a/include/qemu/base-arch-defs.h
++++ b/include/qemu/base-arch-defs.h
+@@ -36,6 +36,7 @@ enum {
+     QEMU_ARCH_RISCV =       (1UL << SYS_EMU_TARGET_RISCV32) |
+                             (1UL << SYS_EMU_TARGET_RISCV64),
+     QEMU_ARCH_RX =          (1UL << SYS_EMU_TARGET_RX),
++    QEMU_ARCH_EZ80 =        (1UL << SYS_EMU_TARGET_EZ80),
+     QEMU_ARCH_AVR =         (1UL << SYS_EMU_TARGET_AVR),
+     QEMU_ARCH_HEXAGON =     (1UL << SYS_EMU_TARGET_HEXAGON),
+     QEMU_ARCH_LOONGARCH =   (1UL << SYS_EMU_TARGET_LOONGARCH64),
+diff --git a/meson.build b/meson.build
+index 40e3f4e..f98b71a 100644
+--- a/meson.build
++++ b/meson.build
+@@ -2382,6 +2382,10 @@ config_host_data.set_quoted('CONFIG_PREFIX', get_option('prefix'))
+ config_host_data.set_quoted('CONFIG_QEMU_CONFDIR', get_option('prefix') / qemu_confdir)
+ config_host_data.set_quoted('CONFIG_QEMU_DATADIR', get_option('prefix') / qemu_datadir)
+ config_host_data.set_quoted('CONFIG_QEMU_DESKTOPDIR', get_option('prefix') / qemu_desktopdir)
++configure_file(output: 'ez80-debug-path.h', configuration: {
++  'EZ80_ZDS_BUILD_HELPER': '"' + meson.project_source_root() / 'pc-bios/ez80-zds/ethernet.py' + '"',
++})
++
+ 
+ qemu_firmwarepath = ''
+ foreach k : get_option('qemu_firmwarepath')
+diff --git a/pc-bios/meson.build b/pc-bios/meson.build
+index 2f470ed..6179316 100644
+--- a/pc-bios/meson.build
++++ b/pc-bios/meson.build
+@@ -92,3 +92,6 @@ endif
+ subdir('descriptors')
+ subdir('dtb')
+ subdir('keymaps')
++
++install_subdir('ez80-zds', install_dir: qemu_datadir,
++               exclude_directories: ['__pycache__'])
+diff --git a/qapi/machine.json b/qapi/machine.json
+index 9b22480..9c2225d 100644
+--- a/qapi/machine.json
++++ b/qapi/machine.json
+@@ -37,7 +37,7 @@
+ # Since: 3.0
+ ##
+ { 'enum' : 'SysEmuTarget',
+-  'data' : [ 'aarch64', 'alpha', 'arm', 'avr', 'hexagon', 'hppa', 'i386',
++  'data' : [ 'aarch64', 'alpha', 'arm', 'avr', 'ez80', 'hexagon', 'hppa', 'i386',
+              'loongarch64', 'm68k', 'microblaze', 'mips', 'mips64',
+              'mips64el', 'mipsel', 'or1k', 'ppc',
+              'ppc64', 'riscv32', 'riscv64', 'rx', 's390x', 'sh4',
+diff --git a/qemu-options.hx b/qemu-options.hx
+index 34970ff..17dd7a8 100644
+--- a/qemu-options.hx
++++ b/qemu-options.hx
+@@ -5085,6 +5085,14 @@ SRST
+     taking into account guest idle time.
+ ERST
+ 
++DEF("dbgport", HAS_ARG, QEMU_OPTION_dbgport,
++    "--dbgport=port  eZ80 ZDS II Smart Cable TCP port; enables UDP device scan\n"
++    "                on port 3000 (Python 3 helper); use -S to start halted\n",
++    QEMU_ARCH_EZ80)
++DEF("scan-dev", 0, QEMU_OPTION_scan_dev,
++    "--scan-dev      enable eZ80 Smart Cable discovery (with --dbgport)\n",
++    QEMU_ARCH_EZ80)
++
+ DEF("gdb", HAS_ARG, QEMU_OPTION_gdb, \
+     "-gdb dev        accept gdb connection on 'dev'. (QEMU defaults to starting\n"
+     "                the guest without waiting for gdb to connect; use -S too\n"
+diff --git a/system/vl.c b/system/vl.c
+index 061cbdf..59f70ca 100644
+--- a/system/vl.c
++++ b/system/vl.c
+@@ -23,6 +23,7 @@
+  */
+ 
+ #include "qemu/osdep.h"
++#include "ez80-debug-path.h"
+ #include "qemu/help-texts.h"
+ #include "qemu/datadir.h"
+ #include "qemu/units.h"
+@@ -912,6 +913,9 @@ static void help(int exitcode)
+     exit(exitcode);
+ }
+ 
++static void ez80_debug_prepare(void);
++static void ez80_debug_start(void);
++
+ enum {
+ 
+ #define DEF(option, opt_arg, opt_enum, opt_help, arch_mask)     \
+@@ -1638,19 +1642,151 @@ static void qemu_unlink_pidfile(Notifier *n, void *data)
+     upn->pid_file_realpath = NULL;
+ }
+ 
++/* The ZDS DTL interpreter is bundled as a managed Python helper. */
++static unsigned ez80_debug_port;
++
++unsigned qemu_get_ez80_debug_port(void)
++{
++    return ez80_debug_port;
++}
++
++static bool ez80_debug_gdb_option;
++static bool ez80_debug_scan_option;
++#ifndef _WIN32
++static GPid ez80_debug_pid;
++static char *ez80_debug_dir;
++static char *ez80_debug_socket;
++
++static void ez80_debug_cleanup(void)
++{
++    if (ez80_debug_pid) {
++        kill(ez80_debug_pid, SIGTERM);
++        while (waitpid(ez80_debug_pid, NULL, 0) < 0 && errno == EINTR) {
++        }
++        g_spawn_close_pid(ez80_debug_pid);
++        ez80_debug_pid = 0;
++    }
++    if (ez80_debug_socket) {
++        unlink(ez80_debug_socket);
++    }
++    if (ez80_debug_dir) {
++        rmdir(ez80_debug_dir);
++    }
++}
++static void ez80_debug_exited(GPid pid, gint status, gpointer opaque)
++{
++    ez80_debug_pid = 0;
++    g_spawn_close_pid(pid);
++    error_report("eZ80 debug helper exited (status %d)", status);
++    qemu_system_shutdown_request_with_code(SHUTDOWN_CAUSE_HOST_ERROR, 1);
++}
++static void ez80_debug_child_setup(gpointer opaque)
++{
++    setpgid(0, 0);
++#ifdef CONFIG_LINUX
++    if (set_exit_with_parent() < 0 || getppid() != (pid_t)(uintptr_t)opaque) {
++        _exit(1);
++    }
++#endif
++}
++static void ez80_debug_prepare(void)
++{
++    g_autoptr(GError) error = NULL;
++    g_autofree char *backend = NULL;
++
++    if (!ez80_debug_port) {
++        if (ez80_debug_scan_option) {
++            error_report("--scan-dev requires --dbgport");
++            exit(1);
++        }
++        return;
++    }
++    if (ez80_debug_gdb_option) {
++        error_report("--dbgport cannot be combined with -gdb or -s");
++        exit(1);
++    }
++    ez80_debug_dir = g_dir_make_tmp("qemu-ez80-debug-XXXXXX", &error);
++    if (!ez80_debug_dir) {
++        error_report("eZ80 debug directory: %s", error->message);
++        exit(1);
++    }
++    ez80_debug_socket = g_build_filename(ez80_debug_dir, "gdb.sock", NULL);
++    atexit(ez80_debug_cleanup);
++    backend = g_strdup_printf("unix:%s,server=on,wait=off", ez80_debug_socket);
++    add_device_config(DEV_GDB, g_steal_pointer(&backend));
++}
++static void ez80_debug_start(void)
++{
++    g_autoptr(GError) error = NULL;
++    g_autofree char *helper = NULL;
++    g_autofree char *port = NULL;
++    const char *override;
++    const char *args[11];
++
++    if (!ez80_debug_port) {
++        return;
++    }
++    override = g_getenv("QEMU_EZ80_ZDS_HELPER");
++    helper = qemu_find_file(QEMU_FILE_TYPE_BIOS,
++                           override ? override : "ez80-zds/ethernet.py");
++    if (!helper && !override && access(EZ80_ZDS_BUILD_HELPER, R_OK) == 0) {
++        helper = g_strdup(EZ80_ZDS_BUILD_HELPER);
++    }
++    if (!helper) {
++        error_report("eZ80 ZDS helper missing; use -L or QEMU_EZ80_ZDS_HELPER");
++        exit(1);
++    }
++    port = g_strdup_printf("%u", ez80_debug_port);
++    args[0] = "python3";
++    args[1] = helper;
++    args[2] = "--gdb-socket";
++    args[3] = ez80_debug_socket;
++    args[4] = "--listen";
++    args[5] = "0.0.0.0";
++    args[6] = "--port";
++    args[7] = port;
++    args[8] = "--scan-dev";
++    args[9] = autostart ? "--run" : NULL;
++    args[10] = NULL;
++    if (!g_spawn_async(NULL, (char **)args, NULL,
++                       G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
++                       ez80_debug_child_setup, (gpointer)(uintptr_t)getpid(),
++                       &ez80_debug_pid, &error)) {
++        error_report("eZ80 debug helper: %s", error->message);
++        exit(1);
++    }
++    g_child_watch_add(ez80_debug_pid, ez80_debug_exited, NULL);
++}
++#else
++static void ez80_debug_prepare(void)
++{
++    if (ez80_debug_port || ez80_debug_scan_option) {
++        error_report("--dbgport requires a POSIX host");
++        exit(1);
++    }
++}
++static void ez80_debug_start(void)
++{
++}
++#endif
++
+ static const QEMUOption *lookup_opt(int argc, char **argv,
+                                     const char **poptarg, int *poptind)
+ {
+     const QEMUOption *popt;
+     int optind = *poptind;
+-    char *r = argv[optind];
++    const char *r = argv[optind];
+     const char *optarg;
++    const char *inline_arg = NULL;
+ 
+     loc_set_cmdline(argv, optind, 1);
+     optind++;
+     /* Treat --foo the same as -foo.  */
+     if (r[1] == '-')
+         r++;
++    if (strstart(r + 1, "dbgport=", &inline_arg)) {
++        r = "-dbgport";
++    }
+     popt = qemu_options;
+     for(;;) {
+         if (!popt->name) {
+@@ -1661,7 +1797,9 @@ static const QEMUOption *lookup_opt(int argc, char **argv,
+             break;
+         popt++;
+     }
+-    if (popt->flags & HAS_ARG) {
++    if (inline_arg) {
++        optarg = inline_arg;
++    } else if (popt->flags & HAS_ARG) {
+         if (optind >= argc) {
+             error_report("requires an argument");
+             exit(1);
+@@ -2800,7 +2938,9 @@ static bool qemu_machine_creation_done(Error **errp)
+         exit(1);
+     }
+ 
++    ez80_debug_prepare();
+     foreach_device_config_or_exit(DEV_GDB, gdbserver_start);
++    ez80_debug_start();
+ 
+     if (!vga_interface_created && !default_vga &&
+         vga_interface_type != VGA_NONE) {
+@@ -3155,10 +3295,23 @@ void qemu_init(int argc, char **argv)
+             case QEMU_OPTION_seed:
+                 qemu_guest_random_seed_main(optarg, &error_fatal);
+                 break;
++            case QEMU_OPTION_dbgport:
++                if (ez80_debug_port || qemu_strtoui(optarg, NULL, 10,
++                                                   &ez80_debug_port) < 0 ||
++                    !ez80_debug_port || ez80_debug_port > 65535) {
++                    error_report("--dbgport requires one TCP port in 1..65535");
++                    exit(1);
++                }
++                break;
++            case QEMU_OPTION_scan_dev:
++                ez80_debug_scan_option = true;
++                break;
+             case QEMU_OPTION_s:
++                ez80_debug_gdb_option = true;
+                 add_device_config(DEV_GDB, "tcp::" DEFAULT_GDBSTUB_PORT);
+                 break;
+             case QEMU_OPTION_gdb:
++                ez80_debug_gdb_option = true;
+                 add_device_config(DEV_GDB, optarg);
+                 break;
+             case QEMU_OPTION_L:
+diff --git a/target/Kconfig b/target/Kconfig
+index 0288a3f..c0bf862 100644
+--- a/target/Kconfig
++++ b/target/Kconfig
+@@ -1,6 +1,7 @@
+ source alpha/Kconfig
+ source arm/Kconfig
+ source avr/Kconfig
++source ez80/Kconfig
+ source hppa/Kconfig
+ source i386/Kconfig
+ source loongarch/Kconfig
+diff --git a/target/meson.build b/target/meson.build
+index d891ef9..f420730 100644
+--- a/target/meson.build
++++ b/target/meson.build
+@@ -1,6 +1,7 @@
+ subdir('alpha')
+ subdir('arm')
+ subdir('avr')
++subdir('ez80')
+ subdir('hexagon')
+ subdir('hppa')
+ subdir('i386')
+diff --git a/configs/devices/ez80-softmmu/default.mak b/configs/devices/ez80-softmmu/default.mak
+new file mode 100644
+index 0000000..1c5abe2
+--- /dev/null
++++ b/configs/devices/ez80-softmmu/default.mak
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++CONFIG_EZ80F91_MINIMAL=y
+diff --git a/configs/targets/ez80-softmmu.mak b/configs/targets/ez80-softmmu.mak
+new file mode 100644
+index 0000000..e4f7ceb
+--- /dev/null
++++ b/configs/targets/ez80-softmmu.mak
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++TARGET_ARCH=ez80
++TARGET_LONG_BITS=32
++TARGET_NOT_USING_LEGACY_LDST_PHYS_API=y
+diff --git a/hw/ez80/Kconfig b/hw/ez80/Kconfig
+new file mode 100644
+index 0000000..86c4370
+--- /dev/null
++++ b/hw/ez80/Kconfig
+@@ -0,0 +1,5 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++config EZ80F91_MINIMAL
++    bool
++    depends on EZ80
++    select PFLASH_CFI02
+diff --git a/hw/ez80/clock.c b/hw/ez80/clock.c
+new file mode 100644
+index 0000000..1116f59
+--- /dev/null
++++ b/hw/ez80/clock.c
+@@ -0,0 +1,180 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Functional F91 clock mux and PLL; analog settling is not simulated. */
++#include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "qemu/timer.h"
++#include "qemu/log.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-clock.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/core/irq.h"
++#include "system/address-spaces.h"
++
++#define TYPE_EZ80F91_CLOCK "ez80f91-clock"
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91ClockState, EZ80F91_CLOCK)
++
++struct EZ80F91ClockState {
++    SysBusDevice parent_obj;
++    MemoryRegion ports;
++    Clock *sclk;
++    QEMUTimer *lock_timer;
++    qemu_irq irq;
++    uint32_t oscillator;
++    uint16_t divider;
++    uint8_t div_low, ctl0, ctl1;
++};
++static void update_irq(EZ80F91ClockState *s)
++{
++    qemu_set_irq(s->irq, ((s->ctl1 & 0x10) && (s->ctl1 & 4))
++                      || ((s->ctl1 & 8) && (s->ctl1 & 2)));
++}
++static void update_clock(EZ80F91ClockState *s)
++{
++    unsigned source = s->ctl0 & 3;
++    unsigned frequency = source == 1 ? s->oscillator * s->divider
++                       : source == 2 ? 32768 : s->oscillator;
++    clock_update_hz(s->sclk, frequency);
++}
++static void locked(void *opaque)
++{
++    EZ80F91ClockState *s = opaque;
++    if (s->ctl1 & 1) {
++        s->ctl1 |= 0x30;
++        update_irq(s);
++    }
++}
++static void sync_lock(EZ80F91ClockState *s)
++{
++    if (timer_pending(s->lock_timer)
++        && qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)
++           >= timer_expire_time_ns(s->lock_timer)) {
++        timer_del(s->lock_timer);
++        locked(s);
++    }
++}
++static uint64_t clock_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91ClockState *s = opaque;
++    uint8_t value;
++    sync_lock(s);
++    if (addr < 2) {
++        return 0; /* Divider registers are write only. */
++    }
++    if (addr == 2) {
++        return s->ctl0;
++    }
++    value = s->ctl1;
++    s->ctl1 &= ~0x18; /* Lock/unlock events are read-to-clear. */
++    update_irq(s);
++    return value;
++}
++static void clock_write(void *opaque, hwaddr addr, uint64_t value,
++                        unsigned size)
++{
++    EZ80F91ClockState *s = opaque;
++    sync_lock(s);
++    if (addr < 2) {
++        if (!(s->ctl1 & 1)) {
++            if (addr == 0) {
++                s->div_low = value;
++            } else {
++                s->divider = MAX(2, ((value & 7) << 8) | s->div_low);
++            }
++        }
++    } else if (addr == 2) {
++        unsigned source = value & 3;
++        if (source == 3 || (source == 1 && !(s->ctl1 & 0x20))) {
++            source = s->ctl0 & 3;
++        }
++        if (!(s->ctl1 & 1)) {
++            s->ctl0 = value & 0xcc;
++        }
++        s->ctl0 = (s->ctl0 & ~3u) | source;
++        update_clock(s);
++    } else {
++        bool enable = (value & 1) || (s->ctl0 & 3) == 1;
++        bool was_enabled = s->ctl1 & 1;
++        s->ctl1 = (s->ctl1 & 0x38) | (value & 6) | enable;
++        if (enable && !was_enabled) {
++            uint64_t frequency = (uint64_t)s->oscillator * s->divider;
++            if (s->oscillator >= 1000000 && s->oscillator <= 10000000
++                && frequency <= 50000000) {
++                /* Deterministic functional delay, not an analog lock time. */
++                timer_mod(s->lock_timer,
++                          qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 100000);
++            } else {
++                qemu_log_mask(LOG_UNIMP,
++                              "F91 PLL input/output outside supported range\n");
++            }
++        } else if (!enable && was_enabled) {
++            timer_del(s->lock_timer);
++            if (s->ctl1 & 0x20) {
++                s->ctl1 = (s->ctl1 & ~0x20) | 8;
++            }
++        }
++        update_irq(s);
++    }
++}
++static const MemoryRegionOps clock_ops = {
++    .read = clock_read,
++    .write = clock_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static void clock_reset(Object *obj, ResetType type)
++{
++    EZ80F91ClockState *s = EZ80F91_CLOCK(obj);
++    timer_del(s->lock_timer);
++    s->divider = s->div_low = 2;
++    s->ctl0 = s->ctl1 = 0;
++    update_clock(s);
++    update_irq(s);
++}
++static void clock_realize(DeviceState *dev, Error **errp)
++{
++    EZ80F91ClockState *s = EZ80F91_CLOCK(dev);
++    if (!s->oscillator || s->oscillator > 50000000) {
++        error_setg(errp, "F91 oscillator must be 1..50000000 Hz");
++        return;
++    }
++    clock_set_hz(s->sclk, s->oscillator);
++}
++static void clock_init(Object *obj)
++{
++    EZ80F91ClockState *s = EZ80F91_CLOCK(obj);
++    s->sclk = qdev_init_clock_out(DEVICE(s), "sclk");
++    s->lock_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, locked, s);
++    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq);
++    memory_region_init_io(&s->ports, obj, &clock_ops, s, "f91.pll", 4);
++    memory_region_add_subregion(get_system_io(), 0x5c, &s->ports);
++}
++static void clock_finalize(Object *obj)
++{
++    timer_free(EZ80F91_CLOCK(obj)->lock_timer);
++}
++static const Property clock_properties[] = {
++    DEFINE_PROP_UINT32("osc-frequency", EZ80F91ClockState,
++                       oscillator, 50000000),
++};
++static void clock_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    dc->realize = clock_realize;
++    device_class_set_props(dc, clock_properties);
++    RESETTABLE_CLASS(oc)->phases.hold = clock_reset;
++    dc->user_creatable = false;
++}
++static const TypeInfo clock_type = {
++    .name = TYPE_EZ80F91_CLOCK,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(EZ80F91ClockState),
++    .instance_init = clock_init,
++    .instance_finalize = clock_finalize,
++    .class_init = clock_class_init,
++};
++static void clock_register_types(void)
++{
++    type_register_static(&clock_type);
++}
++type_init(clock_register_types);
+diff --git a/hw/ez80/emac.c b/hw/ez80/emac.c
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/emac.c
+@@ -0,0 +1,460 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Functional eZ80F91 descriptor MAC; no collision or wire timing model. */
++#include "qemu/osdep.h"
++#include <zlib.h>
++#include "qapi/error.h"
++#include "qemu/timer.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/core/qdev-properties-system.h"
++#include "hw/core/qdev-clock.h"
++#include "hw/ez80/ez80f91.h"
++#include "system/address-spaces.h"
++#include "net/net.h"
++
++#define TYPE_F91_EMAC "ez80f91-emac"
++OBJECT_DECLARE_SIMPLE_TYPE(F91EmacState, F91_EMAC)
++struct F91EmacState {
++    SysBusDevice parent_obj;
++    MemoryRegion ports;
++    DeviceState *memory;
++    NICConf conf;
++    NICState *nic;
++    Clock *sclk;
++    QEMUTimer *poll;
++    qemu_irq irq[3];
++    uint8_t r[0x5a];
++    uint8_t phy_addr;
++    uint16_t phy[32], trp, rwp;
++    bool tx_fault;
++};
++static unsigned ptr(F91EmacState *s, unsigned reg)
++{
++    return (s->r[reg] | (s->r[reg + 1] << 8)) & 0x1fe0;
++}
++static void irq_update(F91EmacState *s)
++{
++    unsigned pending = s->r[0x4c] & s->r[0x4d];
++    qemu_set_irq(s->irq[0], !!(pending & 0x38));
++    qemu_set_irq(s->irq[1], !!(pending & 3));
++    qemu_set_irq(s->irq[2], !!(pending & 0xc4));
++}
++static void status(F91EmacState *s, unsigned bits)
++{
++    s->r[0x4d] |= bits;
++    irq_update(s);
++}
++static bool link_up(F91EmacState *s)
++{
++    return !(s->phy[0] & 0x0c00) &&
++        ((s->phy[0] & 0x4000) || (s->r[0x20] & 1) ||
++         (qemu_get_queue(s->nic)->peer && !qemu_get_queue(s->nic)->link_down));
++}
++static unsigned rx_end(F91EmacState *s)
++{
++    unsigned end = ptr(s, 0x47);
++    return end ? end : 8192;
++}
++static unsigned block_size(F91EmacState *s)
++{
++    return 256 >> (s->r[0x4b] >> 6);
++}
++static unsigned free_blocks(F91EmacState *s)
++{
++    unsigned start = ptr(s, 0x44), end = rx_end(s);
++    unsigned rr = ptr(s, 0x49), block = block_size(s), available;
++    if (end <= start || s->rwp < start || s->rwp >= end ||
++        rr < start || rr >= end) {
++        return 0;
++    }
++    available = rr > s->rwp ? rr - s->rwp : end - s->rwp + rr - start;
++    return available >= block ? available / block - 1 : 0;
++}
++/* Wrap payloads inside their own ring, never into another DMA region. */
++static void ring_copy(uint8_t *ram, unsigned start, unsigned end,
++                      unsigned pos, uint8_t *buf, unsigned len, bool write)
++{
++    for (unsigned i = 0; i < len; i++) {
++        unsigned at = start + (pos - start + i) % (end - start);
++        if (write) {
++            ram[at] = buf[i];
++        } else {
++            buf[i] = ram[at];
++        }
++    }
++}
++static ssize_t receive(NetClientState *nc, const uint8_t *buf, size_t len)
++{
++    F91EmacState *s = qemu_get_nic_opaque(nc);
++    unsigned start = ptr(s, 0x44), end = rx_end(s), block = block_size(s);
++    unsigned needed, next, flags = 0x8000;
++    uint8_t desc[7], fcs[4], *ram;
++    bool broadcast, multicast;
++    if (!ez80f91_emac_enabled(s->memory) || (s->r[0x41] & 0x2a) ||
++        !(s->r[0x24] & 1) || !link_up(s) || (s->r[0x4d] & 4) ||
++        len < 14 || len > 8192 - 11 || start >= end) {
++        return len;
++    }
++    broadcast = !memcmp(buf, "\xff\xff\xff\xff\xff\xff", 6);
++    multicast = buf[0] & 1;
++    if (!(s->r[0x32] & 8) && memcmp(buf, s->r + 0x25, 6)) {
++        unsigned hash = net_crc32(buf, 6) >> 26;
++        bool match = broadcast ? s->r[0x32] & 1 : multicast &&
++            ((s->r[0x32] & 4) || ((s->r[0x32] & 2) &&
++             (s->r[0x33 + hash / 8] & (1 << (hash % 8)))));
++        if (!match) {
++            return len;
++        }
++    }
++    if (len + 4 > lduw_le_p(s->r + 0x30) && !(s->r[0x21] & 2)) {
++        return len;
++    }
++    needed = DIV_ROUND_UP(len + 11, block);
++    if (needed > free_blocks(s)) {
++        /* Keep the final reserved block for an overrun descriptor. Zilog's
++         * driver need not enable the separate overrun interrupt: it discovers
++         * RxOVR in this final RXDONE packet and clears the receiver latch.
++         * A status bit without a descriptor leaves that driver stuck forever.
++         */
++        if (s->rwp < start || s->rwp >= end || end - start < block ||
++            ptr(s, 0x49) < start || ptr(s, 0x49) >= end) {
++            return len;
++        }
++        next = start + (s->rwp - start + block) % (end - start);
++        st24_le_p(desc, ez80f91_emac_base(s->memory) + next);
++        stw_le_p(desc + 3, 0);
++        stw_le_p(desc + 5, 1); /* RxOVR; the incomplete packet is not RxOK. */
++        ram = memory_region_get_ram_ptr(ez80f91_emac_ram(s->memory));
++        ring_copy(ram, start, end, s->rwp, desc, sizeof(desc), true);
++        memory_region_set_dirty(ez80f91_emac_ram(s->memory), start, end - start);
++        s->rwp = next;
++        status(s, 0xc);
++        return len;
++    }
++    next = start + (s->rwp - start + needed * block) % (end - start);
++    if (broadcast) {
++        flags |= 0x100;
++    } else if (multicast) {
++        flags |= 0x200;
++    }
++    if (buf[12] == 0x81 && buf[13] == 0) {
++        flags |= 0x80;
++    }
++    st24_le_p(desc, ez80f91_emac_base(s->memory) + next);
++    stw_le_p(desc + 3, len + 4);
++    stw_le_p(desc + 5, flags);
++    stl_le_p(fcs, crc32(0, buf, len));
++    ram = memory_region_get_ram_ptr(ez80f91_emac_ram(s->memory));
++    ring_copy(ram, start, end, s->rwp + 7, (uint8_t *)buf, len, true);
++    ring_copy(ram, start, end, s->rwp + 7 + len, fcs, 4, true);
++    ring_copy(ram, start, end, s->rwp, desc, 7, true);
++    memory_region_set_dirty(ez80f91_emac_ram(s->memory), start, end - start);
++    s->rwp = next;
++    status(s, 8);
++    return len;
++}
++static void transmit(F91EmacState *s)
++{
++    unsigned start = ptr(s, 0x42), end = ptr(s, 0x44);
++    uint8_t *ram = memory_region_get_ram_ptr(ez80f91_emac_ram(s->memory));
++    if (!ez80f91_emac_enabled(s->memory) || (s->r[0x41] & 0x34) ||
++        !link_up(s) || s->tx_fault || start >= end) {
++        return;
++    }
++    for (unsigned count = 0; count < 256; count++) {
++        uint8_t desc[7], packet[8192];
++        unsigned next, len, result = 0, sendlen;
++        if (s->trp < start || s->trp + 7 > end) {
++            s->tx_fault = true;
++            status(s, 0x80);
++            break;
++        }
++        memcpy(desc, ram + s->trp, 7);
++        if (!(lduw_le_p(desc + 5) & 0x8000)) {
++            break;
++        }
++        next = lduw_le_p(desc) | (desc[2] << 16);
++        len = lduw_le_p(desc + 3);
++        if (next < ez80f91_emac_base(s->memory) + start ||
++            next >= ez80f91_emac_base(s->memory) + end ||
++            (next & (block_size(s) - 1)) || len < 14 || len > end - start - 7) {
++            stw_le_p(ram + s->trp + 5, 0x4000);
++            s->tx_fault = true;
++            status(s, 0x81);
++            break;
++        }
++        next -= ez80f91_emac_base(s->memory);
++        ring_copy(ram, start, end, s->trp + 7, packet, len, false);
++        sendlen = len;
++        if (!(s->r[0x21] & 0x10)) {
++            if (len < 18 || ldl_le_p(packet + len - 4) !=
++                crc32(0, packet, len - 4)) {
++                result = 0x4200;
++            } else {
++                sendlen -= 4;
++            }
++        }
++        if ((s->r[0x21] & 0x90) == 0x90 && sendlen < 60) {
++            memset(packet + sendlen, 0, 60 - sendlen);
++            sendlen = 60;
++        }
++        if (sendlen + 4 > lduw_le_p(s->r + 0x30)) {
++            result |= 0x5000;
++        }
++        stw_le_p(ram + s->trp + 5, result);
++        s->trp = next;
++        if (!result) {
++            if ((s->r[0x20] & 1) || (s->phy[0] & 0x4000)) {
++                receive(qemu_get_queue(s->nic), packet, sendlen);
++            } else {
++                qemu_send_packet(qemu_get_queue(s->nic), packet, sendlen);
++            }
++        }
++        status(s, 1);
++    }
++    memory_region_set_dirty(ez80f91_emac_ram(s->memory), start, end - start);
++}
++static void schedule(F91EmacState *s)
++{
++    uint64_t hz = clock_get_hz(s->sclk);
++    timer_del(s->poll);
++    if (s->r[0x40] && hz && !(s->r[0x41] & 0x34)) {
++        timer_mod(s->poll, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
++                  DIV_ROUND_UP(256000000000ull * s->r[0x40], hz));
++    }
++}
++static void poll_tx(void *opaque)
++{
++    F91EmacState *s = opaque;
++    transmit(s);
++    schedule(s);
++}
++static void phy_reset(F91EmacState *s)
++{
++    memset(s->phy, 0, sizeof(s->phy));
++    s->phy[0] = 0x3100;
++    s->phy[2] = 0x22;
++    s->phy[3] = 0x561b;
++    s->phy[4] = s->phy[5] = 0x1e1;
++    s->phy[6] = 1;
++}
++static void mii(F91EmacState *s, uint8_t value)
++{
++    unsigned reg = s->r[0x3e];
++    uint16_t data = 0xffff;
++    if (s->r[0x41] & 0x21) {
++        return;
++    }
++    if (s->r[0x3f] == s->phy_addr) {
++        if (value & 0x80) {
++            if (reg != 1 && reg != 2 && reg != 3 && reg != 5 && reg != 6) {
++                s->phy[reg] = lduw_le_p(s->r + 0x3c);
++                if (reg == 0) {
++                    if (s->phy[0] & 0x8000) {
++                        phy_reset(s);
++                    }
++                    s->phy[0] &= ~0x200;
++                }
++            }
++        }
++        data = reg == 1 ? 0x7849 | (link_up(s) ? 0x24 : 0) : s->phy[reg];
++    }
++    if (value & 0x50) {
++        stw_le_p(s->r + 0x4e, data);
++    }
++    if (value & 0xd0) {
++        status(s, 0x40);
++    }
++    s->r[0x3b] = value & 0x3f;
++}
++static uint64_t emac_read(void *opaque, hwaddr offset, unsigned size)
++{
++    F91EmacState *s = opaque;
++    unsigned reg = offset + 0x20;
++    switch (reg) {
++    case 0x45:
++        return s->r[reg] | 0xc0;
++    case 0x46:
++        return ez80f91_emac_base(s->memory) >> 16;
++    case 0x4e:
++    case 0x4f:
++        if (s->r[0x3b] & 0x10) {
++            mii(s, s->r[0x3b]);
++        }
++        return s->r[reg];
++    case 0x50:
++        return s->r[0x3f] | (link_up(s) ? 0 : 0x40);
++    case 0x51:
++        return s->rwp & 0xff;
++    case 0x52:
++        return s->rwp >> 8;
++    case 0x53:
++        return s->trp & 0xff;
++    case 0x54:
++        return s->trp >> 8;
++    case 0x55:
++        return free_blocks(s) & 0xff;
++    case 0x56:
++        return free_blocks(s) >> 8;
++    case 0x59:
++        return 0x33;
++    default:
++        return s->r[reg];
++    }
++}
++static void emac_write(void *opaque, hwaddr offset, uint64_t value,
++                        unsigned size)
++{
++    F91EmacState *s = opaque;
++    unsigned reg = offset + 0x20;
++    if (reg == 0x46 || reg >= 0x4e) {
++        return;
++    }
++    if (reg == 0x4d) {
++        s->r[reg] &= ~value;
++        irq_update(s);
++        return;
++    }
++    if (reg == 0x3e || reg == 0x3f || reg == 0x43 || reg == 0x45 ||
++        reg == 0x48 || reg == 0x4a) {
++        value &= 0x1f;
++    }
++    if (reg == 0x42 || reg == 0x44 || reg == 0x47 || reg == 0x49) {
++        value &= 0xe0;
++    }
++    if (reg == 0x41) {
++        value &= 0x3f;
++    }
++    if (reg == 0x32) {
++        value &= 15;
++    }
++    if (reg == 0x3b) {
++        mii(s, value);
++        return;
++    }
++    s->r[reg] = value;
++    if (reg == 0x41) {
++        if (value & 0x34) {
++            s->trp = ptr(s, 0x42);
++            s->tx_fault = false;
++            s->r[0x4d] &= ~0x83;
++        }
++        if (value & 0x2a) {
++            s->rwp = ptr(s, 0x44);
++            s->r[0x4d] &= ~0x3c;
++        }
++        if (value & 0x21) {
++            s->r[0x3b] = 0;
++            stw_le_p(s->r + 0x4e, 0);
++            s->r[0x4d] &= ~0x40;
++        }
++        if (value & 0x20) {
++            s->r[0x4d] = 0;
++        }
++        irq_update(s);
++        schedule(s);
++    }
++    if ((reg == 0x42 || reg == 0x43) && (s->r[0x41] & 0x34)) {
++        s->trp = ptr(s, 0x42);
++    }
++    if ((reg == 0x44 || reg == 0x45) && (s->r[0x41] & 0x2a)) {
++        s->rwp = ptr(s, 0x44);
++    }
++    if (reg == 0x40) {
++        transmit(s);
++        schedule(s);
++    }
++    if (reg == 0x4c) {
++        irq_update(s);
++    }
++}
++static const MemoryRegionOps emac_ops = {
++    .read = emac_read, .write = emac_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static NetClientInfo net_info = {
++    .type = NET_CLIENT_DRIVER_NIC,
++    .size = sizeof(NICState),
++    .receive = receive,
++};
++static void emac_reset(Object *obj, ResetType type)
++{
++    F91EmacState *s = F91_EMAC(obj);
++    timer_del(s->poll);
++    memset(s->r, 0, sizeof(s->r));
++    s->r[0x22] = 0x37;
++    s->r[0x23] = 0xf;
++    s->r[0x2d] = 0x15;
++    s->r[0x2e] = 0xc;
++    s->r[0x2f] = 0x12;
++    s->r[0x31] = 6;
++    s->r[0x41] = 0x20;
++    s->trp = s->rwp = 0;
++    s->tx_fault = false;
++    phy_reset(s);
++    irq_update(s);
++}
++static void emac_realize(DeviceState *dev, Error **errp)
++{
++    F91EmacState *s = F91_EMAC(dev);
++    if (!s->memory || s->phy_addr > 31) {
++        error_setg(errp, "F91 EMAC requires memory and PHY address 0..31");
++        return;
++    }
++    qemu_macaddr_default_if_unset(&s->conf.macaddr);
++    s->nic = qemu_new_nic(&net_info, &s->conf, TYPE_F91_EMAC, dev->id,
++                          &dev->mem_reentrancy_guard, s);
++    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->conf.macaddr.a);
++}
++static void emac_unrealize(DeviceState *dev)
++{
++    F91EmacState *s = F91_EMAC(dev);
++    timer_del(s->poll);
++    qemu_del_nic(s->nic);
++}
++static void emac_init(Object *obj)
++{
++    F91EmacState *s = F91_EMAC(obj);
++    s->sclk = qdev_init_clock_in(DEVICE(s), "sclk", NULL, NULL, 0);
++    s->poll = timer_new_ns(QEMU_CLOCK_VIRTUAL, poll_tx, s);
++    for (unsigned i = 0; i < 3; i++) {
++        sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq[i]);
++    }
++    memory_region_init_io(&s->ports, obj, &emac_ops, s, "f91.emac", 0x3a);
++    memory_region_add_subregion(get_system_io(), 0x20, &s->ports);
++}
++static void emac_finalize(Object *obj)
++{
++    timer_free(F91_EMAC(obj)->poll);
++}
++static const Property emac_properties[] = {
++    DEFINE_NIC_PROPERTIES(F91EmacState, conf),
++    DEFINE_PROP_LINK("memory", F91EmacState, memory,
++                     "ez80f91-memory", DeviceState *),
++    DEFINE_PROP_UINT8("phy-addr", F91EmacState, phy_addr, 0),
++};
++static void emac_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    dc->realize = emac_realize;
++    dc->unrealize = emac_unrealize;
++    dc->user_creatable = false;
++    device_class_set_props(dc, emac_properties);
++    RESETTABLE_CLASS(oc)->phases.hold = emac_reset;
++}
++static const TypeInfo emac_type = {
++    .name = TYPE_F91_EMAC,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(F91EmacState),
++    .instance_init = emac_init,
++    .instance_finalize = emac_finalize,
++    .class_init = emac_class_init,
++};
++static void emac_register_types(void)
++{
++    type_register_static(&emac_type);
++}
++type_init(emac_register_types);
+diff --git a/hw/ez80/ez80f91.c b/hw/ez80/ez80f91.c
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/ez80f91.c
+@@ -0,0 +1,216 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "qapi/visitor.h"
++#include "qemu/error-report.h"
++#include "qemu/units.h"
++#include "hw/core/boards.h"
++#include "hw/core/loader.h"
++#include "system/reset.h"
++#include "cpu.h"
++#include "net/net.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/core/qdev-properties-system.h"
++#include "system/system.h"
++#include "hw/core/qdev-clock.h"
++
++#define TYPE_EZ80F91_MACHINE MACHINE_TYPE_NAME("ez80f91-minimal")
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91MachineState, EZ80F91_MACHINE)
++
++struct EZ80F91MachineState {
++    MachineState parent_obj;
++    bool ram_boot;
++    uint32_t oscillator;
++    char *cs_kind[4];
++};
++static void common_init(MachineState *machine, bool evb)
++{
++    EZ80F91MachineState *s = EZ80F91_MACHINE(machine);
++    DeviceState *memory, *uart, *intc, *timer, *clock, *emac, *rtc;
++    CPUState *cpu;
++    const char *image = machine->firmware;
++    uint64_t image_limit = 256 * KiB;
++
++    if (machine->kernel_filename) {
++        if (!evb || !s->ram_boot || machine->firmware) {
++            error_report("-kernel requires ez80f91-freertos,ram-boot=on "
++                         "and no -bios");
++            exit(EXIT_FAILURE);
++        }
++        image = machine->kernel_filename;
++        image_limit = 512 * KiB;
++    } else if (s->ram_boot) {
++        error_report("ram-boot=on requires a raw image via -kernel");
++        exit(EXIT_FAILURE);
++    }
++    memory = qdev_new("ez80f91-memory");
++    for (unsigned cs = 0; cs < 4; cs++) {
++        g_autofree char *name = g_strdup_printf("cs%u", cs);
++        qdev_prop_set_string(memory, name, s->cs_kind[cs]);
++    }
++    qdev_prop_set_bit(memory, "evb", evb);
++    qdev_prop_set_bit(memory, "ram-boot", s->ram_boot);
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(memory), &error_fatal);
++    device_cold_reset(memory);
++    if (image && load_image_targphys(image, 0, image_limit, &error_fatal) < 0) {
++        exit(EXIT_FAILURE);
++    }
++    cpu = cpu_create(machine->cpu_type);
++    qemu_register_resettable(OBJECT(cpu));
++    intc = qdev_new("ez80f91-intc");
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(intc), &error_fatal);
++    for (unsigned line = 0; line < 10; line++) {
++        qdev_connect_gpio_out(intc, line, qdev_get_gpio_in(DEVICE(cpu), line));
++    }
++    sysbus_connect_irq(SYS_BUS_DEVICE(memory), 0, qdev_get_gpio_in(intc, 4));
++    for (unsigned bit = 0; bit < 3; bit++) {
++        sysbus_connect_irq(SYS_BUS_DEVICE(memory), bit + 1,
++                           qdev_get_gpio_in(intc, 24 + bit));
++    }
++    clock = qdev_new("ez80f91-clock");
++    qdev_prop_set_uint32(clock, "osc-frequency", s->oscillator);
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(clock), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(clock), 0, qdev_get_gpio_in(intc, 3));
++    device_cold_reset(clock);
++    rtc = qdev_new("ez80f91-rtc");
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(rtc), &error_fatal);
++    device_cold_reset(rtc);
++    uart = qdev_new("ez80f91-uart");
++    qdev_prop_set_chr(uart, "chardev", serial_hd(0));
++    qdev_connect_clock_in(uart, "sclk", qdev_get_clock_out(clock, "sclk"));
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(uart), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(uart), 0, qdev_get_gpio_in(intc, 12));
++    timer = qdev_new("ez80f91-timer0");
++    qdev_connect_clock_in(timer, "sclk", qdev_get_clock_out(clock, "sclk"));
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(timer), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(timer), 0, qdev_get_gpio_in(intc, 5));
++    sysbus_connect_irq(SYS_BUS_DEVICE(timer), 1, qdev_get_gpio_in(intc, 6));
++    emac = qdev_new("ez80f91-emac");
++    object_property_set_link(OBJECT(emac), "memory", OBJECT(memory),
++                             &error_abort);
++    qdev_connect_clock_in(emac, "sclk", qdev_get_clock_out(clock, "sclk"));
++    qemu_configure_nic_device(emac, true, NULL);
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(emac), &error_fatal);
++    for (unsigned line = 0; line < 3; line++) {
++        sysbus_connect_irq(SYS_BUS_DEVICE(emac), line,
++                           qdev_get_gpio_in(intc, line));
++    }
++}
++static void minimal_init(MachineState *machine)
++{
++    common_init(machine, false);
++}
++static void evb_init(MachineState *machine)
++{
++    common_init(machine, true);
++}
++static bool get_ram_boot(Object *obj, Error **errp)
++{
++    return EZ80F91_MACHINE(obj)->ram_boot;
++}
++static void set_ram_boot(Object *obj, bool value, Error **errp)
++{
++    EZ80F91_MACHINE(obj)->ram_boot = value;
++}
++static void machine_instance_init(Object *obj)
++{
++    EZ80F91MachineState *s = EZ80F91_MACHINE(obj);
++    s->oscillator = 50000000;
++    for (unsigned cs = 0; cs < 4; cs++) {
++        s->cs_kind[cs] = g_strdup(cs ? "ram" : "flash");
++    }
++}
++static void get_oscillator(Object *obj, Visitor *v, const char *name,
++                           void *opaque, Error **errp)
++{
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->oscillator, errp);
++}
++static void set_oscillator(Object *obj, Visitor *v, const char *name,
++                           void *opaque, Error **errp)
++{
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->oscillator, errp);
++}
++static void get_cs_kind(Object *obj, Visitor *v, const char *name,
++                        void *opaque, Error **errp)
++{
++    EZ80F91MachineState *s = EZ80F91_MACHINE(obj);
++
++    visit_type_str(v, name, &s->cs_kind[name[2] - '0'], errp);
++}
++static void set_cs_kind(Object *obj, Visitor *v, const char *name,
++                        void *opaque, Error **errp)
++{
++    char *kind = NULL;
++    unsigned cs = name[2] - '0';
++
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "%s is a startup-only board setting", name);
++        return;
++    }
++    if (!visit_type_str(v, name, &kind, errp)) {
++        return;
++    }
++    if (strcmp(kind, "ram") && strcmp(kind, "flash") && strcmp(kind, "none")) {
++        error_setg(errp, "%s must be ram, flash or none", name);
++        g_free(kind);
++        return;
++    }
++    g_free(EZ80F91_MACHINE(obj)->cs_kind[cs]);
++    EZ80F91_MACHINE(obj)->cs_kind[cs] = kind;
++}
++static void machine_finalize(Object *obj)
++{
++    for (unsigned cs = 0; cs < 4; cs++) {
++        g_free(EZ80F91_MACHINE(obj)->cs_kind[cs]);
++    }
++}
++static void ez80f91_class_init(ObjectClass *oc, const void *data)
++{
++    MachineClass *mc = MACHINE_CLASS(oc);
++    static const char * const valid_cpu_types[] = {
++        EZ80_CPU_TYPE_NAME("ez80f91"), NULL
++    };
++    object_class_property_add(oc, "osc-frequency", "uint32",
++                              get_oscillator, set_oscillator, NULL, NULL);
++    object_class_property_set_description(oc, "osc-frequency",
++                                         "External oscillator frequency in Hz");
++    for (unsigned cs = 0; cs < 4; cs++) {
++        g_autofree char *name = g_strdup_printf("cs%u", cs);
++        object_class_property_add(oc, name, "str", get_cs_kind, set_cs_kind,
++                                  NULL, NULL);
++        object_class_property_set_description(oc, name,
++            "External device on this chip select: ram, flash or none");
++
++    }
++    mc->desc = "eZ80F91 minimal development machine (experimental)";
++    mc->init = minimal_init;
++    mc->default_cpu_type = EZ80_CPU_TYPE_NAME("ez80f91");
++    mc->valid_cpu_types = valid_cpu_types;
++    mc->default_cpus = mc->min_cpus = mc->max_cpus = 1;
++    mc->no_floppy = mc->no_cdrom = mc->no_parallel = 1;
++}
++static void evb_class_init(ObjectClass *oc, const void *data)
++{
++    MachineClass *mc = MACHINE_CLASS(oc);
++    mc->desc = "eZ80F91 FreeRTOS RAM development profile (experimental)";
++    mc->init = evb_init;
++    object_class_property_add_bool(oc, "ram-boot", get_ram_boot, set_ram_boot);
++    object_class_property_set_description(oc, "ram-boot",
++        "Apply the ZDS RAM-debug memory setup on reset (not silicon defaults)");
++}
++static const TypeInfo machine_types[] = {
++    {
++        .name = TYPE_EZ80F91_MACHINE,
++        .parent = TYPE_MACHINE,
++        .instance_size = sizeof(EZ80F91MachineState),
++        .instance_init = machine_instance_init,
++        .instance_finalize = machine_finalize,
++        .class_init = ez80f91_class_init,
++    }, {
++        .name = MACHINE_TYPE_NAME("ez80f91-freertos"),
++        .parent = TYPE_EZ80F91_MACHINE,
++        .class_init = evb_class_init,
++    },
++};
++DEFINE_TYPES(machine_types)
+diff --git a/hw/ez80/intc.c b/hw/ez80/intc.c
+new file mode 100644
+index 0000000..83b4fbf
+--- /dev/null
++++ b/hw/ez80/intc.c
+@@ -0,0 +1,93 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "qemu/host-utils.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/irq.h"
++#include "system/address-spaces.h"
++
++#define TYPE_EZ80F91_INTC "ez80f91-intc"
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91IntcState, EZ80F91_INTC)
++
++struct EZ80F91IntcState {
++    SysBusDevice parent_obj;
++    MemoryRegion ports;
++    qemu_irq outputs[10]; /* IRQ followed by the nine vector bus bits. */
++    uint64_t pending, high_priority;
++};
++static void update_irq(EZ80F91IntcState *s)
++{
++    uint64_t high = s->pending & s->high_priority;
++    uint64_t active = high ? high : s->pending;
++    unsigned vector = active ? 0x40 + 4 * ctz64(active) : 0;
++    for (unsigned bit = 0; bit < 9; bit++) {
++        qemu_set_irq(s->outputs[bit + 1], (vector >> bit) & 1);
++    }
++    qemu_set_irq(s->outputs[0], active != 0);
++}
++static void set_input(void *opaque, int source, int level)
++{
++    EZ80F91IntcState *s = opaque;
++    if (source == 9 || source == 10) {
++        return;
++    }
++    if (level) {
++        s->pending |= 1ull << source;
++    } else {
++        s->pending &= ~(1ull << source);
++    }
++    update_irq(s);
++}
++static uint64_t priority_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_INTC(opaque)->high_priority >> (addr * 8) & 0xff;
++}
++static void priority_write(void *opaque, hwaddr addr, uint64_t value,
++                           unsigned size)
++{
++    EZ80F91IntcState *s = opaque;
++    uint64_t mask = 0xffull << (addr * 8);
++    if (addr == 1) {
++        value &= ~6u; /* Unused vectors 064h and 068h. */
++    }
++    s->high_priority = (s->high_priority & ~mask) | (value << (addr * 8));
++    update_irq(s);
++}
++static const MemoryRegionOps priority_ops = {
++    .read = priority_read,
++    .write = priority_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static void intc_reset(Object *obj, ResetType type)
++{
++    EZ80F91IntcState *s = EZ80F91_INTC(obj);
++    s->pending = s->high_priority = 0;
++    update_irq(s);
++}
++static void intc_init(Object *obj)
++{
++    EZ80F91IntcState *s = EZ80F91_INTC(obj);
++    qdev_init_gpio_in(DEVICE(s), set_input, 48);
++    qdev_init_gpio_out(DEVICE(s), s->outputs, 10);
++    memory_region_init_io(&s->ports, obj, &priority_ops, s,
++                          "f91.int-priority", 6);
++    memory_region_add_subregion(get_system_io(), 0x10, &s->ports);
++}
++static void intc_class_init(ObjectClass *oc, const void *data)
++{
++    RESETTABLE_CLASS(oc)->phases.hold = intc_reset;
++    DEVICE_CLASS(oc)->user_creatable = false;
++}
++static const TypeInfo intc_type = {
++    .name = TYPE_EZ80F91_INTC,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(EZ80F91IntcState),
++    .instance_init = intc_init,
++    .class_init = intc_class_init,
++};
++static void intc_register_types(void)
++{
++    type_register_static(&intc_type);
++}
++type_init(intc_register_types);
+diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/memory.c
+@@ -0,0 +1,767 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Functional F91 memory decoding and Flash information-page I/O. */
++#include "qemu/osdep.h"
++#include "hw/ez80/ez80f91.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties.h"
++#include "qapi/error.h"
++#include "qapi/visitor.h"
++#include "qemu/units.h"
++#include "qemu/log.h"
++#include "hw/core/irq.h"
++#include "hw/block/flash.h"
++#include "system/address-spaces.h"
++#include "system/system.h"
++#include "qemu/error-report.h"
++#include "qemu/timer.h"
++
++#define TYPE_EZ80F91_MEMORY "ez80f91-memory"
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91MemoryState, EZ80F91_MEMORY)
++
++struct EZ80F91MemoryState {
++    SysBusDevice parent_obj;
++    MemoryRegion flash, ram, eram;
++    MemoryRegion bank[4], window[4];
++    char *cs_kind[4];
++    unsigned flash_base[4];
++    MemoryRegion *external_flash[4];
++    MemoryRegion cs_ports, ram_ports, flash_ports, bus_ports;
++    uint8_t cs[4][3], bmc[4];
++    uint8_t ram_ctl, ram_upper, flash_ctl, flash_upper;
++    uint8_t flash_io[11], info[512], key_stage;
++    bool flash_unlocked;
++    qemu_irq flash_irq;
++    bool evb, ram_boot;
++    MemoryRegion *persistent[5];
++    char *flash_file[5];
++    Notifier flash_exit;
++    MemoryRegion kit_ports, pb_ports, pb_ack_port;
++    qemu_irq button_irq[3];
++    uint8_t kit_buttons, pb[4], pb_pending;
++    char *kit_led_file;
++    QEMUTimer *kit_timer;
++    uint8_t kit_latch[3];
++    uint64_t kit_energy[35], kit_current, kit_mask;
++    int64_t kit_last_ns, kit_frame_ns;
++    bool kit_enabled;
++
++};
++
++static void external_flash_activate(EZ80F91MemoryState *s, unsigned cs);
++
++/* Kit SW1..3 pull PB0..2 low. Implement GPIO input/output and the
++ * dual-edge interrupt mode used by the board's button driver. */
++static uint8_t button_irq_mask(EZ80F91MemoryState *s)
++{
++    return s->pb[0] & ~s->pb[1] & ~s->pb[2] & s->pb[3] & 7;
++}
++static void button_irq_update(EZ80F91MemoryState *s)
++{
++    for (unsigned bit = 0; bit < 3; bit++) {
++        qemu_set_irq(s->button_irq[bit],
++                     !!(s->pb_pending & button_irq_mask(s) & (1 << bit)));
++    }
++}
++static uint64_t pb_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    if (addr == 0) {
++        uint8_t inputs = s->pb[1] | s->pb[3];
++        return (s->pb[0] & ~inputs) | ((uint8_t)~s->kit_buttons & inputs);
++    }
++    return s->pb[addr];
++}
++static void pb_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    s->pb[addr] = value;
++    s->pb_pending &= button_irq_mask(s);
++    button_irq_update(s);
++}
++static uint64_t pb_ack_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return 0; /* Px_ALT0 is a write-one-to-clear command register. */
++}
++static void pb_ack_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    s->pb_pending &= ~value;
++    button_irq_update(s);
++}
++static void buttons_get(Object *obj, Visitor *v, const char *name,
++                        void *opaque, Error **errp)
++{
++    visit_type_uint8(v, name, &EZ80F91_MEMORY(obj)->kit_buttons, errp);
++}
++static void buttons_set(Object *obj, Visitor *v, const char *name,
++                        void *opaque, Error **errp)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
++    uint8_t pressed;
++    if (!visit_type_uint8(v, name, &pressed, errp)) {
++        return;
++    }
++    if (pressed & ~7u) {
++        error_setg(errp, "kit-buttons must be a mask in 0..7");
++        return;
++    }
++    s->pb_pending |= (s->kit_buttons ^ pressed) & button_irq_mask(s);
++    s->kit_buttons = pressed;
++    button_irq_update(s);
++}
++static void kit_accumulate(EZ80F91MemoryState *s)
++{
++    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
++    uint64_t elapsed = MAX(0, now - s->kit_last_ns);
++    for (unsigned i = 0; i < 35; i++) {
++        if (s->kit_current & (1ULL << i)) {
++            s->kit_energy[i] += elapsed;
++        }
++    }
++    s->kit_last_ns = now;
++}
++static void kit_pixels(EZ80F91MemoryState *s)
++{
++    s->kit_current = 0;
++    if (s->kit_enabled) {
++        for (unsigned row = 0; row < 7; row++) {
++            for (unsigned col = 0; col < 5; col++) {
++                if ((s->kit_latch[0] & (1 << row)) &&
++                    !(s->kit_latch[1] & (1 << (4 - col)))) {
++                    s->kit_current |= 1ULL << (row * 5 + col);
++                }
++            }
++        }
++    }
++}
++static void kit_publish(void *opaque)
++{
++    EZ80F91MemoryState *s = opaque;
++    uint64_t mask = 0;
++    int64_t elapsed;
++    g_autofree char *json = NULL;
++    g_autoptr(GError) error = NULL;
++    kit_accumulate(s);
++    elapsed = s->kit_last_ns - s->kit_frame_ns;
++    /* A 300 Hz row scan takes 23 ms of guest time per glyph. Integrate
++     * in guest time as well: slow icount execution must not expose lone rows.
++     * Keep the last complete frame while collecting the next one.
++     */
++    mask = s->kit_mask;
++    if (elapsed >= 40 * 1000 * 1000 || !s->kit_enabled) {
++        mask = 0;
++        for (unsigned i = 0; i < 35; i++) {
++            if (s->kit_enabled && elapsed > 0 &&
++                s->kit_energy[i] >= (uint64_t)elapsed / 100 &&
++                s->kit_energy[i]) {
++                mask |= 1ULL << i;
++            }
++            s->kit_energy[i] = 0;
++        }
++        s->kit_frame_ns = s->kit_last_ns;
++        s->kit_mask = mask;
++    } else if (elapsed <= 0) {
++        /* Paused debugger writes still update the panel immediately. */
++        mask = s->kit_current;
++        s->kit_mask = mask;
++    }
++    json = g_strdup_printf("{\"mask\":\"%09" PRIx64 "\",\"anode\":%u,"
++                           "\"cathode\":%u,\"gpio\":%u,\"buttons\":%u,\"enabled\":%s}\n",
++                           mask, s->kit_latch[0], s->kit_latch[1],
++                           s->kit_latch[2], s->kit_buttons, s->kit_enabled ? "true" : "false");
++    if (!g_file_set_contents(s->kit_led_file, json, -1, &error)) {
++        error_report("Kit LED state: %s", error->message);
++    }
++    timer_mod(s->kit_timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 20);
++}
++static uint64_t kit_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    /* Anode/cathode latches are write-only. GPIO inputs are pulled high. */
++    return addr == 2 ? (s->kit_latch[0] & 0x80 ? 0xff : s->kit_latch[2]) : 0xff;
++}
++static void kit_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    kit_accumulate(s);
++    s->kit_latch[addr] = value;
++    kit_pixels(s);
++}
++static const MemoryRegionOps pb_ops = {
++    .read = pb_read, .write = pb_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps pb_ack_ops = {
++    .read = pb_ack_read, .write = pb_ack_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps kit_ops = {
++    .read = kit_read, .write = kit_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static bool kit_selected(EZ80F91MemoryState *s)
++{
++    if (!s->kit_led_file || (s->cs[2][2] & 0x18) != 8 ||
++        s->cs[2][0] > 0x80 || s->cs[2][1] < 0x80) {
++        return false;
++    }
++    for (unsigned cs = 0; cs < 2; cs++) {
++        if ((s->cs[cs][2] & 0x18) == 8 &&
++            s->cs[cs][0] <= 0x80 && s->cs[cs][1] >= 0x80) {
++            return false;
++        }
++    }
++    return true;
++}
++
++static void update_window(EZ80F91MemoryState *s, unsigned cs)
++{
++    MemoryRegion *window = &s->window[cs];
++    unsigned lower = s->cs[cs][0], upper = s->cs[cs][1];
++    bool enabled = (s->cs[cs][2] & 0x18) == 8 && upper >= lower;
++
++    memory_region_set_enabled(window, false);
++    if (enabled) {
++        memory_region_set_size(window, (hwaddr)(upper - lower + 1) << 16);
++        memory_region_set_address(window, (hwaddr)lower << 16);
++        memory_region_set_enabled(window, true);
++    }
++}
++static void update_mapping(EZ80F91MemoryState *s)
++{
++    memory_region_transaction_begin();
++    memory_region_set_enabled(&s->flash, !!(s->flash_ctl & 8));
++    memory_region_set_address(&s->flash, (hwaddr)s->flash_upper << 16);
++    memory_region_set_enabled(&s->ram, !!(s->ram_ctl & 0x80));
++    memory_region_set_enabled(&s->eram, !!(s->ram_ctl & 0x40));
++    memory_region_set_address(&s->ram, ((hwaddr)s->ram_upper << 16) | 0xe000);
++    memory_region_set_address(&s->eram, ((hwaddr)s->ram_upper << 16) | 0xc000);
++    for (unsigned cs = 0; cs < 4; cs++) {
++        update_window(s, cs);
++    }
++    kit_accumulate(s);
++    s->kit_enabled = kit_selected(s);
++    memory_region_set_enabled(&s->kit_ports, s->kit_enabled);
++    kit_pixels(s);
++    memory_region_transaction_commit();
++}
++static uint64_t cs_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    return s->cs[addr / 3][addr % 3];
++}
++static void cs_write(void *opaque, hwaddr addr, uint64_t val, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    s->cs[addr / 3][addr % 3] = addr % 3 == 2 ? val & 0xf8 : val;
++    if (addr % 3 == 2 && (s->cs[addr / 3][2] & 0x18) == 8 &&
++        s->cs[addr / 3][1] >= s->cs[addr / 3][0]) {
++        external_flash_activate(s, addr / 3);
++    }
++    update_mapping(s);
++}
++static uint64_t ram_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    return addr == 0 ? s->ram_ctl : s->ram_upper;
++}
++static void ram_write(void *opaque, hwaddr addr, uint64_t val, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    if (addr == 0) {
++        s->ram_ctl = val & 0xc0;
++    } else {
++        s->ram_upper = val;
++    }
++    update_mapping(s);
++}
++static void flash_irq_update(EZ80F91MemoryState *s)
++{
++    uint8_t status = s->flash_io[6];
++    qemu_set_irq(s->flash_irq, ((status & 0x80) && (status & 0x20)) ||
++                               ((status & 0x40) && (status & 0x0f)));
++}
++static bool flash_protected(EZ80F91MemoryState *s, unsigned offset)
++{
++    return s->flash_io[5] & (1u << (offset / (32 * KiB)));
++}
++
++static void flash_program(EZ80F91MemoryState *s, unsigned offset, uint8_t value)
++{
++    if (flash_protected(s, offset)) {
++        s->flash_io[6] |= 8;
++    } else {
++        uint8_t *data = memory_region_get_ram_ptr(&s->flash);
++        data[offset] &= value;
++        memory_region_flush_rom_device(&s->flash, offset, 1);
++    }
++    flash_irq_update(s);
++}
++
++static uint64_t flash_array_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    return ((uint8_t *)memory_region_get_ram_ptr(&s->flash))[addr];
++}
++
++static void flash_array_write(void *opaque, hwaddr addr, uint64_t value,
++                               unsigned size)
++{
++    flash_program(opaque, addr, value);
++}
++
++static const MemoryRegionOps flash_array_ops = {
++    .read = flash_array_read,
++    .write = flash_array_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++
++static void flash_increment(EZ80F91MemoryState *s)
++{
++    if (++s->flash_io[9] == 0) {
++        if (s->flash_io[10] & 4) {
++            s->flash_io[10] &= ~4;
++            s->flash_io[6] |= 0x20;
++        }
++        if (s->flash_io[7] & 0x80) {
++            s->flash_io[8] = (s->flash_io[8] + 1) & 1;
++        } else if (++s->flash_io[8] == 8) {
++            s->flash_io[8] = 0;
++            s->flash_io[7] = (s->flash_io[7] + 1) & 0x7f;
++        }
++    }
++    flash_irq_update(s);
++}
++static uint64_t flash_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    uint8_t value;
++    switch (addr) {
++    case 0:
++        return 0; /* Write-only key. */
++    case 1:
++        if (s->flash_io[7] & 0x80) {
++            unsigned at = s->flash_io[8] * 256 + s->flash_io[9];
++            value = at < sizeof(s->info) ? s->info[at] : 0xff;
++        } else {
++            uint8_t *flash = memory_region_get_ram_ptr(&s->flash);
++            unsigned at = s->flash_io[7] * 2048 +
++                          s->flash_io[8] * 256 + s->flash_io[9];
++            value = flash[at];
++        }
++        flash_increment(s);
++        return value;
++    case 2:
++        return s->flash_upper;
++    case 3:
++        return s->flash_ctl;
++    case 6:
++        value = s->flash_io[6];
++        s->flash_io[6] &= 0xc0;
++        flash_irq_update(s);
++        return value;
++    default:
++        return s->flash_io[addr];
++    }
++}
++static void flash_write(void *opaque, hwaddr addr, uint64_t val, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    uint8_t value = val;
++    if (addr == 0) {
++        s->flash_unlocked = s->key_stage == 0xb6 && value == 0x49;
++        s->key_stage = value == 0xb6 ? value : 0;
++        return;
++    }
++    s->key_stage = 0;
++    switch (addr) {
++    case 1:
++        if ((s->flash_io[7] & 0x80) && s->flash_io[8] < 2) {
++            unsigned at = s->flash_io[8] * 256 + s->flash_io[9];
++            /* NOR programming can only change ones into zeros. */
++            s->info[at] &= value;
++        } else {
++            unsigned at = s->flash_io[7] * 2048 +
++                          s->flash_io[8] * 256 + s->flash_io[9];
++            if (!(s->flash_io[7] & 0x80)) {
++                flash_program(s, at, value);
++            } else {
++                s->flash_io[6] |= 8;
++            }
++        }
++        flash_increment(s);
++        break;
++    case 2:
++        s->flash_upper = value & 0xfc;
++        update_mapping(s);
++        break;
++    case 3:
++        s->flash_ctl = value & 0xe8;
++        update_mapping(s);
++        break;
++    case 4:
++    case 5:
++        if (s->flash_unlocked) {
++            s->flash_io[addr] = value;
++        }
++        s->flash_unlocked = false;
++        break;
++    case 6:
++        s->flash_io[6] = (s->flash_io[6] & 0x2f) | (value & 0xc0);
++        break;
++    case 7:
++    case 9:
++        s->flash_io[addr] = value;
++        break;
++    case 8:
++        s->flash_io[8] = value & 7;
++        break;
++    case 10:
++        s->flash_io[10] = value & 4;
++        if (value & 3) {
++            uint8_t *data = memory_region_get_ram_ptr(&s->flash);
++            bool info = s->flash_io[7] & 0x80;
++            unsigned at = (s->flash_io[7] & 0x7f) * 2048;
++
++            if (value & 1) {
++                if (s->flash_io[5]) {
++                    s->flash_io[6] |= 1;
++                } else {
++                    memset(data, 0xff, 256 * KiB);
++                    memory_region_flush_rom_device(&s->flash, 0, 256 * KiB);
++                    if (info) {
++                        memset(s->info, 0xff, sizeof(s->info));
++                    }
++                    s->flash_io[6] |= 0x20;
++                }
++            } else if (info) {
++                memset(s->info, 0xff, sizeof(s->info));
++                s->flash_io[6] |= 0x20;
++            } else if (flash_protected(s, at)) {
++                s->flash_io[6] |= 2;
++            } else {
++                memset(data + at, 0xff, 2048);
++                memory_region_flush_rom_device(&s->flash, at, 2048);
++                s->flash_io[6] |= 0x20;
++            }
++        }
++        break;
++    }
++    flash_irq_update(s);
++}
++static uint64_t bus_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_MEMORY(opaque)->bmc[addr];
++}
++static void bus_write(void *opaque, hwaddr addr, uint64_t val, unsigned size)
++{
++    EZ80F91_MEMORY(opaque)->bmc[addr] = val & 0xef;
++}
++#define PORT_OPS(readfn, writefn) { \
++    .read = readfn, .write = writefn, .endianness = DEVICE_LITTLE_ENDIAN, \
++    .valid = { .min_access_size = 1, .max_access_size = 1 }, \
++    .impl = { .min_access_size = 1, .max_access_size = 1 }, \
++}
++static const MemoryRegionOps cs_ops = PORT_OPS(cs_read, cs_write);
++static const MemoryRegionOps ram_ops = PORT_OPS(ram_read, ram_write);
++static const MemoryRegionOps flash_ops = PORT_OPS(flash_read, flash_write);
++static const MemoryRegionOps bus_ops = PORT_OPS(bus_read, bus_write);
++
++static void memory_reset(Object *obj, ResetType type)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
++    kit_accumulate(s);
++    memset(s->pb, 0, sizeof(s->pb));
++    s->pb[1] = 0xff;
++    s->pb_pending = 0;
++    button_irq_update(s);
++    s->kit_latch[0] = s->kit_latch[2] = 0;
++    s->kit_latch[1] = 0xff;
++    memset(s->kit_energy, 0, sizeof(s->kit_energy));
++    s->kit_frame_ns = s->kit_last_ns;
++    memset(s->cs, 0, sizeof(s->cs));
++    memset(s->bmc, 2, sizeof(s->bmc));
++    s->cs[0][1] = 0xff;
++    s->cs[0][2] = 0xe8;
++    s->ram_ctl = 0xc0;
++    s->ram_upper = 0xff;
++    memset(s->flash_io, 0, sizeof(s->flash_io));
++    s->flash_io[5] = 0xff;
++    s->key_stage = 0;
++    s->flash_unlocked = false;
++    flash_irq_update(s);
++    s->flash_upper = 0;
++    s->flash_ctl = 0x88;
++    if (s->ram_boot) {
++        /* Explicit debugger-style setup, not the silicon reset state. */
++        s->cs[0][0] = 0x10;
++        s->cs[0][1] = 0x1f;
++        /* Debugger RAM boot must not overlay executing SRAM via CS0. */
++        s->cs[0][2] = 0;
++        s->cs[1][1] = 7;
++        s->cs[1][2] = 0x28;
++        s->cs[2][0] = 0x80;
++        s->cs[2][1] = 0xbf;
++        s->cs[2][2] = 0x28;
++        s->bmc[0] = s->bmc[1] = s->bmc[3] = 0;
++        s->bmc[2] = 0x81;
++        s->flash_ctl = 0x60;
++    }
++    update_mapping(s);
++}
++static uint64_t empty_cs_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return 0; /* Match the target's unassigned external bus value. */
++}
++static void empty_cs_write(void *opaque, hwaddr addr, uint64_t val,
++                           unsigned size)
++{
++}
++static const MemoryRegionOps empty_cs_ops = {
++    .read = empty_cs_read,
++    .write = empty_cs_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++/* Raw flash images live in the invocation's working directory. */
++static bool flash_load(EZ80F91MemoryState *s, unsigned slot,
++                       MemoryRegion *mr, unsigned base, Error **errp)
++{
++    g_autofree char *contents = NULL;
++    g_autoptr(GError) error = NULL;
++    gsize length = 0;
++    size_t size = memory_region_size(mr);
++    uint8_t *data = memory_region_get_ram_ptr(mr);
++
++    for (unsigned i = 0; i < 5; i++) {
++        if (i != slot && s->persistent[i] && (i ? s->flash_base[i - 1] : 0) == base) {
++            error_setg(errp, "Flash filename base %X is used twice", base);
++            return false;
++        }
++    }
++    s->flash_file[slot] = g_strdup_printf("ez80f91_%X.%u", base,
++                                         qemu_get_ez80_debug_port());
++    memset(data, 0xff, size);
++    if (g_file_get_contents(s->flash_file[slot], &contents, &length, &error)) {
++        if (length > size) {
++            error_setg(errp, "%s exceeds flash size %zu",
++                       s->flash_file[slot], size);
++            return false;
++        }
++        memcpy(data, contents, length);
++    } else if (!g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
++        error_setg(errp, "Cannot load %s: %s", s->flash_file[slot],
++                   error->message);
++        return false;
++    }
++    s->persistent[slot] = mr;
++    return true;
++}
++
++/* Only explicit CS control writes bind an external image, never reset. */
++static void external_flash_activate(EZ80F91MemoryState *s, unsigned cs)
++{
++    unsigned slot = cs + 1;
++    unsigned base = s->cs[cs][0] << 16;
++    MemoryRegion *mr = s->external_flash[cs];
++    g_autoptr(GError) error = NULL;
++
++    if (!mr || (s->persistent[slot] && s->flash_base[cs] == base)) {
++        return;
++    }
++    if (s->persistent[slot]) {
++        if (!g_file_set_contents(s->flash_file[slot],
++                                 memory_region_get_ram_ptr(mr),
++                                 memory_region_size(mr), &error)) {
++            error_report("Cannot save %s: %s", s->flash_file[slot],
++                         error->message);
++            exit(EXIT_FAILURE);
++        }
++        s->persistent[slot] = NULL;
++    }
++    g_clear_pointer(&s->flash_file[slot], g_free);
++    flash_load(s, slot, mr, base, &error_fatal);
++    s->flash_base[cs] = base;
++}
++
++static void flash_save(Notifier *notifier, void *opaque)
++{
++    EZ80F91MemoryState *s = container_of(notifier, EZ80F91MemoryState,
++                                        flash_exit);
++
++    for (unsigned slot = 0; slot < 5; slot++) {
++        MemoryRegion *mr = s->persistent[slot];
++        g_autoptr(GError) error = NULL;
++
++        if (mr && !g_file_set_contents(s->flash_file[slot],
++                                      memory_region_get_ram_ptr(mr),
++                                      memory_region_size(mr), &error)) {
++            error_report("Cannot save %s: %s", s->flash_file[slot],
++                         error->message);
++        }
++    }
++}
++
++static void memory_realize(DeviceState *dev, Error **errp)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    if (s->ram_boot && !s->evb) {
++        error_setg(errp, "RAM boot requires the FreeRTOS development board");
++        return;
++    }
++    if (!flash_load(s, 0, &s->flash, 0, errp)) {
++        return;
++    }
++    for (unsigned cs = 0; cs < 4; cs++) {
++        g_autofree char *name = g_strdup_printf("ez80f91.cs%u", cs);
++        MemoryRegion *source;
++
++        if (!s->cs_kind[cs]) {
++            s->cs_kind[cs] = g_strdup(cs ? "ram" : "flash");
++        }
++        if (!strcmp(s->cs_kind[cs], "none")) {
++            /* An unpopulated higher-priority CS still blocks lower CS lines. */
++            memory_region_init_io(&s->bank[cs], OBJECT(s), &empty_cs_ops, s,
++                                  name, 16 * MiB);
++            source = &s->bank[cs];
++        } else if (!strcmp(s->cs_kind[cs], "ram")) {
++            /* Stable backing keeps data across window moves and resizes. */
++            if (!memory_region_init_ram(&s->bank[cs], OBJECT(s), name,
++                                        16 * MiB, errp)) {
++                return;
++            }
++            source = &s->bank[cs];
++        } else if (!strcmp(s->cs_kind[cs], "flash")) {
++            DeviceState *flash = qdev_new(TYPE_PFLASH_CFI02);
++
++            object_property_add_child(OBJECT(s), name, OBJECT(flash));
++            /* AMD AM29LV008BB: 1 MiB, bottom boot sectors, byte-wide bus. */
++            qdev_prop_set_string(flash, "name", name);
++            qdev_prop_set_uint8(flash, "width", 1);
++            qdev_prop_set_uint8(flash, "mappings", 16);
++            qdev_prop_set_uint16(flash, "id0", 0x01);
++            qdev_prop_set_uint16(flash, "id1", 0x37);
++            qdev_prop_set_uint16(flash, "unlock-addr0", 0x555);
++            qdev_prop_set_uint16(flash, "unlock-addr1", 0x2aa);
++            qdev_prop_set_uint32(flash, "num-blocks0", 1);
++            qdev_prop_set_uint32(flash, "sector-length0", 16 * KiB);
++            qdev_prop_set_uint32(flash, "num-blocks1", 2);
++            qdev_prop_set_uint32(flash, "sector-length1", 8 * KiB);
++            qdev_prop_set_uint32(flash, "num-blocks2", 1);
++            qdev_prop_set_uint32(flash, "sector-length2", 32 * KiB);
++            qdev_prop_set_uint32(flash, "num-blocks3", 15);
++            qdev_prop_set_uint32(flash, "sector-length3", 64 * KiB);
++            if (!sysbus_realize_and_unref(SYS_BUS_DEVICE(flash), errp)) {
++                return;
++            }
++            s->external_flash[cs] =
++                pflash_cfi02_get_memory(PFLASH_CFI02(flash));
++            memset(memory_region_get_ram_ptr(s->external_flash[cs]), 0xff, MiB);
++            source = sysbus_mmio_get_region(SYS_BUS_DEVICE(flash), 0);
++        } else {
++            error_setg(errp, "cs%u must be ram, flash or none", cs);
++            return;
++        }
++        memory_region_init_alias(&s->window[cs], OBJECT(s), name,
++                                 source, 0, 16 * MiB);
++        memory_region_set_enabled(&s->window[cs], false);
++        /* On-chip RAM/Flash win; among external devices CS0 wins over CS1. */
++        memory_region_add_subregion_overlap(get_system_memory(), 0,
++                                            &s->window[cs], 4 - cs);
++    }
++
++    s->flash_exit.notify = flash_save;
++    qemu_add_exit_notifier(&s->flash_exit);
++    if (s->kit_led_file) {
++        s->kit_timer = timer_new_ms(QEMU_CLOCK_REALTIME, kit_publish, s);
++        kit_publish(s);
++    }
++}
++static void memory_init(Object *obj)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
++    MemoryRegion *mem = get_system_memory(), *io = get_system_io();
++    memory_region_init_io(&s->kit_ports, obj, &kit_ops, s, "kit.led-gpio", 3);
++    memory_region_set_enabled(&s->kit_ports, false);
++    memory_region_add_subregion_overlap(mem, 0x800000, &s->kit_ports, 5);
++    memset(s->info, 0xff, sizeof(s->info));
++    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->flash_irq);
++    for (unsigned i = 0; i < 3; i++) {
++        sysbus_init_irq(SYS_BUS_DEVICE(s), &s->button_irq[i]);
++    }
++    object_property_add(obj, "kit-buttons", "uint8", buttons_get, buttons_set,
++                        NULL, NULL);
++    memory_region_init_io(&s->pb_ports, obj, &pb_ops, s, "f91.port-b", 4);
++    memory_region_add_subregion(io, 0x9a, &s->pb_ports);
++    memory_region_init_io(&s->pb_ack_port, obj, &pb_ack_ops, s, "f91.pb-alt0", 1);
++    memory_region_add_subregion(io, 0xa7, &s->pb_ack_port);
++    memory_region_init_rom_device(&s->flash, obj, &flash_array_ops, s,
++                                  "ez80f91.flash", 256 * KiB, &error_abort);
++    memset(memory_region_get_ram_ptr(&s->flash), 0xff, 256 * KiB);
++    memory_region_init_ram(&s->ram, obj, "ez80f91.ram", 8 * KiB, &error_abort);
++    memory_region_init_ram(&s->eram, obj, "ez80f91.emac-ram", 8 * KiB,
++                           &error_abort);
++    memory_region_add_subregion_overlap(mem, 0, &s->flash, 10);
++    memory_region_add_subregion_overlap(mem, 0xffe000, &s->ram, 20);
++    memory_region_add_subregion_overlap(mem, 0xffc000, &s->eram, 20);
++    memory_region_init_io(&s->cs_ports, obj, &cs_ops, s, "f91.cs", 12);
++    memory_region_add_subregion(io, 0xa8, &s->cs_ports);
++    memory_region_init_io(&s->ram_ports, obj, &ram_ops, s, "f91.ram-ctl", 2);
++    memory_region_add_subregion(io, 0xb4, &s->ram_ports);
++    memory_region_init_io(&s->flash_ports, obj, &flash_ops, s,
++                          "f91.flash-ctl", 11);
++    memory_region_add_subregion(io, 0xf5, &s->flash_ports);
++    memory_region_init_io(&s->bus_ports, obj, &bus_ops, s, "f91.bus-mode", 4);
++    memory_region_add_subregion(io, 0xf0, &s->bus_ports);
++}
++static const Property memory_properties[] = {
++    DEFINE_PROP_STRING("cs0", EZ80F91MemoryState, cs_kind[0]),
++    DEFINE_PROP_STRING("cs1", EZ80F91MemoryState, cs_kind[1]),
++    DEFINE_PROP_STRING("cs2", EZ80F91MemoryState, cs_kind[2]),
++    DEFINE_PROP_STRING("cs3", EZ80F91MemoryState, cs_kind[3]),
++    DEFINE_PROP_BOOL("evb", EZ80F91MemoryState, evb, false),
++    DEFINE_PROP_BOOL("ram-boot", EZ80F91MemoryState, ram_boot, false),
++    DEFINE_PROP_STRING("kit-led-state", EZ80F91MemoryState, kit_led_file),
++};
++static void memory_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    dc->realize = memory_realize;
++    device_class_set_props(dc, memory_properties);
++    RESETTABLE_CLASS(oc)->phases.hold = memory_reset;
++    dc->user_creatable = false;
++}
++static const TypeInfo memory_type = {
++    .name = TYPE_EZ80F91_MEMORY,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(EZ80F91MemoryState),
++    .instance_init = memory_init,
++    .class_init = memory_class_init,
++};
++static void memory_register_types(void)
++{
++    type_register_static(&memory_type);
++}
++type_init(memory_register_types);
++
++MemoryRegion *ez80f91_emac_ram(DeviceState *dev)
++{
++    return &EZ80F91_MEMORY(dev)->eram;
++}
++uint32_t ez80f91_emac_base(DeviceState *dev)
++{
++    return (EZ80F91_MEMORY(dev)->ram_upper << 16) | 0xc000;
++}
++bool ez80f91_emac_enabled(DeviceState *dev)
++{
++    return EZ80F91_MEMORY(dev)->ram_ctl & 0x40;
++}
+diff --git a/hw/ez80/meson.build b/hw/ez80/meson.build
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/meson.build
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++ez80_ss = ss.source_set()
++ez80_ss.add(when: 'CONFIG_EZ80F91_MINIMAL', if_true: files('ez80f91.c', 'uart.c', 'memory.c', 'intc.c', 'timer.c', 'clock.c', 'emac.c', 'rtc.c'))
++hw_arch += {'ez80': ez80_ss}
+diff --git a/hw/ez80/timer.c b/hw/ez80/timer.c
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/timer.c
+@@ -0,0 +1,264 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "qemu/timer.h"
++#include "qemu/log.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev-clock.h"
++#include "hw/core/qdev-properties.h"
++#include "system/address-spaces.h"
++
++#define TYPE_EZ80F91_TIMER0 "ez80f91-timer0"
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91TimerState, EZ80F91_TIMER0)
++
++typedef struct EZ80F91TimerChannel {
++    MemoryRegion ports;
++    QEMUTimer *timer;
++    qemu_irq irq;
++    EZ80F91TimerState *bank;
++    unsigned index;
++    uint32_t frequency, count;
++    uint16_t reload;
++    uint8_t ctl, ier, iir, latched_high;
++    int64_t deadline;
++} EZ80F91TimerChannel;
++
++struct EZ80F91TimerState {
++    SysBusDevice parent_obj;
++    MemoryRegion clock_port;
++    Clock *sclk;
++    uint32_t frequency;
++    uint8_t clock_ppd2;
++    EZ80F91TimerChannel channel[2];
++};
++static uint64_t tick_ns(EZ80F91TimerChannel *s)
++{
++    unsigned divider = 4u << (2 * ((s->ctl >> 3) & 3));
++    return DIV_ROUND_UP(1000000000ull * divider, s->frequency);
++}
++static void update_irq(EZ80F91TimerChannel *s)
++{
++    qemu_set_irq(s->irq, !!(s->ier & s->iir & 1));
++}
++static bool running(EZ80F91TimerChannel *s)
++{
++    return (s->ctl & 1) && !(s->bank->clock_ppd2 & (1u << s->index)) && !(s->ctl & 0x60);
++}
++static uint32_t current_count(EZ80F91TimerChannel *s)
++{
++    if (timer_pending(s->timer)) {
++        int64_t remaining = s->deadline - qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
++        return remaining > 0 ? DIV_ROUND_UP(remaining, tick_ns(s)) : 0;
++    }
++    return s->count;
++}
++static void schedule(EZ80F91TimerChannel *s)
++{
++    if (running(s)) {
++        uint32_t ticks = s->count ? s->count : 65536;
++        s->deadline = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)
++                    + ticks * tick_ns(s);
++        timer_mod(s->timer, s->deadline);
++    }
++}
++static void expire(void *opaque)
++{
++    EZ80F91TimerChannel *s = opaque;
++    s->iir |= 1;
++    if (s->ctl & 4) {
++        int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
++        uint64_t period = (s->reload ? s->reload : 65536) * tick_ns(s);
++        s->count = s->reload ? s->reload : 65536;
++        /* Coalesce missed periods, preserving the phase and sticky EOC bit. */
++        s->deadline += ((now - s->deadline) / period + 1) * period;
++        timer_mod(s->timer, s->deadline);
++    } else {
++        s->ctl &= ~1;
++        s->count = 0;
++    }
++    update_irq(s);
++}
++static void sync_timer(EZ80F91TimerChannel *s)
++{
++    if (timer_pending(s->timer)
++        && qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >= s->deadline) {
++        timer_del(s->timer);
++        expire(s);
++    }
++}
++static void sclk_changed(void *opaque, ClockEvent event)
++{
++    EZ80F91TimerState *bank = opaque;
++    for (unsigned i = 0; i < ARRAY_SIZE(bank->channel); i++) {
++        EZ80F91TimerChannel *s = &bank->channel[i];
++        if (event == ClockPreUpdate) {
++            sync_timer(s);
++            s->count = current_count(s);
++            timer_del(s->timer);
++        } else {
++            s->frequency = clock_get_hz(bank->sclk);
++            if (s->frequency) {
++                schedule(s);
++            }
++        }
++    }
++}
++static uint64_t timer_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91TimerChannel *s = opaque;
++    uint8_t value;
++    uint32_t count;
++    sync_timer(s);
++    switch (addr) {
++    case 0:
++        return s->ctl;
++    case 1:
++        return s->ier;
++    case 2:
++        value = s->iir;
++        s->iir = 0;
++        update_irq(s);
++        return value;
++    case 3:
++        count = current_count(s);
++        s->latched_high = count >> 8;
++        return count & 0xff;
++    case 4:
++        return s->latched_high;
++    default:
++        g_assert_not_reached();
++    }
++}
++static void timer_write(void *opaque, hwaddr addr, uint64_t value,
++                        unsigned size)
++{
++    EZ80F91TimerChannel *s = opaque;
++    sync_timer(s);
++    switch (addr) {
++    case 0:
++        s->count = current_count(s);
++        timer_del(s->timer);
++        s->ctl = value & ~2u;
++        if (value & 2) {
++            s->count = s->reload ? s->reload : 65536;
++        }
++        if (value & 0x60) {
++            qemu_log_mask(LOG_UNIMP, "F91 timer clock source unsupported\n");
++        }
++        schedule(s);
++        break;
++    case 1:
++        s->ier = value & 1;
++        update_irq(s);
++        break;
++    case 3:
++        s->reload = (s->reload & 0xff00) | (value & 0xff);
++        break;
++    case 4:
++        s->reload = (s->reload & 0xff) | ((value & 0xff) << 8);
++        break;
++    }
++}
++static uint64_t clock_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_TIMER0(opaque)->clock_ppd2;
++}
++static void clock_write(void *opaque, hwaddr addr, uint64_t value,
++                        unsigned size)
++{
++    EZ80F91TimerState *bank = opaque;
++    for (unsigned i = 0; i < ARRAY_SIZE(bank->channel); i++) {
++        EZ80F91TimerChannel *s = &bank->channel[i];
++        sync_timer(s);
++        s->count = current_count(s);
++        timer_del(s->timer);
++    }
++    bank->clock_ppd2 = value & 0xcf;
++    for (unsigned i = 0; i < ARRAY_SIZE(bank->channel); i++) {
++        schedule(&bank->channel[i]);
++    }
++}
++#define PORT_OPS(readfn, writefn) { \
++    .read = readfn, .write = writefn, .endianness = DEVICE_LITTLE_ENDIAN, \
++    .valid = { .min_access_size = 1, .max_access_size = 1 }, \
++    .impl = { .min_access_size = 1, .max_access_size = 1 }, \
++}
++static const MemoryRegionOps timer_ops = PORT_OPS(timer_read, timer_write);
++static const MemoryRegionOps clock_ops = PORT_OPS(clock_read, clock_write);
++static void timer_reset(Object *obj, ResetType type)
++{
++    EZ80F91TimerState *s = EZ80F91_TIMER0(obj);
++    s->clock_ppd2 = 0;
++    for (unsigned i = 0; i < ARRAY_SIZE(s->channel); i++) {
++        EZ80F91TimerChannel *c = &s->channel[i];
++        timer_del(c->timer);
++        c->ctl = c->ier = c->iir = c->latched_high = 0;
++        c->count = c->reload = 0;
++        update_irq(c);
++    }
++}
++static void timer_realize(DeviceState *dev, Error **errp)
++{
++    EZ80F91TimerState *s = EZ80F91_TIMER0(dev);
++    if (clock_has_source(s->sclk)) {
++        s->frequency = clock_get_hz(s->sclk);
++    }
++    if (!s->frequency || s->frequency > 50000000) {
++        error_setg(errp, "F91 timer frequency must be 1..50000000 Hz");
++        return;
++    }
++    for (unsigned i = 0; i < ARRAY_SIZE(s->channel); i++) {
++        s->channel[i].frequency = s->frequency;
++    }
++}
++static void f91_timer_init(Object *obj)
++{
++    EZ80F91TimerState *s = EZ80F91_TIMER0(obj);
++    s->sclk = qdev_init_clock_in(DEVICE(s), "sclk", sclk_changed, s,
++                                ClockPreUpdate | ClockUpdate);
++    for (unsigned i = 0; i < ARRAY_SIZE(s->channel); i++) {
++        EZ80F91TimerChannel *c = &s->channel[i];
++        c->bank = s;
++        c->index = i;
++        c->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, expire, c);
++        sysbus_init_irq(SYS_BUS_DEVICE(s), &c->irq);
++        memory_region_init_io(&c->ports, obj, &timer_ops, c,
++                              i ? "f91.timer1" : "f91.timer0", 5);
++        memory_region_add_subregion(get_system_io(), 0x60 + 5 * i, &c->ports);
++    }
++    memory_region_init_io(&s->clock_port, obj, &clock_ops, s,
++                          "f91.clk-ppd2", 1);
++    memory_region_add_subregion(get_system_io(), 0xdc, &s->clock_port);
++}
++static void timer_finalize(Object *obj)
++{
++    EZ80F91TimerState *s = EZ80F91_TIMER0(obj);
++    for (unsigned i = 0; i < ARRAY_SIZE(s->channel); i++) {
++        timer_free(s->channel[i].timer);
++    }
++}
++static const Property timer_properties[] = {
++    DEFINE_PROP_UINT32("frequency", EZ80F91TimerState, frequency, 50000000),
++};
++static void timer_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    dc->realize = timer_realize;
++    device_class_set_props(dc, timer_properties);
++    RESETTABLE_CLASS(oc)->phases.hold = timer_reset;
++    dc->user_creatable = false;
++}
++static const TypeInfo timer_type = {
++    .name = TYPE_EZ80F91_TIMER0,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(EZ80F91TimerState),
++    .instance_init = f91_timer_init,
++    .instance_finalize = timer_finalize,
++    .class_init = timer_class_init,
++};
++static void timer_register_types(void)
++{
++    type_register_static(&timer_type);
++}
++type_init(timer_register_types);
+diff --git a/hw/ez80/uart.c b/hw/ez80/uart.c
+new file mode 100644
+index 0000000..d70098e
+--- /dev/null
++++ b/hw/ez80/uart.c
+@@ -0,0 +1,332 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Functional eZ80F91 UART0, synchronous TX and buffered RX with interrupts. */
++#include "qemu/osdep.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties-system.h"
++#include "chardev/char-fe.h"
++#include "system/address-spaces.h"
++#include "qemu/log.h"
++#include "qemu/timer.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev-clock.h"
++
++#define TYPE_EZ80F91_UART "ez80f91-uart"
++OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91UARTState, EZ80F91_UART)
++
++struct EZ80F91UARTState {
++    SysBusDevice parent_obj;
++    MemoryRegion ports, gpio, clock;
++    CharFrontend chr;
++    uint8_t brg_l, brg_h, ier, lctl, mctl, spr;
++    uint8_t pd_ddr, pd_alt1, pd_alt2, clk_ppd1;
++    uint8_t fifo[16], head, count, fctl;
++    bool overrun, tx_pending, tc_pending, rx_timeout;
++    qemu_irq irq;
++    Clock *sclk;
++    QEMUTimer *rx_timer;
++};
++static bool pin_enabled(EZ80F91UARTState *s, unsigned bit)
++{
++    return !(s->clk_ppd1 & 0x81) && (s->pd_ddr & bit)
++        && !(s->pd_alt1 & bit) && (s->pd_alt2 & bit);
++}
++static unsigned rx_trigger(EZ80F91UARTState *s)
++{
++    static const unsigned levels[] = { 1, 4, 8, 14 };
++    return s->fctl & 1 ? levels[s->fctl >> 6] : 1;
++}
++static unsigned interrupt_code(EZ80F91UARTState *s)
++{
++    if (s->clk_ppd1 & 0x81) {
++        return 1;
++    }
++    if ((s->ier & 4) && s->overrun) {
++        return 6;
++    }
++    if ((s->ier & 1) && pin_enabled(s, 2)) {
++        if (s->count >= rx_trigger(s)) {
++            return 4;
++        }
++        if (s->count && s->rx_timeout) {
++            return 12;
++        }
++    }
++    if (pin_enabled(s, 1) && !(s->lctl & 0x40)) {
++        if ((s->ier & 0x10) && s->tc_pending) {
++            return 10;
++        }
++        if ((s->ier & 2) && s->tx_pending) {
++            return 2;
++        }
++    }
++    return 1;
++}
++static void uart_irq_update(EZ80F91UARTState *s)
++{
++    qemu_set_irq(s->irq, interrupt_code(s) != 1);
++}
++static void rx_expired(void *opaque)
++{
++    EZ80F91UARTState *s = opaque;
++    s->rx_timeout = s->count != 0;
++    uart_irq_update(s);
++}
++static void rx_restart(EZ80F91UARTState *s)
++{
++    uint64_t hz = clock_get_hz(s->sclk);
++    unsigned divider = s->brg_l | (s->brg_h << 8);
++    unsigned bits = 1 + 5 + (s->lctl & 3) + !!(s->lctl & 8) +
++                    ((s->lctl & 4) ? 2 : 1);
++    s->rx_timeout = false;
++    timer_del(s->rx_timer);
++    if (s->count && (s->fctl & 1) && hz) {
++        uint64_t ns = DIV_ROUND_UP(64000000000ull * MAX(divider, 1) * bits, hz);
++        timer_mod(s->rx_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + ns);
++    }
++    uart_irq_update(s);
++}
++static int uart_can_receive(void *opaque)
++{
++    EZ80F91UARTState *s = opaque;
++    return pin_enabled(s, 2) && !(s->mctl & 0x10)
++        ? (s->fctl & 1 ? 16 : 1) - s->count : 0;
++}
++static void rx_push(EZ80F91UARTState *s, uint8_t value)
++{
++    unsigned capacity = s->fctl & 1 ? 16 : 1;
++    if (s->count < capacity) {
++        s->fifo[(s->head + s->count++) % 16] = value &
++            ((1u << (5 + (s->lctl & 3))) - 1);
++    } else {
++        s->overrun = true;
++    }
++    rx_restart(s);
++}
++static void uart_receive(void *opaque, const uint8_t *buf, int size)
++{
++    EZ80F91UARTState *s = opaque;
++    for (int i = 0; i < size; i++) {
++        rx_push(s, buf[i]);
++    }
++}
++static uint64_t uart_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91UARTState *s = opaque;
++    uint8_t value;
++    switch (addr) {
++    case 0:
++        if (s->lctl & 0x80) {
++            return s->brg_l;
++        }
++        value = 0;
++        if (s->count) {
++            value = s->fifo[s->head];
++            s->head = (s->head + 1) % 16;
++            s->count--;
++        }
++        rx_restart(s);
++        qemu_chr_fe_accept_input(&s->chr);
++        return value;
++    case 1:
++        return (s->lctl & 0x80) ? s->brg_h : s->ier;
++    case 2:
++        value = interrupt_code(s);
++        if (value == 2) {
++            s->tx_pending = false;
++            uart_irq_update(s);
++        }
++        return value | (s->fctl & 1 ? 0x80 : 0);
++    case 3:
++        return s->lctl;
++    case 4:
++        return s->mctl;
++    case 5:
++        value = (s->lctl & 0x40 ? 0 : 0x60) | !!s->count |
++                (s->overrun ? 2 : 0);
++        s->overrun = false;
++        uart_irq_update(s);
++        return value;
++    case 6:
++        if (s->mctl & 0x10) {
++            return ((s->mctl & 2) << 3) | ((s->mctl & 1) << 5) |
++                   ((s->mctl & 4) << 4) | ((s->mctl & 8) << 4);
++        }
++        /* A connected stream peer is always ready; no modem-edge model. */
++        return qemu_chr_fe_backend_connected(&s->chr) ? 0xb0 : 0;
++    case 7:
++        return s->spr;
++    default:
++        g_assert_not_reached();
++    }
++}
++static void uart_write(void *opaque, hwaddr addr, uint64_t value,
++                       unsigned size)
++{
++    EZ80F91UARTState *s = opaque;
++    uint8_t b = value;
++    switch (addr) {
++    case 0:
++        if (s->lctl & 0x80) {
++            s->brg_l = b;
++        } else if (pin_enabled(s, 1) && !(s->lctl & 0x40)) {
++            b &= (1u << (5 + (s->lctl & 3))) - 1;
++            if (s->mctl & 0x10) {
++                rx_push(s, b);
++            } else {
++                qemu_chr_fe_write_all(&s->chr, &b, 1);
++            }
++            s->tx_pending = s->tc_pending = true;
++        }
++        break;
++    case 1:
++        if (s->lctl & 0x80) {
++            s->brg_h = b;
++        } else {
++            if ((b & 2) && !(s->ier & 2)) {
++                s->tx_pending = true;
++            }
++            if ((b & 0x10) && !(s->ier & 0x10)) {
++                s->tc_pending = true;
++            }
++            s->ier = b & 0x1f;
++        }
++        break;
++    case 2:
++        if ((b ^ s->fctl) & 1 || (b & 2)) {
++            s->head = s->count = 0;
++            s->overrun = false;
++        }
++        s->fctl = b & 0xc1;
++        if (b & 4) {
++            s->tx_pending = true;
++        }
++        rx_restart(s);
++        qemu_chr_fe_accept_input(&s->chr);
++        break;
++    case 3:
++        s->lctl = b;
++        rx_restart(s);
++        break;
++    case 4:
++        s->mctl = b & 0x7f;
++        break;
++    case 7:
++        s->spr = b;
++        break;
++    }
++    uart_irq_update(s);
++}
++static uint64_t gpio_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91UARTState *s = opaque;
++    switch (addr) {
++    case 0:
++        return s->pd_ddr;
++    case 1:
++        return s->pd_alt1;
++    case 2:
++        return s->pd_alt2;
++    default:
++        g_assert_not_reached();
++    }
++}
++static void gpio_write(void *opaque, hwaddr addr, uint64_t value,
++                       unsigned size)
++{
++    EZ80F91UARTState *s = opaque;
++    switch (addr) {
++    case 0:
++        s->pd_ddr = value;
++        break;
++    case 1:
++        s->pd_alt1 = value;
++        break;
++    case 2:
++        s->pd_alt2 = value;
++        break;
++    }
++    uart_irq_update(s);
++    qemu_chr_fe_accept_input(&s->chr);
++}
++static uint64_t clock_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_UART(opaque)->clk_ppd1;
++}
++static void clock_write(void *opaque, hwaddr addr, uint64_t value,
++                        unsigned size)
++{
++    EZ80F91UARTState *s = opaque;
++    s->clk_ppd1 = value;
++    uart_irq_update(s);
++    qemu_chr_fe_accept_input(&s->chr);
++}
++#define PORT_OPS(readfn, writefn) { \
++    .read = readfn, .write = writefn, .endianness = DEVICE_LITTLE_ENDIAN, \
++    .valid = { .min_access_size = 1, .max_access_size = 1 }, \
++    .impl = { .min_access_size = 1, .max_access_size = 1 }, \
++}
++static const MemoryRegionOps uart_ops = PORT_OPS(uart_read, uart_write);
++static const MemoryRegionOps gpio_ops = PORT_OPS(gpio_read, gpio_write);
++static const MemoryRegionOps clock_ops = PORT_OPS(clock_read, clock_write);
++
++static void uart_reset(Object *obj, ResetType type)
++{
++    EZ80F91UARTState *s = EZ80F91_UART(obj);
++    s->brg_l = 2;
++    s->brg_h = s->ier = s->lctl = s->mctl = s->spr = 0;
++    s->head = s->count = s->fctl = 0;
++    s->overrun = s->rx_timeout = false;
++    s->tx_pending = s->tc_pending = true;
++    timer_del(s->rx_timer);
++    s->pd_ddr = 0xff;
++    s->pd_alt1 = s->pd_alt2 = s->clk_ppd1 = 0;
++    uart_irq_update(s);
++}
++static void uart_realize(DeviceState *dev, Error **errp)
++{
++    EZ80F91UARTState *s = EZ80F91_UART(dev);
++    qemu_chr_fe_set_handlers(&s->chr, uart_can_receive, uart_receive,
++                             NULL, NULL, s, NULL, true);
++}
++static void uart_init(Object *obj)
++{
++    EZ80F91UARTState *s = EZ80F91_UART(obj);
++    s->sclk = qdev_init_clock_in(DEVICE(s), "sclk", NULL, NULL, 0);
++    s->rx_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, rx_expired, s);
++    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq);
++    memory_region_init_io(&s->ports, obj, &uart_ops, s, "uart0", 8);
++    memory_region_add_subregion(get_system_io(), 0xc0, &s->ports);
++    /* Only the Port D mux registers needed by UART0 are implemented. */
++    memory_region_init_io(&s->gpio, obj, &gpio_ops, s, "uart0-portd-mux", 3);
++    memory_region_add_subregion(get_system_io(), 0xa3, &s->gpio);
++    memory_region_init_io(&s->clock, obj, &clock_ops, s, "clk-ppd1", 1);
++    memory_region_add_subregion(get_system_io(), 0xdb, &s->clock);
++}
++static void uart_finalize(Object *obj)
++{
++    timer_free(EZ80F91_UART(obj)->rx_timer);
++}
++static const Property uart_properties[] = {
++    DEFINE_PROP_CHR("chardev", EZ80F91UARTState, chr),
++};
++static void uart_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    dc->realize = uart_realize;
++    device_class_set_props(dc, uart_properties);
++    RESETTABLE_CLASS(oc)->phases.hold = uart_reset;
++    dc->user_creatable = false;
++}
++static const TypeInfo uart_type = {
++    .name = TYPE_EZ80F91_UART,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(EZ80F91UARTState),
++    .instance_init = uart_init,
++    .instance_finalize = uart_finalize,
++    .class_init = uart_class_init,
++};
++static void uart_register_types(void)
++{
++    type_register_static(&uart_type);
++}
++type_init(uart_register_types);
+diff --git a/include/hw/ez80/ez80f91.h b/include/hw/ez80/ez80f91.h
+new file mode 100644
+index 0000000..f31d016
+--- /dev/null
++++ b/include/hw/ez80/ez80f91.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef HW_EZ80F91_H
++#define HW_EZ80F91_H
++#include "hw/core/qdev.h"
++MemoryRegion *ez80f91_emac_ram(DeviceState *dev);
++uint32_t ez80f91_emac_base(DeviceState *dev);
++bool ez80f91_emac_enabled(DeviceState *dev);
++#endif
+diff --git a/pc-bios/ez80-zds/dtl.py b/pc-bios/ez80-zds/dtl.py
+new file mode 100644
+index 0000000..f9e05a0
+--- /dev/null
++++ b/pc-bios/ez80-zds/dtl.py
+@@ -0,0 +1,236 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""Subset of the Smart Cable DTL language used by Zilog eZ80 algorithms.
++
++No Python eval: expressions and statements are parsed explicitly. Unknown syntax
++fails the request instead of acknowledging an operation that was not performed.
++"""
++
++import re
++
++
++class DTLError(ValueError):
++    pass
++
++
++TOKEN = re.compile(
++    r'\s+|"[0-9a-fA-F]*"|[RV][0-9A-Fa-f]{2}|[0-9A-Fa-f]+'
++    r'|\+\+|--|<<|>>|<=|>=|==|!=|&&|\|\||.'
++)
++OPS = {
++    "||": 1,
++    "&&": 2,
++    "|": 3,
++    "^": 4,
++    "&": 5,
++    "==": 6,
++    "!=": 6,
++    "<": 7,
++    ">": 7,
++    "<=": 7,
++    ">=": 7,
++    "<<": 8,
++    ">>": 8,
++    "+": 9,
++    "-": 9,
++    "*": 10,
++    "/": 10,
++    "%": 10,
++}
++
++
++class DTL:
++    def __init__(self, target):
++        self.target = target
++        self.variables = [0] * 256
++        self.buffer = bytearray()
++        self.steps = 0
++
++    def take(self, expected=None):
++        if self.pos >= len(self.tokens):
++            raise DTLError("unexpected end")
++        token = self.tokens[self.pos]
++        if expected is not None and token != expected:
++            raise DTLError(f"expected {expected}, got {token}")
++        self.pos += 1
++        return token
++
++    def peek(self):
++        return self.tokens[self.pos] if self.pos < len(self.tokens) else ""
++
++    def expr(self, minimum=0):
++        token = self.take()
++        if token in ("!", "~", "-", "+"):
++            a = self.expr(11)
++            value = {
++                "!": lambda: int(not a),
++                "~": lambda: ~a,
++                "-": lambda: -a,
++                "+": lambda: a,
++            }[token]()
++        elif token == "(":
++            value = self.expr()
++            self.take(")")
++        elif token == "[":
++            start = self.expr()
++            if self.peek() == ":":
++                self.take()
++                count = self.expr()
++                self.take("]")
++                value = bytes(self.buffer[start : start + count])
++            else:
++                self.take("]")
++                if not 0 <= start < len(self.buffer):
++                    raise DTLError(f"buffer index {start}")
++                value = self.buffer[start]
++        elif token == "@":
++            value = len(self.buffer)
++        elif re.fullmatch("V[0-9A-Fa-f]{2}", token):
++            index = int(token[1:], 16)
++            value = self.variables[index]
++            if self.peek() in ("++", "--"):
++                self.variables[index] += 1 if self.take() == "++" else -1
++        elif re.fullmatch("R[0-9A-Fa-f]{2}", token):
++            value = self.target.read(int(token[1:], 16))
++        elif token.startswith('"'):
++            value = bytes.fromhex(token[1:-1])
++        elif re.fullmatch("[0-9A-Fa-f]+", token):
++            value = int(token, 16)
++        else:
++            raise DTLError(f"invalid expression {token}")
++        while self.peek() in OPS and OPS[self.peek()] >= minimum:
++            op = self.take()
++            right = self.expr(OPS[op] + 1)
++            if isinstance(value, bytes) or isinstance(right, bytes):
++                raise DTLError("arithmetic on byte buffer")
++            operations = {
++                "+": lambda: value + right,
++                "-": lambda: value - right,
++                "*": lambda: value * right,
++                "/": lambda: value // right,
++                "%": lambda: value % right,
++                "<<": lambda: value << right,
++                ">>": lambda: value >> right,
++                "&": lambda: value & right,
++                "|": lambda: value | right,
++                "^": lambda: value ^ right,
++                "==": lambda: int(value == right),
++                "!=": lambda: int(value != right),
++                "<": lambda: int(value < right),
++                ">": lambda: int(value > right),
++                "<=": lambda: int(value <= right),
++                ">=": lambda: int(value >= right),
++                "&&": lambda: int(bool(value) and bool(right)),
++                "||": lambda: int(bool(value) or bool(right)),
++            }
++            value = operations[op]()
++        if minimum == 0 and self.peek() == "?":
++            self.take()
++            yes = self.expr()
++            self.take(":")
++            no = self.expr()
++            value = yes if value else no
++        return value
++
++    def block(self, end=None):
++        while self.pos < len(self.tokens) and self.peek() != end:
++            self.steps += 1
++            if self.steps > 100000:
++                raise DTLError("instruction limit")
++            token = self.take()
++            if token == ".":
++                self.buffer.clear()
++            elif token == "#":
++                # GET_EMUL_CONFIG: firmware major/minor, capability byte,
++                # then the transport buffer size in big-endian order. The
++                # DLL derives its block sizes from this advertised limit.
++                self.buffer.extend(self.target.configuration())
++            elif token == "$":
++                self.output.extend(self.buffer)
++            elif token == "_":
++                self.expr()  # Firmware delay; virtual target needs none.
++            elif token == "\\":
++                if self.expr():
++                    return True
++            elif token == "{":
++                count = None if self.peek() == ":" else self.expr()
++                self.take(":")
++                start = self.pos
++                depth = 1
++                finish = start
++                while finish < len(self.tokens) and depth:
++                    if self.tokens[finish] == "{":
++                        depth += 1
++                    if self.tokens[finish] == "}":
++                        depth -= 1
++                    finish += 1
++                if depth:
++                    raise DTLError("unclosed loop")
++                for _ in range(100000 if count is None else count):
++                    self.pos = start
++                    if self.block("}"):
++                        break
++                else:
++                    if count is None:
++                        raise DTLError("unbounded loop")
++                self.pos = finish
++            elif token == "[":
++                index = None if self.peek() == "]" else self.expr()
++                count = None
++                if self.peek() == ":":
++                    self.take()
++                    count = self.expr()
++                self.take("]")
++                self.take("=")
++                if count is not None:
++                    start = self.pos
++                    # The shipped memory-read algorithms repeat a bare R20.
++                    # Batch that stream while preserving all other expression
++                    # side effects through the normal interpreter path.
++                    if self.peek() == "R20" and hasattr(self.target, "read_block"):
++                        following = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else ""
++                        if following not in OPS and following not in ("?", "++", "--"):
++                            self.take()
++                            raw = self.target.read_block(0x20, count)
++                            if index + count > len(self.buffer):
++                                self.buffer.extend(bytes(index + count - len(self.buffer)))
++                            self.buffer[index:index + count] = raw
++                            continue
++                    for offset in range(count):
++                        self.pos = start
++                        value = self.expr()
++                        position = index + offset
++                        if position >= len(self.buffer):
++                            self.buffer.extend(
++                                bytes(position - len(self.buffer) + 1)
++                            )
++                        self.buffer[position] = value & 255
++                    continue
++                value = self.expr()
++                raw = (
++                    value if isinstance(value, bytes) else bytes([value & 255])
++                )
++                if index is None:
++                    self.buffer.extend(raw)
++                else:
++                    if not 0 <= index < len(self.buffer):
++                        raise DTLError("buffer write out of range")
++                    self.buffer[index : index + len(raw)] = raw
++            elif re.fullmatch("[RV][0-9A-Fa-f]{2}", token):
++                self.take("=")
++                value = self.expr()
++                index = int(token[1:], 16)
++                if token[0] == "V":
++                    self.variables[index] = value
++                else:
++                    self.target.write(index, value)
++            else:
++                raise DTLError(f"unknown statement {token}")
++        return False
++
++    def execute(self, script):
++        self.tokens = [t for t in TOKEN.findall(script) if not t.isspace()]
++        self.pos = 0
++        self.steps = 0
++        self.output = bytearray()
++        self.block()
++        return bytes(self.output)
+diff --git a/pc-bios/ez80-zds/ethernet.py b/pc-bios/ez80-zds/ethernet.py
+new file mode 100644
+index 0000000..d6fc35b
+--- /dev/null
++++ b/pc-bios/ez80-zds/ethernet.py
+@@ -0,0 +1,177 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""Expose a local QEMU eZ80F91 as an Ethernet Smart Cable for ZDS II."""
++
++import argparse
++import logging
++import socket
++import re
++import select
++import threading
++from dtl import DTL
++from zdi import ZDI
++from rsp import RSP
++
++
++def receive(sock, size):
++    result = bytearray()
++    while len(result) < size:
++        chunk = sock.recv(size - len(result))
++        if not chunk:
++            raise EOFError
++        result.extend(chunk)
++    return bytes(result)
++
++
++def decode_script(raw):
++    # DLL inserts binary payloads after []=<hex byte count>:, including NULs.
++    result = bytearray()
++    position = 0
++    marker = re.compile(rb"\[\]=([0-9A-Fa-f]+):")
++    while match := marker.search(raw, position):
++        count = int(match[1], 16)
++        start = match.end()
++        end = start + count
++        if end > len(raw):
++            raise ValueError("truncated binary DTL buffer")
++        result.extend(raw[position : match.start()])
++        result.extend(b'[]="')
++        result.extend(raw[start:end].hex().encode())
++        result.extend(b'"')
++        position = end
++    result.extend(raw[position:])
++    return result.decode("ascii")
++
++
++def session(client, interpreter):
++    while True:
++        target = interpreter.target
++        if target.rsp.running:
++            ready, _, _ = select.select(
++                [client, target.rsp.socket], [], [], 0.05
++            )
++            if target.rsp.socket in ready:
++                target.rsp.poll()
++                if not target.rsp.running and target.cable.get(0xF0, 0) & 2:
++                    client.sendall(b"\x04\x00\x01\x00")
++            if client not in ready:
++                continue
++        header = receive(client, 3)
++        size = int.from_bytes(header[:2], "little")
++        if size < 4 or size > 65535 or header[2] != 0:
++            raise ValueError("invalid DTL frame")
++        raw = receive(client, size - 3)
++        try:
++            if not raw.endswith(b"\0"):
++                raise ValueError("missing terminator")
++            script = decode_script(raw[:-1])
++            logging.debug("DTL %s", script)
++            result = interpreter.execute(script)
++            payload = (
++                b"00"
++                + f"{len(result):04X}".encode()
++                + result.hex().upper().encode()
++                + b"\0"
++            )
++            logging.debug("result %s", payload)
++        except (ValueError, RuntimeError) as error:
++            logging.error("DTL failed: %s (%r)", error, raw)
++            payload = b"01\0"
++        client.sendall(
++            (len(payload) + 3).to_bytes(2, "little") + b"\0" + payload
++        )
++
++
++def scan_device(server, port, stop, name="QEMU-eZ80F91"):
++    """Nexus EthernetSCScan protocol: UDP scan -> 100,name,MAC,TCP-port."""
++    mac = f"02:5A:44:49:{port >> 8:02X}:{port & 255:02X}"
++    reply = f"100,{name},{mac},{port}".encode("ascii")
++    server.settimeout(0.25)
++    while not stop.is_set():
++        try:
++            packet, address = server.recvfrom(512)
++        except socket.timeout:
++            continue
++        if packet.rstrip(b"\0") == b"scan":
++            server.sendto(reply, address)
++            logging.info("Scan device: %s -> %s:%d", address, name, port)
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--listen", help="Bind address; scan mode defaults to 0.0.0.0"
++    )
++    parser.add_argument("--port", type=int, default=4040)
++    parser.add_argument("--gdb-host", default="127.0.0.1")
++    parser.add_argument("--gdb-port", type=int, default=1234)
++    parser.add_argument("--gdb-socket", help="Private QEMU GDB Unix socket")
++    parser.add_argument(
++        "--scan-dev",
++        action="store_true",
++        help="Enable SDK-compatible discovery on UDP 3000",
++    )
++    parser.add_argument(
++        "--run",
++        action="store_true",
++        help="Resume QEMU after the debugger service is ready",
++    )
++    parser.add_argument("--name", default="QEMU-eZ80F91")
++    parser.add_argument("--verbose", action="store_true")
++    args = parser.parse_args()
++    args.listen = args.listen or ("0.0.0.0" if args.scan_dev else "127.0.0.1")
++    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
++    rsp = RSP(args.gdb_host, args.gdb_port, unix=args.gdb_socket)
++    stop = threading.Event()
++    discovery = None
++    scanner = None
++    try:
++        with socket.socket() as server:
++            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
++            server.bind((args.listen, args.port))
++            server.listen(1)
++            if args.scan_dev:
++                discovery = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++                discovery.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
++                discovery.bind((args.listen, 3000))
++                scanner = threading.Thread(
++                    target=scan_device,
++                    args=(discovery, args.port, stop, args.name),
++                    daemon=True,
++                )
++                scanner.start()
++            if args.run:
++                rsp.run()
++            logging.info(
++                "Smart Cable TCP %s:%d -> QEMU %s",
++                args.listen,
++                args.port,
++                args.gdb_socket or f"{args.gdb_host}:{args.gdb_port}",
++            )
++            while True:
++                client, address = server.accept()
++                logging.info("ZDS connected: %s", address)
++                with client:
++                    target = ZDI(rsp)
++                    try:
++                        session(client, DTL(target))
++                    except EOFError:
++                        pass
++                    except (ConnectionError, OSError, ValueError):
++                        logging.exception("connection failed")
++                rsp.stop()
++                target.sync_breakpoints(0)
++    finally:
++        stop.set()
++        if scanner:
++            scanner.join(timeout=1)
++        if discovery:
++            discovery.close()
++        rsp.socket.close()
++
++
++if __name__ == "__main__":
++    try:
++        main()
++    except KeyboardInterrupt:
++        pass
+diff --git a/pc-bios/ez80-zds/rsp.py b/pc-bios/ez80-zds/rsp.py
+new file mode 100644
+index 0000000..0c114ed
+--- /dev/null
++++ b/pc-bios/ez80-zds/rsp.py
+@@ -0,0 +1,110 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""Small synchronous GDB remote client for the local QEMU debug endpoint."""
++
++import socket
++import select
++
++
++class RSP:
++    def __init__(self, host=None, port=None, unix=None):
++        if unix:
++            self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++            self.socket.settimeout(10)
++            self.socket.connect(unix)
++        else:
++            self.socket = socket.create_connection((host, port), timeout=10)
++            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
++        self.running = False
++        self.command("?")
++
++    def packet(self):
++        while True:
++            marker = self.socket.recv(1)
++            if not marker:
++                raise ConnectionError("QEMU disconnected")
++            if marker == b"$":
++                break
++        data = bytearray()
++        while True:
++            c = self.socket.recv(1)
++            if not c:
++                raise ConnectionError("QEMU disconnected")
++            if c == b"#":
++                break
++            data.extend(c)
++        check = bytearray()
++        while len(check) < 2:
++            chunk = self.socket.recv(2 - len(check))
++            if not chunk:
++                raise ConnectionError("QEMU disconnected")
++            check.extend(chunk)
++        if int(check, 16) != sum(data) & 255:
++            raise ConnectionError("RSP checksum")
++        self.socket.sendall(b"+")
++        return data.decode("ascii")
++
++    def command(self, command):
++        raw = command.encode("ascii")
++        self.socket.sendall(
++            b"$" + raw + b"#" + f"{sum(raw) & 255:02x}".encode()
++        )
++        return self.packet()
++
++    def poll(self):
++        if self.running and select.select([self.socket], [], [], 0)[0]:
++            self.packet()
++            self.running = False
++
++    def stop(self):
++        self.poll()
++        if self.running:
++            self.socket.sendall(b"\x03")
++            self.packet()
++            self.running = False
++
++    def registers(self):
++        self.stop()
++        raw = bytes.fromhex(self.command("g"))
++        if len(raw) != 96:
++            raise RuntimeError("QEMU needs the eZ80 GDB register patch")
++        return [
++            int.from_bytes(raw[i : i + 4], "little") for i in range(0, 96, 4)
++        ]
++
++    def set_registers(self, values):
++        self.stop()
++        if (
++            self.command(
++                "G" + b"".join(v.to_bytes(4, "little") for v in values).hex()
++            )
++            != "OK"
++        ):
++            raise RuntimeError("register write failed")
++
++    def memory(self, address, count):
++        self.stop()
++        reply = self.command(f"m{address:x},{count:x}")
++        if reply.startswith("E"):
++            raise RuntimeError(f"unmapped memory at {address:06x}: {reply}")
++        return bytes.fromhex(reply)
++
++    def write_memory(self, address, data):
++        self.stop()
++        # QEMU's GDB packet buffer is bounded; ZDS sends RAM test and loader
++        # buffers of several KiB. Keep the hex payload below that limit.
++        for offset in range(0, len(data), 1024):
++            chunk = data[offset:offset + 1024]
++            if self.command(f"M{address + offset:x},{len(chunk):x}:" + chunk.hex()) != "OK":
++                raise RuntimeError("memory write failed")
++
++    def step(self):
++        self.stop()
++        reply = self.command("s")
++        if not reply.startswith(("T", "S")):
++            raise RuntimeError(f"step: {reply}")
++
++    def run(self):
++        self.socket.sendall(b"$c#63")
++        if self.socket.recv(1) != b"+":
++            raise ConnectionError("QEMU rejected continue")
++        self.running = True
+diff --git a/pc-bios/ez80-zds/zdi.py b/pc-bios/ez80-zds/zdi.py
+new file mode 100644
+index 0000000..c3895d7
+--- /dev/null
++++ b/pc-bios/ez80-zds/zdi.py
+@@ -0,0 +1,215 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""eZ80F91 ZDI registers backed by QEMU's stopped CPU and port space."""
++
++from dtl import DTLError
++
++
++class ZDI:
++    def __init__(self, rsp):
++        self.rsp = rsp
++        self.cable = {0xEC: 1, 0xEE: 1, 0xEF: 1}
++        self.wr = bytearray(256)
++        self.rd = bytearray(3)
++        self.break_control = 0x80
++        self.breakpoints = set()
++        self.prefetch = True
++
++    def configuration(self):
++        # The EthernetSC DLL receives at most 0x2100 bytes per frame.
++        # Advertise 0x2000 so its hex-encoded replies fit that buffer.
++        return bytes([1, 1, 0, 0x20, 0])
++
++    def read(self, address):
++        if address >= 0xEA:
++            return self.cable.get(address, 0)
++        if address in (0, 1, 2):
++            return (8, 0, 1)[address]
++        if address == 3:
++            # A running target can stop on one of the hardware breakpoints.
++            self.rsp.poll()
++            if self.rsp.running:
++                return 0
++            r = self.rsp.registers()
++            return 0x80 | (r[18] << 4) | (r[19] << 3) | (r[20] << 2)
++        if 0x10 <= address <= 0x12:
++            return self.rd[address - 0x10]
++        if address == 0x20:
++            r = self.rsp.registers()
++            pc = r[0]
++            value = 0 if self.prefetch else self.rsp.memory(pc, 1)[0]
++            self.prefetch = False
++            r[0] = (pc + 1) & 0xFFFFFF
++            self.rsp.set_registers(r)
++            return value
++        raise DTLError(f"unsupported ZDI read {address:02x}")
++
++    def read_block(self, address, count):
++        """Read the ZDI memory stream with its initial prefetch byte."""
++        if address != 0x20:
++            return bytes(self.read(address) for _ in range(count))
++        if not count:
++            return b""
++        r = self.rsp.registers()
++        pc = r[0]
++        result = bytearray()
++        if self.prefetch:
++            result.append(0)
++            pc = (pc + 1) & 0xFFFFFF
++            self.prefetch = False
++        while len(result) < count:
++            length = min(count - len(result), 1024, 0x1000000 - pc)
++            result.extend(self.rsp.memory(pc, length))
++            pc = (pc + length) & 0xFFFFFF
++        r[0] = pc
++        self.rsp.set_registers(r)
++        return bytes(result)
++
++    def write(self, address, value):
++        if address >= 0xEA:
++            self.cable[address] = (
++                int.from_bytes(value, "big")
++                if isinstance(value, bytes)
++                else value
++            )
++            return
++        if address == 0x30:
++            raw = value if isinstance(value, bytes) else bytes([value & 255])
++            r = self.rsp.registers()
++            self.rsp.write_memory(r[0], raw)
++            r[0] = (r[0] + len(raw)) & 0xFFFFFF
++            self.rsp.set_registers(r)
++            return
++        value &= 255
++        self.wr[address] = value
++        if address == 0x10:
++            self.break_control = value
++            if value & 0x80:
++                self.rsp.stop()
++                if value & 1:
++                    self.rsp.step()
++            else:
++                self.sync_breakpoints(value)
++                if not self.rsp.running:
++                    self.rsp.run()
++        elif address == 0x11 and value & 0x80:
++            self.rsp.stop()
++            reply = self.rsp.command("qRcmd," + b"system_reset".hex())
++            while reply.startswith("O") and reply != "OK":
++                reply = self.rsp.packet()
++        elif address == 0x16:
++            # The shipped GET_REGS_ALL Algo16 uses R16=16 to recover MBASE
++            # before restoring AF. This is a Nexus algorithm compatibility
++            # alias for Read AF, not an additional silicon ZDI command.
++            if value == 0x16:
++                value = 0
++            r = self.rsp.registers()
++            if value in (8, 9):
++                r[18] = int(value == 8)
++            elif value == 10:
++                for a, b in ((1, 6), (2, 7), (3, 8), (12, 14), (13, 15)):
++                    r[a], r[b] = r[b], r[a]
++            elif value & 0x7F <= 7:
++                which = value & 7
++                index = (None, 1, 2, 3, 4, 5, 9 if r[18] else 10, 0)[which]
++                if value & 0x80:
++                    v = int.from_bytes(self.wr[0x13:0x16], "little")
++                    if which == 0:
++                        r[12], r[13], r[17] = (
++                            v & 255,
++                            (v >> 8) & 255,
++                            (v >> 16) & 255,
++                        )
++                    else:
++                        r[index] = v
++                        if which == 7:
++                            self.prefetch = True
++                else:
++                    v = (
++                        r[12] | r[13] << 8 | r[17] << 16
++                        if which == 0
++                        else r[index]
++                    )
++                    if which == 7 and not self.prefetch:
++                        # ZDI reports the CPU's two-byte instruction prefetch
++                        # ahead of the memory stream. The shipped split-read
++                        # algorithms subtract three, then discard one dummy
++                        # byte after writing PC for the next block.
++                        v = (v + 2) & 0xFFFFFF
++                    self.rd[:] = v.to_bytes(3, "little")
++            else:
++                raise DTLError(f"ZDI RW control {value:02x}")
++            self.rsp.set_registers(r)
++        elif address == 0x25:
++            self.inject()
++        elif (
++            address <= 0x0F
++            or 0x13 <= address <= 0x15
++            or 0x21 <= address <= 0x24
++        ):
++            pass  # Write-only ZDI latch.
++        else:
++            raise DTLError(f"unsupported ZDI write {address:02x}")
++
++    def sync_breakpoints(self, control):
++        points = {
++            int.from_bytes(self.wr[i * 4 : i * 4 + 3], "little")
++            for i in range(4)
++            if control & (8 << i)
++        }
++        for address in self.breakpoints - points:
++            if self.rsp.command(f"z0,{address:x},1") != "OK":
++                raise DTLError("clear breakpoint")
++        for address in points - self.breakpoints:
++            if self.rsp.command(f"Z0,{address:x},1") != "OK":
++                raise DTLError("set breakpoint")
++        self.breakpoints = points
++
++    def inject(self):
++        r = self.rsp.registers()
++        op, second, third = self.wr[0x25], self.wr[0x24], self.wr[0x23]
++        if op == 0x3E:
++            r[12] = second
++        elif op == 0xF3:
++            r[20] = r[21] = 0
++        elif op == 0xFB:
++            r[20] = r[21] = 1
++        elif op == 3:
++            r[1] = (r[1] + 1) & (0xFFFFFF if r[18] else 0xFFFF)
++        elif op == 0xED:
++            if second in (0x38, 0x78):
++                port = third if second == 0x38 else r[1] & 0xFFFF
++                r[12] = self.rsp.memory(0x1000000 + port, 1)[0]
++            elif second in (0x39, 0x79):
++                port = third if second == 0x39 else r[1] & 0xFFFF
++                self.rsp.write_memory(0x1000000 + port, bytes([r[12]]))
++            elif second == 0x4F:
++                r[16] = r[12]
++            elif second == 0x5F:
++                r[12] = r[16]
++                r[13] = (
++                    (r[13] & 1)
++                    | (r[12] & 0x80)
++                    | (0x40 if not r[12] else 0)
++                    | (r[21] << 2)
++                )
++            elif second == 0xD7:
++                r[3] = r[11]
++                r[13] = (
++                    (r[13] & 1)
++                    | (0x80 if r[11] & 0x8000 else 0)
++                    | (0x40 if not r[11] else 0)
++                    | (r[21] << 2)
++                )
++            elif second == 0xC7:
++                r[11] = r[3] & 0xFFFF
++            elif second == 0x6D:
++                r[17] = r[12]
++            elif second == 0x6E:
++                r[12] = r[17]
++            elif second in (0x7D, 0x7E):
++                r[19] = int(second == 0x7D)
++            else:
++                raise DTLError(f"unsupported injected ED {second:02x}")
++        else:
++            raise DTLError(f"unsupported injected opcode {op:02x}")
++        self.rsp.set_registers(r)
+diff --git a/target/ez80/Kconfig b/target/ez80/Kconfig
+new file mode 100644
+index 0000000..3e966c4
+--- /dev/null
++++ b/target/ez80/Kconfig
+@@ -0,0 +1,3 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++config EZ80
++    bool
+diff --git a/target/ez80/cpu-param.h b/target/ez80/cpu-param.h
+new file mode 100644
+index 0000000..8a94ebe
+--- /dev/null
++++ b/target/ez80/cpu-param.h
+@@ -0,0 +1,6 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef EZ80_CPU_PARAM_H
++#define EZ80_CPU_PARAM_H
++#define TARGET_PAGE_BITS 10
++#define TARGET_VIRT_ADDR_SPACE_BITS 24
++#endif
+diff --git a/target/ez80/cpu-qom.h b/target/ez80/cpu-qom.h
+new file mode 100644
+index 0000000..f134616
+--- /dev/null
++++ b/target/ez80/cpu-qom.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef EZ80_CPU_QOM_H
++#define EZ80_CPU_QOM_H
++#include "hw/core/cpu.h"
++#define TYPE_EZ80_CPU "ez80-cpu"
++OBJECT_DECLARE_CPU_TYPE(EZ80CPU, EZ80CPUClass, EZ80_CPU)
++#define EZ80_CPU_TYPE_NAME(model) model "-ez80-cpu"
++#endif
+diff --git a/target/ez80/cpu.c b/target/ez80/cpu.c
+new file mode 100644
+index 0000000..89b5d47
+--- /dev/null
++++ b/target/ez80/cpu.c
+@@ -0,0 +1,205 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "cpu.h"
++#include "exec/cpu-interrupt.h"
++#include "exec/translation-block.h"
++#include "exec/page-protection.h"
++#include "exec/cputlb.h"
++#include "exec/target_page.h"
++#include "accel/tcg/cpu-ops.h"
++#include "hw/core/sysemu-cpu-ops.h"
++#include "qemu/qemu-print.h"
++#include "migration/vmstate.h"
++
++static void ez80_set_pc(CPUState *cs, vaddr pc)
++{
++    cpu_env(cs)->pc = pc & EZ80_ADDR_MASK;
++}
++static vaddr ez80_get_pc(CPUState *cs)
++{
++    return cpu_env(cs)->pc;
++}
++static bool ez80_has_work(CPUState *cs)
++{
++    CPUEZ80State *e = cpu_env(cs);
++    return cpu_test_interrupt(cs, CPU_INTERRUPT_HARD)
++        && e->iff1 && !e->ei_delay && !e->sleeping;
++}
++static bool ez80_exec_interrupt(CPUState *cs, int request)
++{
++    CPUEZ80State *e = cpu_env(cs);
++    if ((request & CPU_INTERRUPT_HARD) && e->iff1
++        && !e->ei_delay && !e->sleeping) {
++        cs->halted = 0;
++        ez80_cpu_take_interrupt(e);
++        return true;
++    }
++    return false;
++}
++
++static int ez80_mmu_index(CPUState *cs, bool ifetch)
++{
++    return 0;
++}
++static TCGTBCPUState ez80_tb_state(CPUState *cs)
++{
++    CPUEZ80State *env = cpu_env(cs);
++    return (TCGTBCPUState) {
++        .pc = env->pc,
++        .flags = env->adl | (env->mbase << 8),
++    };
++}
++static void ez80_sync_tb(CPUState *cs, const TranslationBlock *tb)
++{
++    cpu_env(cs)->pc = tb->pc;
++}
++static void ez80_restore(CPUState *cs, const TranslationBlock *tb,
++                          const uint64_t *data)
++{
++    cpu_env(cs)->pc = data[0];
++}
++static bool ez80_tlb_fill(CPUState *cs, vaddr addr, int size,
++                          MMUAccessType type, int idx, bool probe,
++                          uintptr_t retaddr)
++{
++    vaddr page = addr & TARGET_PAGE_MASK;
++    tlb_set_page(cs, page, page, PAGE_READ | PAGE_WRITE | PAGE_EXEC,
++                 idx, TARGET_PAGE_SIZE);
++    return true;
++}
++static hwaddr ez80_phys_debug(CPUState *cs, vaddr addr)
++{
++    return addr & EZ80_ADDR_MASK;
++}
++static void ez80_reset_hold(Object *obj, ResetType type)
++{
++    EZ80CPUClass *ecc = EZ80_CPU_GET_CLASS(obj);
++    CPUEZ80State *env = cpu_env(CPU(obj));
++    if (ecc->parent_phases.hold) {
++        ecc->parent_phases.hold(obj, type);
++    }
++    /* Undefined working registers retain their state on reset. */
++    env->pc = 0;
++    env->adl = 0;
++    env->mbase = 0;
++    env->madl = 0;
++    env->iff1 = env->iff2 = 0;
++    env->im = 0;
++    env->ei_delay = env->sleeping = 0;
++    env->irq_vector = 0;
++    env->ix = env->iy = 0;
++    env->sps = env->spl = 0;
++    env->i = env->r = 0;
++}
++static void ez80_realize(DeviceState *dev, Error **errp)
++{
++    CPUState *cs = CPU(dev);
++    EZ80CPUClass *ecc = EZ80_CPU_GET_CLASS(dev);
++    Error *err = NULL;
++    cpu_exec_realizefn(cs, &err);
++    if (err) {
++        error_propagate(errp, err);
++        return;
++    }
++    qemu_init_vcpu(cs);
++    cpu_reset(cs);
++    ecc->parent_realize(dev, errp);
++}
++static void ez80_set_irq(void *opaque, int line, int level)
++{
++    CPUState *cs = opaque;
++    CPUEZ80State *e = cpu_env(cs);
++    if (line == 0) {
++        if (level) {
++            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
++        } else {
++            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
++        }
++    } else {
++        uint16_t bit = 1u << (line - 1);
++        e->irq_vector = (e->irq_vector & ~bit) | (level ? bit : 0);
++    }
++}
++static void ez80_init(Object *obj)
++{
++    qdev_init_gpio_in(DEVICE(obj), ez80_set_irq, 10);
++}
++static ObjectClass *ez80_class_by_name(const char *name)
++{
++    g_autofree char *type = g_strdup_printf("%s-ez80-cpu", name);
++    return object_class_by_name(type);
++}
++static void ez80_dump_state(CPUState *cs, FILE *f, int flags)
++{
++    CPUEZ80State *e = cpu_env(cs);
++    qemu_fprintf(f, "PC=%06x ADL=%u MBASE=%02x MADL=%u HALTED=%u SLEEP=%u\n",
++                 e->pc, e->adl, e->mbase, e->madl, cs->halted, e->sleeping);
++    qemu_fprintf(f, "AF=%02x%02x BC=%06x DE=%06x HL=%06x IX=%06x IY=%06x\n",
++                 e->a, e->f, e->bc, e->de, e->hl, e->ix, e->iy);
++    qemu_fprintf(f, "SPS=%04x SPL=%06x I=%04x R=%02x IFF1=%u IFF2=%u IM=%u\n",
++                 e->sps, e->spl, e->i, e->r, e->iff1, e->iff2, e->im);
++}
++static const SysemuCPUOps ez80_sysemu_ops = {
++    .has_work = ez80_has_work,
++    .get_phys_addr_debug = ez80_phys_debug,
++};
++static const TCGCPUOps ez80_tcg_ops = {
++    .guest_default_memory_order = 0,
++    .mttcg_supported = false,
++    .initialize = ez80_translate_init,
++    .translate_code = ez80_translate_code,
++    .get_tb_cpu_state = ez80_tb_state,
++    .synchronize_from_tb = ez80_sync_tb,
++    .restore_state_to_opc = ez80_restore,
++    .mmu_index = ez80_mmu_index,
++    .cpu_exec_interrupt = ez80_exec_interrupt,
++    .cpu_exec_halt = ez80_has_work,
++    .cpu_exec_reset = cpu_reset,
++    .tlb_fill = ez80_tlb_fill,
++    .pointer_wrap = cpu_pointer_wrap_uint32,
++};
++static const VMStateDescription ez80_vmstate = {
++    .name = "ez80-cpu",
++    .unmigratable = true,
++};
++
++static void ez80_class_init(ObjectClass *oc, const void *data)
++{
++    CPUClass *cc = CPU_CLASS(oc);
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    EZ80CPUClass *ecc = EZ80_CPU_CLASS(oc);
++    device_class_set_parent_realize(dc, ez80_realize, &ecc->parent_realize);
++    resettable_class_set_parent_phases(RESETTABLE_CLASS(oc), NULL,
++                                      ez80_reset_hold, NULL,
++                                      &ecc->parent_phases);
++    cc->class_by_name = ez80_class_by_name;
++    cc->set_pc = ez80_set_pc;
++    cc->get_pc = ez80_get_pc;
++    cc->dump_state = ez80_dump_state;
++    cc->gdb_read_register = ez80_cpu_gdb_read_register;
++    cc->gdb_write_register = ez80_cpu_gdb_write_register;
++    cc->gdb_num_core_regs = 24;
++    cc->memory_rw_debug = ez80_cpu_memory_rw_debug;
++    cc->sysemu_ops = &ez80_sysemu_ops;
++    cc->tcg_ops = &ez80_tcg_ops;
++    /* Migration requires complete CPU and SoC state. */
++    dc->vmsd = &ez80_vmstate;
++    dc->user_creatable = false;
++}
++static const TypeInfo ez80_types[] = {
++    {
++        .name = TYPE_EZ80_CPU,
++        .parent = TYPE_CPU,
++        .instance_size = sizeof(EZ80CPU),
++        .instance_align = __alignof(EZ80CPU),
++        .instance_init = ez80_init,
++        .class_size = sizeof(EZ80CPUClass),
++        .class_init = ez80_class_init,
++        .abstract = true,
++    }, {
++        .name = EZ80_CPU_TYPE_NAME("ez80f91"),
++        .parent = TYPE_EZ80_CPU,
++    },
++};
++DEFINE_TYPES(ez80_types)
+diff --git a/target/ez80/cpu.h b/target/ez80/cpu.h
+new file mode 100644
+index 0000000..f73a06f
+--- /dev/null
++++ b/target/ez80/cpu.h
+@@ -0,0 +1,41 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef EZ80_CPU_H
++#define EZ80_CPU_H
++#include "cpu-qom.h"
++#include "exec/cpu-common.h"
++#define CPU_RESOLVING_TYPE TYPE_EZ80_CPU
++#define EZ80_ADDR_MASK 0xffffffu
++#define EZ80_MLONG (1u << 0)
++#define EZ80_ILONG (1u << 1)
++#define EZ80_PREFIX (1u << 2)
++#define EZ80_INDEX_SHIFT 3
++#define EZ80_ED (1u << 5)
++#define EZ80_CB (1u << 6)
++#define EZ80_R_SHIFT 8
++
++typedef struct CPUArchState {
++    uint32_t pc;
++    uint32_t bc, de, hl, ix, iy;
++    uint32_t bc_shadow, de_shadow, hl_shadow;
++    uint32_t spl;
++    uint16_t sps, i, irq_vector;
++    uint8_t a, f, a_shadow, f_shadow, r;
++    uint8_t mbase, adl, madl, iff1, iff2, im, ei_delay, sleeping;
++} CPUEZ80State;
++
++struct ArchCPU {
++    CPUState parent_obj;
++    CPUEZ80State env;
++};
++struct EZ80CPUClass {
++    CPUClass parent_class;
++    DeviceRealize parent_realize;
++    ResettablePhases parent_phases;
++};
++void ez80_cpu_take_interrupt(CPUEZ80State *env);
++void ez80_translate_init(void);
++void ez80_translate_code(CPUState *, TranslationBlock *, int *, vaddr, void *);
++int ez80_cpu_gdb_read_register(CPUState *, GByteArray *, int);
++int ez80_cpu_gdb_write_register(CPUState *, uint8_t *, int);
++int ez80_cpu_memory_rw_debug(CPUState *, vaddr, uint8_t *, size_t, bool);
++#endif
+diff --git a/target/ez80/decode.h b/target/ez80/decode.h
+new file mode 100644
+--- /dev/null
++++ b/target/ez80/decode.h
+@@ -0,0 +1,211 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef EZ80_DECODE_H
++#define EZ80_DECODE_H
++#include "cpu.h"
++typedef struct EZ80Decode {
++    uint8_t (*read)(void *opaque, uint32_t address);
++    void *opaque;
++    uint32_t cursor, arg, mode;
++    unsigned op;
++    bool adl, valid;
++} EZ80Decode;
++static inline uint8_t fetch(EZ80Decode *ctx)
++{
++    uint8_t b = ctx->read(ctx->opaque, ctx->cursor);
++    ctx->cursor = ctx->adl ? (ctx->cursor + 1) & EZ80_ADDR_MASK
++        : (ctx->cursor & 0xff0000) | ((ctx->cursor + 1) & 0xffff);
++    return b;
++}
++/* The byte which failed decoding, preserving the Z80 bank on PC wrap. */
++static inline uint32_t ez80_illegal_pc(const EZ80Decode *ctx)
++{
++    return ctx->adl ? (ctx->cursor - 1) & EZ80_ADDR_MASK
++        : (ctx->cursor & 0xff0000) | ((ctx->cursor - 1) & 0xffff);
++}
++static inline uint32_t immediate(EZ80Decode *ctx, unsigned size)
++{
++    uint32_t value = 0;
++    for (unsigned i = 0; i < size; i++) {
++        value |= (uint32_t)fetch(ctx) << (8 * i);
++    }
++    return value;
++}
++static inline bool ez80_block_io(unsigned op)
++{
++    return (op & 0xe6) == 0xa2 || (op & 0xe6) == 0x82
++        || (op & 0xf6) == 0xc2 || (op & 0xc7) == 0x84;
++}
++static inline bool ez80_index_byte(unsigned op)
++{
++    unsigned dst = (op >> 3) & 7, src = op & 7;
++    return op == 0x24 || op == 0x25 || op == 0x26
++        || op == 0x2c || op == 0x2d || op == 0x2e
++        || (op >= 0x80 && op <= 0xbf && (src == 4 || src == 5))
++        || (op >= 0x40 && op <= 0x7f && dst != 6 && src != 6
++            && (dst == 4 || dst == 5 || src == 4 || src == 5));
++}
++static inline bool ez80_halt(unsigned op, unsigned mode)
++{
++    return op == 0x76 && !(mode & EZ80_CB)
++        && !((mode >> EZ80_INDEX_SHIFT) & 3);
++}
++static inline void ez80_decode(EZ80Decode *ctx)
++{
++    uint32_t pc = ctx->cursor, arg = 0;
++    uint32_t mode = ctx->adl ? EZ80_MLONG | EZ80_ILONG : 0;
++    unsigned r_count = 1, index = 0;
++    uint8_t op;
++    bool valid = false;
++
++    ctx->cursor = pc;
++    op = fetch(ctx);
++    if (op == 0x40 || op == 0x49 || op == 0x52 || op == 0x5b) {
++        mode = EZ80_PREFIX | ((op & 8) ? EZ80_MLONG : 0)
++             | ((op & 0x10) ? EZ80_ILONG : 0);
++        op = fetch(ctx);
++        r_count++;
++    }
++    if (op == 0xdd || op == 0xfd) {
++        index = op == 0xdd ? 1 : 2;
++        mode |= index << EZ80_INDEX_SHIFT;
++        op = fetch(ctx);
++        r_count++;
++    }
++    if (op == 0xcb) {
++        if (index) {
++            arg = fetch(ctx);
++        } else {
++            r_count++;
++        }
++        op = fetch(ctx);
++        mode |= EZ80_CB;
++        valid = (op < 0x30 || op >= 0x38)
++             && ((!index && !(mode & EZ80_PREFIX)) || (op & 7) == 6);
++    } else if (op == 0xed && !index) {
++        op = fetch(ctx);
++        r_count++;
++        if (((op & 0xc7) == 0x00 || (op & 0xc7) == 0x01)
++            && ((op >> 3) & 7) != 6) {
++            arg = fetch(ctx);
++            valid = true; /* IN0/OUT0 r,(n) */
++        } else if (op == 0x64 || op == 0x74) {
++            arg = fetch(ctx);
++            valid = !(mode & EZ80_PREFIX);
++        } else if ((op & 0xcf) == 0x43 || (op & 0xcf) == 0x4b) {
++            arg = immediate(ctx, (mode & EZ80_ILONG) ? 3 : 2);
++            valid = true;
++        } else if (op == 0x02 || op == 0x12 || op == 0x22
++                   || op == 0x03 || op == 0x13 || op == 0x23
++                   || op == 0x32 || op == 0x33 || op == 0x54 || op == 0x55
++                   || op == 0x65 || op == 0x66) {
++            arg = fetch(ctx);
++            valid = true;
++        } else if ((op & 0xcf) == 0x42 || (op & 0xcf) == 0x4a
++                   || (op & 0xe6) == 0xa0 || op == 0x47 || op == 0x57
++                   || op == 0xc7 || op == 0x46 || op == 0x56 || op == 0x5e
++                   || op == 0x4d || op == 0x07 || op == 0x17 || op == 0x27
++                   || op == 0x0f || op == 0x1f || op == 0x2f
++                   || op == 0x31 || op == 0x37 || op == 0x3e || op == 0x3f
++                   || (op & 0xcf) == 0x4c
++                   || op == 0x6d || op == 0x6e || op == 0x7d || op == 0x7e
++                   || op == 0x44 || op == 0x45 || op == 0x4f || op == 0x5f
++                   || op == 0xd7 || op == 0x67 || op == 0x6f || op == 0x76
++                   || (op & 0xc7) == 0x04 || ez80_block_io(op)
++                   || (((op & 0xc7) == 0x40 || (op & 0xc7) == 0x41)
++                       && ((op >> 3) & 7) != 6)) {
++            valid = true;
++        }
++        mode |= EZ80_ED;
++    } else if (index) {
++        if (ez80_index_byte(op)) {
++            if (op == 0x26 || op == 0x2e) {
++                arg = fetch(ctx);
++            }
++            valid = !(mode & EZ80_PREFIX);
++        } else if (op == 0x21 || op == 0x22 || op == 0x2a) {
++            arg = immediate(ctx, (mode & EZ80_ILONG) ? 3 : 2);
++            valid = true;
++        } else if (op == 0x07 || op == 0x17 || op == 0x27
++                   || op == 0x0f || op == 0x1f || op == 0x2f
++                   || (op >= 0x70 && op <= 0x77 && op != 0x76)
++                   || ((op & 0xc7) == 0x46 && op != 0x76) || op == 0x36
++                   || op == 0x34 || op == 0x35
++                   || (op >= 0x80 && op <= 0xbf && (op & 7) == 6)
++                   || op == 0x31 || op == 0x37 || op == 0x3e || op == 0x3f) {
++            arg = fetch(ctx);
++            if (op == 0x36) {
++                arg |= (uint32_t)fetch(ctx) << 8;
++            }
++            valid = true;
++        } else if (op == 0xe1 || op == 0xe5 || op == 0xe9 || op == 0xf9
++                   || op == 0x23 || op == 0x2b || op == 0xe3
++                   || (op & 0xcf) == 0x09) {
++            valid = true;
++        }
++    } else if ((op & 0xcf) == 0x01) {
++        arg = immediate(ctx, (mode & EZ80_ILONG) ? 3 : 2);
++        valid = true; /* LD rr,nn */
++    } else if ((op & 0xc7) == 0x06) {
++        arg = fetch(ctx);
++        valid = true; /* LD r,n and LD (HL),n */
++    } else if ((op >= 0x40 && op <= 0x7f) || op == 0x00
++               || (op & 0xcf) == 0x03 || (op & 0xcf) == 0x0b
++               || (op & 0xcf) == 0xc1 || (op & 0xcf) == 0xc5
++               || op == 0xf9 || op == 0xeb || op == 0xe9
++               || op == 0xc9 || (op & 0xc7) == 0xc0 || op == 0xf3 || op == 0xfb
++               || op == 0x02 || op == 0x0a || op == 0x12 || op == 0x1a
++               || op == 0xe3 || op == 0x08 || op == 0xd9 || op == 0x37
++               || op == 0x07 || op == 0x0f || op == 0x17 || op == 0x1f
++               || op == 0x2f || op == 0x27 || op == 0x3f
++               || (op & 0xc7) == 0xc7
++               || (op & 0xcf) == 0x09 || (op >= 0x80 && op <= 0xbf)
++               || (op & 0xc7) == 0x04 || (op & 0xc7) == 0x05) {
++        valid = true;
++    } else if (op == 0xc3 || op == 0xcd || op == 0x32 || op == 0x3a
++               || op == 0x22 || op == 0x2a
++               || (op & 0xc7) == 0xc2 || (op & 0xc7) == 0xc4) {
++        arg = immediate(ctx, (mode & EZ80_ILONG) ? 3 : 2);
++        valid = true;
++    } else if (op == 0xdb || op == 0xd3) {
++        arg = fetch(ctx);
++        valid = !(mode & EZ80_PREFIX);
++    } else if (op == 0x10 || op == 0x18 || op == 0x20 || op == 0x28
++               || op == 0x30 || op == 0x38 || op == 0xe6 || op == 0xf6
++               || op == 0xee || op == 0xfe || op == 0xc6 || op == 0xce
++               || op == 0xd6 || op == 0xde) {
++        arg = fetch(ctx);
++        valid = !(mode & EZ80_PREFIX);
++    } else if (op == 0xaf || op == 0xb7) {
++        valid = !(mode & EZ80_PREFIX);
++    }
++    /* Avoid accepting unrelated index/size prefixes as ordinary opcodes. */
++    if ((mode & EZ80_PREFIX) && !(mode & EZ80_CB)
++        && !(mode & EZ80_ED)
++        && (op == 0x00 || op == 0x76 || op == 0xf3 || op == 0xeb
++            || (!index && (op == 0x27 || op == 0x3f)))) {
++        valid = false;
++    }
++    if ((op == 0xc3 || op == 0xe9) && !(mode & EZ80_ED)) {
++        /* Immediate JP allows SIS/LIL; register JP allows either IS/IL. */
++        if (op == 0xc3 && !!(mode & EZ80_MLONG) != !!(mode & EZ80_ILONG)) {
++            valid = false;
++        }
++    }
++    if (op == 0xc9 && (mode & EZ80_PREFIX) && !(mode & EZ80_MLONG)) {
++        valid = false; /* RET.S is invalid for mixed-mode frames. */
++    }
++    if ((mode & EZ80_ED) && (op == 0x4d || op == 0x45)
++        && (mode & EZ80_PREFIX) && !(mode & EZ80_MLONG)) {
++        valid = false;
++    }
++    if ((mode & EZ80_ED) && (mode & EZ80_PREFIX)
++        && (op == 0x44 || op == 0x4f || op == 0x5f || op == 0xd7
++            || op == 0x76 || ((op & 0xc7) == 0x04 && op != 0x34))) {
++        valid = false;
++    }
++    ctx->op = op;
++    ctx->arg = arg;
++    ctx->mode = mode | (r_count << EZ80_R_SHIFT);
++    ctx->valid = valid;
++}
++#endif
+diff --git a/target/ez80/gdbstub.c b/target/ez80/gdbstub.c
+new file mode 100644
+index 0000000..e1b322b
+--- /dev/null
++++ b/target/ez80/gdbstub.c
+@@ -0,0 +1,134 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "cpu.h"
++#include "gdbstub/helpers.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
++#include "exec/cpu-common.h"
++/* Private debugger ABI: 24 little-endian 32-bit slots. */
++int ez80_cpu_gdb_read_register(CPUState *cs, GByteArray *buf, int n)
++{
++    CPUEZ80State *e = cpu_env(cs);
++    switch (n) {
++    case 0: return gdb_get_reg32(buf, e->pc);
++    case 1: return gdb_get_reg32(buf, e->bc);
++    case 2: return gdb_get_reg32(buf, e->de);
++    case 3: return gdb_get_reg32(buf, e->hl);
++    case 4: return gdb_get_reg32(buf, e->ix);
++    case 5: return gdb_get_reg32(buf, e->iy);
++    case 6: return gdb_get_reg32(buf, e->bc_shadow);
++    case 7: return gdb_get_reg32(buf, e->de_shadow);
++    case 8: return gdb_get_reg32(buf, e->hl_shadow);
++    case 9: return gdb_get_reg32(buf, e->spl);
++    case 10: return gdb_get_reg32(buf, e->sps);
++    case 11: return gdb_get_reg32(buf, e->i);
++    case 12: return gdb_get_reg32(buf, e->a);
++    case 13: return gdb_get_reg32(buf, e->f);
++    case 14: return gdb_get_reg32(buf, e->a_shadow);
++    case 15: return gdb_get_reg32(buf, e->f_shadow);
++    case 16: return gdb_get_reg32(buf, e->r);
++    case 17: return gdb_get_reg32(buf, e->mbase);
++    case 18: return gdb_get_reg32(buf, e->adl);
++    case 19: return gdb_get_reg32(buf, e->madl);
++    case 20: return gdb_get_reg32(buf, e->iff1);
++    case 21: return gdb_get_reg32(buf, e->iff2);
++    case 22: return gdb_get_reg32(buf, e->im);
++    case 23: return gdb_get_reg32(buf, e->ei_delay);
++    default: return 0;
++    }
++}
++int ez80_cpu_gdb_write_register(CPUState *cs, uint8_t *buf, int n)
++{
++    CPUEZ80State *e = cpu_env(cs);
++    uint32_t value = ldl_le_p(buf);
++    switch (n) {
++    case 0:
++        e->pc = value & 0xffffff;
++        break;
++    case 1:
++        e->bc = value & 0xffffff;
++        break;
++    case 2:
++        e->de = value & 0xffffff;
++        break;
++    case 3:
++        e->hl = value & 0xffffff;
++        break;
++    case 4:
++        e->ix = value & 0xffffff;
++        break;
++    case 5:
++        e->iy = value & 0xffffff;
++        break;
++    case 6:
++        e->bc_shadow = value & 0xffffff;
++        break;
++    case 7:
++        e->de_shadow = value & 0xffffff;
++        break;
++    case 8:
++        e->hl_shadow = value & 0xffffff;
++        break;
++    case 9:
++        e->spl = value & 0xffffff;
++        break;
++    case 10:
++        e->sps = value & 0xffff;
++        break;
++    case 11:
++        e->i = value & 0xffff;
++        break;
++    case 12:
++        e->a = value & 0xff;
++        break;
++    case 13:
++        e->f = value & 0xff;
++        break;
++    case 14:
++        e->a_shadow = value & 0xff;
++        break;
++    case 15:
++        e->f_shadow = value & 0xff;
++        break;
++    case 16:
++        e->r = value & 0xff;
++        break;
++    case 17:
++        e->mbase = value & 0xff;
++        break;
++    case 18:
++        e->adl = value & 1;
++        break;
++    case 19:
++        e->madl = value & 1;
++        break;
++    case 20:
++        e->iff1 = value & 1;
++        break;
++    case 21:
++        e->iff2 = value & 1;
++        break;
++    case 22:
++        e->im = value & 3;
++        break;
++    case 23:
++        e->ei_delay = value & 0xff;
++        break;
++    default: return 0;
++    }
++    return 4;
++}
++/* A private debug-only window exposes the 16-bit port space. */
++int ez80_cpu_memory_rw_debug(CPUState *cs, vaddr addr, uint8_t *buf,
++                            size_t len, bool is_write)
++{
++    if (addr >= 0x1000000 && addr < 0x1010000) {
++        if (len > 0x1010000 - addr) {
++            return -1;
++        }
++        return address_space_rw(&address_space_io, addr - 0x1000000,
++                                MEMTXATTRS_UNSPECIFIED, buf, len, is_write)
++               == MEMTX_OK ? 0 : -1;
++    }
++    return cpu_memory_rw_debug(cs, addr, buf, len, is_write);
++}
+diff --git a/target/ez80/helper.c b/target/ez80/helper.c
+new file mode 100644
+--- /dev/null
++++ b/target/ez80/helper.c
+@@ -0,0 +1,903 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "cpu.h"
++#include "decode.h"
++#include "exec/helper-proto.h"
++#include "accel/tcg/cpu-loop.h"
++#include "accel/tcg/cpu-ldst.h"
++#include "accel/tcg/cpu-ldst-common.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
++#include "qemu/error-report.h"
++
++#define FLAG_C 0x01
++#define FLAG_N 0x02
++#define FLAG_PV 0x04
++#define FLAG_H 0x10
++#define FLAG_Z 0x40
++#define FLAG_S 0x80
++
++void helper_halt(CPUEZ80State *env)
++{
++    CPUState *cs = env_cpu(env);
++    cs->halted = 1;
++    cs->exception_index = EXCP_HLT;
++    cpu_loop_exit(cs);
++}
++void helper_unsupported(CPUEZ80State *env, uint32_t pc, uint32_t opcode)
++{
++    error_report("eZ80F91: unsupported opcode %02x at PC=%06x", opcode, pc);
++    exit(EXIT_FAILURE);
++}
++static uint32_t address(CPUEZ80State *e, uint32_t value, bool long_mode)
++{
++    return long_mode ? value & EZ80_ADDR_MASK
++                     : (e->mbase << 16) | (value & 0xffff);
++}
++static uint32_t *pair(CPUEZ80State *e, unsigned reg, unsigned index)
++{
++    switch (reg) {
++    case 0:
++        return &e->bc;
++    case 1:
++        return &e->de;
++    case 2:
++        return index == 1 ? &e->ix : index == 2 ? &e->iy : &e->hl;
++    default:
++        g_assert_not_reached();
++    }
++}
++static uint8_t read_reg(CPUEZ80State *e, unsigned reg, bool lm, uintptr_t ra)
++{
++    if (reg == 7) {
++        return e->a;
++    }
++    if (reg == 6) {
++        return cpu_ldub_data_ra(e, address(e, e->hl, lm), ra);
++    }
++    return *pair(e, reg / 2, 0) >> ((reg & 1) ? 0 : 8);
++}
++static void write_reg(CPUEZ80State *e, unsigned reg, uint8_t value,
++                      bool lm, uintptr_t ra)
++{
++    if (reg == 7) {
++        e->a = value;
++    } else if (reg == 6) {
++        cpu_stb_data_ra(e, address(e, e->hl, lm), value, ra);
++    } else {
++        uint32_t *p = pair(e, reg / 2, 0);
++        unsigned shift = (reg & 1) ? 0 : 8;
++        *p = (*p & ~(0xffu << shift)) | ((uint32_t)value << shift);
++    }
++}
++static uint8_t szp(uint8_t value)
++{
++    return (value & FLAG_S) | (value == 0 ? FLAG_Z : 0)
++        | (__builtin_parity((unsigned)value) == 0 ? FLAG_PV : 0);
++}
++static void push(CPUEZ80State *e, uint32_t value, unsigned n, bool lm,
++                 uintptr_t ra)
++{
++    uint32_t sp = lm ? e->spl : e->sps;
++    uint32_t mask = lm ? EZ80_ADDR_MASK : 0xffff;
++    for (unsigned i = n; i != 0; i--) {
++        sp = (sp - 1) & mask;
++        cpu_stb_data_ra(e, address(e, sp, lm), value >> ((i - 1) * 8), ra);
++    }
++    if (lm) {
++        e->spl = sp;
++    } else {
++        e->sps = sp;
++    }
++}
++static uint32_t pop(CPUEZ80State *e, unsigned n, bool lm, uintptr_t ra)
++{
++    uint32_t sp = lm ? e->spl : e->sps;
++    uint32_t mask = lm ? EZ80_ADDR_MASK : 0xffff, value = 0;
++    for (unsigned i = 0; i < n; i++) {
++        value |= (uint32_t)cpu_ldub_data_ra(e, address(e, sp, lm), ra)
++                 << (i * 8);
++        sp = (sp + 1) & mask;
++    }
++    if (lm) {
++        e->spl = sp;
++    } else {
++        e->sps = sp;
++    }
++    return value;
++}
++void helper_illegal(CPUEZ80State *e, uint32_t pc, uint32_t mode)
++{
++    uintptr_t ra = GETPC();
++    /* TRAP stacks the address of the illegal opcode byte. With MADL,
++     * enter the ADL supervisor on SPL, using RET.L markers 02h/03h.
++     * Without MADL the current memory mode/stack is retained. IFF is unchanged.
++     */
++    push(e, pc, e->adl ? 3 : 2, e->adl || e->madl, ra);
++    if (e->madl) {
++        push(e, e->adl ? 3 : 2, 1, true, ra);
++        e->adl = 1;
++    }
++    e->r = (e->r & 0x80) | ((e->r + (mode >> EZ80_R_SHIFT)) & 0x7f);
++    if (e->ei_delay) {
++        e->ei_delay--;
++    }
++    e->pc = address(e, 0, e->adl);
++}
++static bool condition_code(CPUEZ80State *e, unsigned cc)
++{
++    switch (cc) {
++    case 0:
++        return !(e->f & FLAG_Z);
++    case 1:
++        return e->f & FLAG_Z;
++    case 2:
++        return !(e->f & FLAG_C);
++    case 3:
++        return e->f & FLAG_C;
++    case 4:
++        return !(e->f & FLAG_PV);
++    case 5:
++        return e->f & FLAG_PV;
++    case 6:
++        return !(e->f & FLAG_S);
++    case 7:
++        return e->f & FLAG_S;
++    default:
++        g_assert_not_reached();
++    }
++}
++static bool condition(CPUEZ80State *e, unsigned op)
++{
++    switch (op) {
++    case 0x20:
++        return !(e->f & FLAG_Z);
++    case 0x28:
++        return e->f & FLAG_Z;
++    case 0x30:
++        return !(e->f & FLAG_C);
++    case 0x38:
++        return e->f & FLAG_C;
++    default:
++        return true;
++    }
++}
++static void mixed_return(CPUEZ80State *e, uintptr_t ra)
++{
++    bool from_long = e->adl;
++    unsigned marker = pop(e, 1, true, ra);
++    uint32_t value;
++    if (marker != 2 && marker != 3) {
++        error_report("eZ80F91: invalid mixed return marker %02x", marker);
++        exit(EXIT_FAILURE);
++    }
++    if (from_long) {
++        value = pop(e, marker == 3 ? 3 : 2, true, ra);
++    } else {
++        value = marker == 3 ? pop(e, 1, true, ra) << 16 : 0;
++        value |= pop(e, 2, false, ra);
++    }
++    e->adl = marker == 3;
++    e->pc = address(e, value, e->adl);
++}
++
++static uint32_t load_multi(CPUEZ80State *e, uint32_t addr, unsigned width,
++                            bool lm, uintptr_t ra)
++{
++    uint32_t value = 0;
++    for (unsigned i = 0; i < width; i++) {
++        value |= (uint32_t)cpu_ldub_data_ra(e, address(e, addr + i, lm), ra)
++                 << (8 * i);
++    }
++    return value;
++}
++static void store_multi(CPUEZ80State *e, uint32_t addr, uint32_t value,
++                        unsigned width, bool lm, uintptr_t ra)
++{
++    for (unsigned i = 0; i < width; i++) {
++        cpu_stb_data_ra(e, address(e, addr + i, lm), value >> (8 * i), ra);
++    }
++}
++static uint32_t add_sub(CPUEZ80State *e, uint32_t a, uint32_t b,
++                        unsigned carry, bool sub, bool lm, bool full_flags)
++{
++    uint32_t mask = lm ? 0xffffff : 0xffff;
++    uint32_t sign = lm ? 0x800000 : 0x8000;
++    uint32_t wide = sub ? a - b - carry : a + b + carry;
++    uint32_t result = wide & mask;
++    uint8_t flags = (((a ^ b ^ result) & 0x1000) ? FLAG_H : 0)
++                  | ((wide & ~mask) ? FLAG_C : 0) | (sub ? FLAG_N : 0);
++    if (full_flags) {
++        flags |= (result & sign ? FLAG_S : 0) | (!result ? FLAG_Z : 0);
++        if ((sub ? (a ^ b) & (a ^ result) : ~(a ^ b) & (a ^ result)) & sign) {
++            flags |= FLAG_PV;
++        }
++    } else {
++        flags |= e->f & (FLAG_S | FLAG_Z | FLAG_PV);
++    }
++    e->f = flags;
++    return result;
++}
++static void alu8(CPUEZ80State *e, unsigned operation, uint8_t b)
++{
++    unsigned a = e->a, carry = (operation & 1) ? !!(e->f & FLAG_C) : 0;
++    unsigned wide;
++    uint8_t result;
++    bool sub = operation == 2 || operation == 3 || operation == 7;
++    if (operation < 4 || operation == 7) {
++        if (operation == 7) {
++            carry = 0;
++        }
++        wide = sub ? a - b - carry : a + b + carry;
++        result = wide;
++        e->f = (result & FLAG_S) | (!result ? FLAG_Z : 0)
++             | (((a ^ b ^ result) & 0x10) ? FLAG_H : 0)
++             | ((wide & ~0xffu) ? FLAG_C : 0) | (sub ? FLAG_N : 0)
++             | (((sub ? (a ^ b) & (a ^ result)
++                      : ~(a ^ b) & (a ^ result)) & 0x80) ? FLAG_PV : 0);
++        if (operation != 7) {
++            e->a = result;
++        }
++    } else {
++        e->a = operation == 4 ? a & b : operation == 5 ? a ^ b : a | b;
++        e->f = szp(e->a) | (operation == 4 ? FLAG_H : 0);
++    }
++}
++
++void ez80_cpu_take_interrupt(CPUEZ80State *e)
++{
++    bool long_handler = e->adl || e->madl;
++    uint32_t vector = e->irq_vector;
++    uint32_t table = long_handler ? ((e->i & 0xfffeu) << 8) | vector
++                     : (e->mbase << 16) | ((e->i & 0xfeu) << 8) | vector;
++    uint32_t target = load_multi(e, table, long_handler ? 3 : 2,
++                                 long_handler, 0);
++    e->iff1 = e->iff2 = e->ei_delay = 0;
++    if (e->madl) {
++        push(e, e->pc, e->adl ? 3 : 2, true, 0);
++        push(e, e->adl, 1, true, 0); /* F91 interrupt marker: 0/1. */
++        e->adl = 1;
++    } else {
++        push(e, e->pc, e->adl ? 3 : 2, e->adl, 0);
++    }
++    e->pc = address(e, target, long_handler);
++}
++
++static uint8_t inc_dec8(CPUEZ80State *e, uint8_t old, bool sub)
++{
++    uint8_t result = old + (sub ? -1 : 1);
++    e->f = (e->f & FLAG_C) | (result & FLAG_S)
++         | (!result ? FLAG_Z : 0) | (sub ? FLAG_N : 0)
++         | (((old ^ result ^ 1) & 0x10) ? FLAG_H : 0)
++         | (old == (sub ? 0x80 : 0x7f) ? FLAG_PV : 0);
++    return result;
++}
++static uint8_t read_index_byte(CPUEZ80State *e, unsigned reg, unsigned index,
++                                uintptr_t ra)
++{
++    if (reg == 4 || reg == 5) {
++        return *pair(e, 2, index) >> (reg == 4 ? 8 : 0);
++    }
++    return read_reg(e, reg, true, ra);
++}
++static void write_index_byte(CPUEZ80State *e, unsigned reg, unsigned index,
++                              uint8_t value, uintptr_t ra)
++{
++    if (reg == 4 || reg == 5) {
++        uint32_t *p = pair(e, 2, index);
++        unsigned shift = reg == 4 ? 8 : 0;
++        *p = (*p & ~(0xffu << shift)) | ((uint32_t)value << shift);
++    } else {
++        write_reg(e, reg, value, true, ra);
++    }
++}
++static void block_io(CPUEZ80State *e, unsigned op, bool lm,
++                     uint32_t pc, uintptr_t ra)
++{
++    bool two = (op & 0xc7) == 0x84;
++    bool wide_count = (two && (op & 0x10)) || (op & 0xf6) == 0xc2;
++    bool moving_port = (op & 0xe6) == 0x82 || two;
++    bool repeat = wide_count || (op & 0x10);
++    bool output = two ? !!(op & 0x20) : !!(op & 1);
++    int delta = (op & 8) ? -1 : 1;
++    uint32_t mask = lm ? EZ80_ADDR_MASK : 0xffff;
++    uint32_t port = wide_count ? e->de : e->bc;
++    uint32_t count;
++    uint8_t byte;
++
++    port &= (op & 0xe6) == 0x82 ? 0xff : 0xffff;
++    if (output) {
++        byte = cpu_ldub_data_ra(e, address(e, e->hl, lm), ra);
++        address_space_stb(&address_space_io, port, byte,
++                          MEMTXATTRS_UNSPECIFIED, NULL);
++    } else {
++        byte = address_space_ldub(&address_space_io, port,
++                                   MEMTXATTRS_UNSPECIFIED, NULL);
++        cpu_stb_data_ra(e, address(e, e->hl, lm), byte, ra);
++    }
++    e->hl = (e->hl + delta) & mask;
++    if (wide_count) {
++        count = e->bc = (e->bc - 1) & mask;
++        if (moving_port) {
++            e->de = (e->de + delta) & mask;
++        }
++    } else {
++        uint8_t b = (e->bc >> 8) - 1;
++        uint8_t c = e->bc + (moving_port ? delta : 0);
++        e->bc = (e->bc & 0xff0000) | (b << 8) | c;
++        count = b;
++    }
++    /*
++     * UM0077: eZ80 preserves S/H/PV/C for the defined block-I/O variants.
++     * Preserve them deterministically for variants marking them undefined.
++     */
++    e->f = (e->f & ~(FLAG_Z | FLAG_N)) | (!count ? FLAG_Z : 0)
++         | (byte & 0x80 ? FLAG_N : 0);
++    if (repeat && count) {
++        e->pc = pc;
++    }
++}
++
++/* Decoded instruction side effects; no instruction dispatch loop. */
++static void execute(CPUEZ80State *e, uint32_t op, uint32_t arg,
++                    uint32_t mode, uint32_t next_pc, uintptr_t ra)
++{
++    bool lm = mode & EZ80_MLONG, il = mode & EZ80_ILONG;
++    bool prefixed = mode & EZ80_PREFIX;
++    unsigned index = (mode >> EZ80_INDEX_SHIFT) & 3;
++    uint32_t mask = lm ? EZ80_ADDR_MASK : 0xffff;
++    unsigned width = lm ? 3 : 2;
++    uint32_t value, *p;
++    uint32_t pc = e->pc;
++
++    if (e->ei_delay) {
++        e->ei_delay--;
++    }
++    e->pc = next_pc;
++    e->r = (e->r & 0x80) | ((e->r + (mode >> EZ80_R_SHIFT)) & 0x7f);
++    if (mode & EZ80_CB) {
++        unsigned bit = (op >> 3) & 7;
++        uint32_t addr = index ? (*pair(e, 2, index) + (int8_t)arg) & mask
++                              : e->hl;
++        value = index ? cpu_ldub_data_ra(e, address(e, addr, lm), ra)
++                      : read_reg(e, op & 7, lm, ra);
++        if (op < 0x40) {
++            unsigned carry = (bit & 1) ? value & 1 : value >> 7;
++            unsigned incoming = (bit < 2) ? carry : !!(e->f & FLAG_C);
++            switch (bit) {
++            case 0:
++            case 2:
++                value = (value << 1) | incoming;
++                break;
++            case 1:
++            case 3:
++                value = (value >> 1) | (incoming << 7);
++                break;
++            case 4:
++                value <<= 1;
++                break;
++            case 5:
++                value = (value >> 1) | (value & 0x80);
++                break;
++            case 7:
++                value >>= 1;
++                break;
++            default:
++                g_assert_not_reached();
++            }
++            value &= 0xff;
++            e->f = szp(value) | carry;
++        } else if (op < 0x80) {
++            bool zero = !(value & (1u << bit));
++            e->f = (e->f & FLAG_C) | FLAG_H | (zero ? FLAG_Z | FLAG_PV : 0)
++                 | (bit == 7 && !zero ? FLAG_S : 0);
++            return;
++        } else {
++            value = op < 0xc0 ? value & ~(1u << bit) : value | (1u << bit);
++        }
++        if (index) {
++            cpu_stb_data_ra(e, address(e, addr, lm), value, ra);
++        } else {
++            write_reg(e, op & 7, value, lm, ra);
++        }
++        return;
++    }
++    if (mode & EZ80_ED) {
++        if (op == 0x4d || op == 0x45) {
++            if (prefixed) {
++                if (!e->madl || !e->adl) {
++                    helper_unsupported(e, pc, op);
++                }
++                value = pop(e, 1, true, ra);
++                if (value > 1) {
++                    error_report("F91: invalid interrupt return marker %02x",
++                                 value);
++                    exit(EXIT_FAILURE);
++                }
++                e->pc = address(e, pop(e, value ? 3 : 2, true, ra), value);
++                e->adl = value;
++            } else {
++                e->pc = address(e, pop(e, width, lm, ra), lm);
++            }
++            if (op == 0x45) {
++                e->iff1 = e->iff2;
++            }
++        } else if (ez80_block_io(op)) {
++            block_io(e, op, lm, pc, ra);
++        } else if (op == 0x44) {
++            uint8_t old = e->a;
++            e->a = 0;
++            alu8(e, 2, old);
++        } else if (op == 0x67 || op == 0x6f) {
++            uint32_t addr = address(e, e->hl, lm);
++            uint8_t old = cpu_ldub_data_ra(e, addr, ra);
++            uint8_t low = e->a & 0x0f;
++            value = op == 0x6f ? (old << 4) | low : (low << 4) | (old >> 4);
++            e->a = (e->a & 0xf0) | (op == 0x6f ? old >> 4 : old & 0x0f);
++            cpu_stb_data_ra(e, addr, value, ra);
++            e->f = (e->f & FLAG_C) | szp(e->a);
++        } else if ((op & 0xc7) == 0x04 || op == 0x64) {
++            value = op == 0x64 ? arg : read_reg(e, (op >> 3) & 7, lm, ra);
++            e->f = szp(e->a & value) | FLAG_H;
++        } else if (op == 0x74) {
++            value = address_space_ldub(&address_space_io, e->bc & 0xff,
++                                       MEMTXATTRS_UNSPECIFIED, NULL);
++            e->f = szp(value & arg) | FLAG_H;
++        } else if ((op & 0xc7) == 0x40) {
++            value = address_space_ldub(&address_space_io, e->bc & 0xffff,
++                                       MEMTXATTRS_UNSPECIFIED, NULL);
++            write_reg(e, (op >> 3) & 7, value, lm, ra);
++            e->f = (e->f & FLAG_C) | szp(value);
++        } else if ((op & 0xc7) == 0x41) {
++            address_space_stb(&address_space_io, e->bc & 0xffff,
++                              read_reg(e, (op >> 3) & 7, lm, ra),
++                              MEMTXATTRS_UNSPECIFIED, NULL);
++        } else if (op == 0x76) {
++            e->sleeping = 1;
++        } else if (op == 0x07 || op == 0x17 || op == 0x27
++                   || op == 0x0f || op == 0x1f || op == 0x2f) {
++            if (op & 8) {
++                store_multi(e, e->hl, *pair(e, op >> 4, 0), width, lm, ra);
++            } else {
++                value = load_multi(e, e->hl, width, lm, ra);
++                *pair(e, op >> 4, 0) = value;
++            }
++        } else if ((op & 0xcf) == 0x43 || (op & 0xcf) == 0x4b) {
++            unsigned reg = (op >> 4) & 3;
++            if (op & 8) {
++                value = load_multi(e, arg, width, lm, ra);
++                if (reg == 3) {
++                    if (lm) {
++                        e->spl = value;
++                    } else {
++                        e->sps = value;
++                    }
++                } else {
++                    *pair(e, reg, 0) = value;
++                }
++            } else {
++                value = reg == 3 ? (lm ? e->spl : e->sps) : *pair(e, reg, 0);
++                store_multi(e, arg, value, width, lm, ra);
++            }
++        } else if ((op & 0xcf) == 0x42 || (op & 0xcf) == 0x4a) {
++            unsigned reg = (op >> 4) & 3;
++            value = reg == 3 ? (lm ? e->spl : e->sps) : *pair(e, reg, 0);
++            e->hl = add_sub(e, e->hl & mask, value & mask,
++                            !!(e->f & FLAG_C), !(op & 8), lm, true);
++        } else if ((op & 0xe6) == 0xa0) {
++            uint8_t byte = cpu_ldub_data_ra(e, address(e, e->hl, lm), ra);
++            uint8_t result = e->a - byte;
++            int delta = (op & 8) ? -1 : 1;
++            e->hl = (e->hl + delta) & mask;
++            e->bc = (e->bc - 1) & mask;
++            if (op & 1) {
++                e->f = (e->f & FLAG_C) | FLAG_N | (result & FLAG_S)
++                     | (!result ? FLAG_Z : 0) | (e->bc ? FLAG_PV : 0)
++                     | (((e->a ^ byte ^ result) & 0x10) ? FLAG_H : 0);
++            } else {
++                cpu_stb_data_ra(e, address(e, e->de, lm), byte, ra);
++                e->de = (e->de + delta) & mask;
++                e->f = (e->f & (FLAG_S | FLAG_Z | FLAG_C))
++                     | (e->bc ? FLAG_PV : 0);
++            }
++            if ((op & 0x10) && e->bc && (!(op & 1) || result)) {
++                e->pc = pc;
++            }
++        } else if (op == 0x02 || op == 0x12 || op == 0x22
++                   || op == 0x03 || op == 0x13 || op == 0x23
++                   || op == 0x32 || op == 0x33 || op == 0x54 || op == 0x55) {
++            unsigned src = (op == 0x54 || op == 0x33
++                            || (op != 0x55 && (op & 1))) ? 2 : 1;
++            unsigned dst = op == 0x54 ? 1 : op == 0x55 ? 2
++                         : (op == 0x32 || op == 0x33) ? 1 + (op & 1) : 0;
++            p = dst ? pair(e, 2, dst) : pair(e, op >> 4, 0);
++            *p = (*pair(e, 2, src) + (int8_t)arg) & mask;
++        } else if ((op & 0xcf) == 0x4c) {
++            unsigned reg = (op >> 4) & 3;
++            value = reg == 3 ? (lm ? e->spl : e->sps) : *pair(e, reg, 0);
++            value = (value & 0xff) * ((value >> 8) & 0xff);
++            if (reg == 3) {
++                if (lm) {
++                    e->spl = value;
++                } else {
++                    e->sps = value;
++                }
++            } else {
++                *pair(e, reg, 0) = value;
++            }
++        } else if (op == 0x31 || op == 0x37 || op == 0x3e || op == 0x3f) {
++            p = pair(e, 2, (op == 0x37 || op == 0x3f) ? 1 : 2);
++            if (op == 0x31 || op == 0x37) {
++                *p = load_multi(e, e->hl, width, lm, ra);
++            } else {
++                store_multi(e, e->hl, *p, width, lm, ra);
++            }
++        } else if (op == 0x65 || op == 0x66) {
++            value = (*pair(e, 2, op == 0x65 ? 1 : 2) + (int8_t)arg) & mask;
++            push(e, value, width, lm, ra);
++        } else if (op == 0x47) {
++            e->i = (e->i & 0xff00) | e->a;
++        } else if (op == 0x4f) {
++            e->r = e->a;
++        } else if (op == 0x57 || op == 0x5f) {
++            e->a = op == 0x57 ? e->i : e->r;
++            e->f = (e->f & FLAG_C) | (e->a & FLAG_S)
++                 | (!e->a ? FLAG_Z : 0) | (e->iff2 ? FLAG_PV : 0);
++        } else if (op == 0xd7) {
++            e->hl = e->i;
++            e->f = (e->f & FLAG_C) | (e->i & 0x8000 ? FLAG_S : 0)
++                 | (!e->i ? FLAG_Z : 0) | (e->iff2 ? FLAG_PV : 0);
++        } else if (op == 0xc7) {
++            e->i = e->hl;
++        } else if (op == 0x46 || op == 0x56 || op == 0x5e) {
++            e->im = op == 0x46 ? 0 : op == 0x56 ? 1 : 2;
++        } else if ((op & 0xc7) == 0x00 && ((op >> 3) & 7) != 6) {
++            uint8_t b = address_space_ldub(&address_space_io, arg,
++                                           MEMTXATTRS_UNSPECIFIED, NULL);
++            write_reg(e, (op >> 3) & 7, b, lm, ra);
++            e->f = (e->f & FLAG_C) | szp(b);
++        } else if ((op & 0xc7) == 0x01 && ((op >> 3) & 7) != 6) {
++            address_space_stb(&address_space_io, arg,
++                              read_reg(e, (op >> 3) & 7, lm, ra),
++                              MEMTXATTRS_UNSPECIFIED, NULL);
++        } else if (op == 0x6d) {
++            if (e->adl) {
++                e->mbase = e->a;
++            }
++        } else if (op == 0x6e) {
++            e->a = e->mbase;
++        } else if (op == 0x7d) {
++            e->madl = 1;
++        } else if (op == 0x7e) {
++            e->madl = 0;
++        }
++        return;
++    }
++    if (index && ez80_index_byte(op)) {
++        unsigned dst = (op >> 3) & 7;
++        if (op >= 0x80) {
++            alu8(e, dst, read_index_byte(e, op & 7, index, ra));
++        } else if (op >= 0x40) {
++            write_index_byte(e, dst, index,
++                              read_index_byte(e, op & 7, index, ra), ra);
++        } else {
++            value = (op & 7) == 6 ? arg
++                  : inc_dec8(e, read_index_byte(e, dst, index, ra), op & 1);
++            write_index_byte(e, dst, index, value, ra);
++        }
++    } else if (index && (op == 0x34 || op == 0x35)) {
++        uint32_t addr = address(e, *pair(e, 2, index) + (int8_t)arg, lm);
++        value = cpu_ldub_data_ra(e, addr, ra);
++        cpu_stb_data_ra(e, addr, inc_dec8(e, value, op & 1), ra);
++    } else if (index && op >= 0x80 && op <= 0xbf && (op & 7) == 6) {
++        uint32_t addr = (*pair(e, 2, index) + (int8_t)arg) & mask;
++        alu8(e, (op >> 3) & 7,
++             cpu_ldub_data_ra(e, address(e, addr, lm), ra));
++    } else if (index && (op == 0x31 || op == 0x37
++                         || op == 0x3e || op == 0x3f)) {
++        uint32_t addr = (*pair(e, 2, index) + (int8_t)arg) & mask;
++        unsigned reg = (op == 0x31 || op == 0x3e) ? 3 - index : index;
++        p = pair(e, 2, reg);
++        if (op == 0x31 || op == 0x37) {
++            *p = load_multi(e, addr, width, lm, ra);
++        } else {
++            store_multi(e, addr, *p, width, lm, ra);
++        }
++    } else if (index && (op == 0x07 || op == 0x17 || op == 0x27
++                  || op == 0x0f || op == 0x1f || op == 0x2f
++                  || (op >= 0x70 && op <= 0x77 && op != 0x76)
++                  || ((op & 0xc7) == 0x46 && op != 0x76) || op == 0x36)) {
++        uint32_t addr = (*pair(e, 2, index) + (int8_t)arg) & mask;
++        if (op == 0x07 || op == 0x17 || op == 0x27) {
++            *pair(e, op >> 4, 0) = load_multi(e, addr, width, lm, ra);
++        } else if (op == 0x0f || op == 0x1f || op == 0x2f) {
++            store_multi(e, addr, *pair(e, op >> 4, 0), width, lm, ra);
++        } else if (((op & 0xc7) == 0x46 && op != 0x76)) {
++            write_reg(e, (op >> 3) & 7,
++                       cpu_ldub_data_ra(e, address(e, addr, lm), ra), lm, ra);
++        } else {
++            value = op == 0x36 ? arg >> 8 : read_reg(e, op & 7, lm, ra);
++            cpu_stb_data_ra(e, address(e, addr, lm), value, ra);
++        }
++    } else if ((op & 0xcf) == 0x09) {
++        unsigned reg = (op >> 4) & 3;
++        p = pair(e, 2, index);
++        value = reg == 3 ? (lm ? e->spl : e->sps) : *pair(e, reg, index);
++        *p = add_sub(e, *p & mask, value & mask, 0, false, lm, false);
++    } else if (op == 0x02 || op == 0x0a || op == 0x12 || op == 0x1a) {
++        value = address(e, *pair(e, op >> 4, 0), lm);
++        if (op & 8) {
++            e->a = cpu_ldub_data_ra(e, value, ra);
++        } else {
++            cpu_stb_data_ra(e, value, e->a, ra);
++        }
++    } else if (op == 0xe3) {
++        p = pair(e, 2, index);
++        value = *p;
++        *p = pop(e, width, lm, ra);
++        push(e, value, width, lm, ra);
++    } else if ((op & 0xc7) == 0x04 || (op & 0xc7) == 0x05) {
++        unsigned reg = (op >> 3) & 7;
++        value = inc_dec8(e, read_reg(e, reg, lm, ra), op & 1);
++        write_reg(e, reg, value, lm, ra);
++    } else if (op >= 0x80 && op <= 0xbf) {
++        alu8(e, (op >> 3) & 7, read_reg(e, op & 7, lm, ra));
++    } else if (op == 0xd9) {
++        value = e->bc;
++        e->bc = e->bc_shadow;
++        e->bc_shadow = value;
++        value = e->de;
++        e->de = e->de_shadow;
++        e->de_shadow = value;
++        value = e->hl;
++        e->hl = e->hl_shadow;
++        e->hl_shadow = value;
++    } else if (op == 0x08) {
++        value = e->a;
++        e->a = e->a_shadow;
++        e->a_shadow = value;
++        value = e->f;
++        e->f = e->f_shadow;
++        e->f_shadow = value;
++    } else if (op == 0x07 || op == 0x0f || op == 0x17 || op == 0x1f) {
++        unsigned carry = (op & 8) ? e->a & 1 : e->a >> 7;
++        unsigned incoming = (op & 0x10) ? !!(e->f & FLAG_C) : carry;
++        e->a = (op & 8) ? (e->a >> 1) | (incoming << 7)
++                       : (e->a << 1) | incoming;
++        e->f = (e->f & (FLAG_S | FLAG_Z | FLAG_PV)) | carry;
++    } else if (op == 0x27) {
++        uint8_t old = e->a;
++        unsigned correction = 0;
++        bool carry = e->f & FLAG_C;
++        if ((e->f & FLAG_H) || (!(e->f & FLAG_N) && (old & 0xf) > 9)) {
++            correction |= 6;
++        }
++        if (carry || (!(e->f & FLAG_N) && old > 0x99)) {
++            correction |= 0x60;
++            carry = true;
++        }
++        e->a += (e->f & FLAG_N) ? -correction : correction;
++        e->f = (e->f & FLAG_N) | szp(e->a) | (carry ? FLAG_C : 0)
++             | ((old ^ e->a) & FLAG_H);
++    } else if (op == 0x3f) {
++        e->f = (e->f & (FLAG_S | FLAG_Z | FLAG_PV))
++             | (e->f & FLAG_C ? FLAG_H : FLAG_C);
++    } else if (op == 0x2f) {
++        e->a = ~e->a;
++        e->f |= FLAG_H | FLAG_N;
++    } else if (op == 0x10) {
++        uint8_t b = (e->bc >> 8) - 1;
++        e->bc = (e->bc & ~0xff00u) | ((uint32_t)b << 8);
++        if (b) {
++            e->pc = address(e, next_pc + (int8_t)arg, e->adl);
++        }
++    } else if (op == 0x37) {
++        e->f = (e->f & (FLAG_S | FLAG_Z | FLAG_PV)) | FLAG_C;
++    } else if ((op & 0xcf) == 0x01) {
++        unsigned reg = (op >> 4) & 3;
++        if (reg == 3) {
++            if (lm) {
++                e->spl = arg & mask;
++            } else {
++                e->sps = arg;
++            }
++        } else {
++            *pair(e, reg, index) = arg & mask;
++        }
++    } else if ((op & 0xc7) == 0x06) {
++        write_reg(e, (op >> 3) & 7, arg, lm, ra);
++    } else if (op >= 0x40 && op <= 0x7f) {
++        if (op != 0x76) {
++            write_reg(e, (op >> 3) & 7, read_reg(e, op & 7, lm, ra), lm, ra);
++        }
++    } else if ((op & 0xcf) == 0x03 || (op & 0xcf) == 0x0b) {
++        unsigned reg = (op >> 4) & 3;
++        int delta = (op & 8) ? -1 : 1;
++        if (reg == 3) {
++            if (lm) {
++                e->spl = (e->spl + delta) & mask;
++            } else {
++                e->sps += delta;
++            }
++        } else {
++            p = pair(e, reg, index);
++            *p = (*p + delta) & mask;
++        }
++    } else if ((op & 0xcf) == 0xc5) {
++        unsigned reg = (op >> 4) & 3;
++        value = reg == 3 ? (e->a << 8) | e->f : *pair(e, reg, index);
++        push(e, value, width, lm, ra);
++    } else if ((op & 0xcf) == 0xc1) {
++        unsigned reg = (op >> 4) & 3;
++        value = pop(e, width, lm, ra);
++        if (reg == 3) {
++            e->f = value;
++            e->a = value >> 8;
++        } else {
++            *pair(e, reg, index) = value;
++        }
++    } else if (op == 0xc3 || op == 0xe9 || (op & 0xc7) == 0xc2) {
++        if ((op & 0xc7) == 0xc2 && !condition_code(e, (op >> 3) & 7)) {
++            return;
++        }
++        bool target_long = op == 0xe9 ? lm : il;
++        value = op == 0xe9 ? *pair(e, 2, index) : arg;
++        e->adl = target_long;
++        e->pc = address(e, value, target_long);
++    } else if (op == 0xf9) {
++        value = *pair(e, 2, index);
++        if (lm) {
++            e->spl = value & mask;
++        } else {
++            e->sps = value;
++        }
++    } else if (op == 0xeb) {
++        value = e->de;
++        e->de = e->hl;
++        e->hl = value;
++    } else if ((op & 0xc7) == 0xc7) {
++        if (!prefixed) {
++            push(e, next_pc, width, lm, ra);
++        } else {
++            if (!e->madl) {
++                helper_unsupported(e, pc, op);
++            }
++            if (lm) {
++                push(e, next_pc, e->adl ? 3 : 2, true, ra);
++            } else {
++                push(e, next_pc, 2, false, ra);
++                if (e->adl) {
++                    push(e, next_pc >> 16, 1, true, ra);
++                }
++            }
++            push(e, e->adl ? 3 : 2, 1, true, ra);
++        }
++        e->adl = lm;
++        e->pc = address(e, op & 0x38, lm);
++    } else if (op == 0xcd || (op & 0xc7) == 0xc4) {
++        if (op != 0xcd && !condition_code(e, (op >> 3) & 7)) {
++            return;
++        }
++        if (!prefixed) {
++            push(e, next_pc, width, lm, ra);
++        } else {
++            if (!e->madl) {
++                helper_unsupported(e, pc, op);
++            }
++            if (il) {
++                push(e, next_pc, e->adl ? 3 : 2, true, ra);
++            } else {
++                push(e, next_pc, 2, false, ra);
++                if (e->adl) {
++                    push(e, next_pc >> 16, 1, true, ra);
++                }
++            }
++            push(e, e->adl ? 3 : 2, 1, true, ra);
++        }
++        e->adl = il;
++        e->pc = address(e, arg, il);
++    } else if (op == 0xc9 || (op & 0xc7) == 0xc0) {
++        if (op != 0xc9 && !condition_code(e, (op >> 3) & 7)) {
++            return;
++        }
++        if (prefixed) {
++            if (!e->madl) {
++                helper_unsupported(e, pc, op);
++            }
++            mixed_return(e, ra);
++        } else {
++            e->pc = address(e, pop(e, width, lm, ra), lm);
++        }
++    } else if (op == 0x18 || op == 0x20 || op == 0x28
++               || op == 0x30 || op == 0x38) {
++        if (condition(e, op)) {
++            e->pc = address(e, next_pc + (int8_t)arg, e->adl);
++        }
++    } else if (op == 0x32 || op == 0x3a || op == 0x22 || op == 0x2a) {
++        uint32_t addr = address(e, arg, lm);
++        unsigned n = (op == 0x32 || op == 0x3a) ? 1 : width;
++        value = op == 0x32 ? e->a : *pair(e, 2, index);
++        if (op == 0x32 || op == 0x22) {
++            for (unsigned i = 0; i < n; i++) {
++                cpu_stb_data_ra(e, address(e, addr + i, lm),
++                                value >> (8 * i), ra);
++            }
++        } else {
++            value = 0;
++            for (unsigned i = 0; i < n; i++) {
++                value |= (uint32_t)cpu_ldub_data_ra(e,
++                    address(e, addr + i, lm), ra) << (8 * i);
++            }
++            if (op == 0x3a) {
++                e->a = value;
++            } else {
++                *pair(e, 2, index) = value;
++            }
++        }
++    } else if (op == 0xc6 || op == 0xce || op == 0xd6 || op == 0xde) {
++        alu8(e, (op >> 3) & 7, arg);
++    } else if (op == 0xe6 || op == 0xf6 || op == 0xee
++               || op == 0xaf || op == 0xb7) {
++        if (op == 0xe6) {
++            e->a &= arg;
++        } else if (op == 0xf6) {
++            e->a |= arg;
++        } else if (op == 0xee) {
++            e->a ^= arg;
++        } else if (op == 0xaf) {
++            e->a = 0;
++        }
++        e->f = szp(e->a) | (op == 0xe6 ? FLAG_H : 0);
++    } else if (op == 0xfe) {
++        uint8_t result = e->a - arg;
++        e->f = (result & FLAG_S) | (result == 0 ? FLAG_Z : 0) | FLAG_N
++            | (e->a < arg ? FLAG_C : 0)
++            | ((e->a ^ arg ^ result) & FLAG_H)
++            | (((e->a ^ arg) & (e->a ^ result) & 0x80) ? FLAG_PV : 0);
++    } else if (op == 0xdb || op == 0xd3) {
++        uint32_t port = (e->a << 8) | arg;
++        if (op == 0xdb) {
++            e->a = address_space_ldub(&address_space_io, port,
++                                      MEMTXATTRS_UNSPECIFIED, NULL);
++        } else {
++            address_space_stb(&address_space_io, port, e->a,
++                              MEMTXATTRS_UNSPECIFIED, NULL);
++        }
++    } else if (op == 0xf3 || op == 0xfb) {
++        e->iff1 = e->iff2 = op == 0xfb;
++        e->ei_delay = op == 0xfb;
++    }
++}
++
++void helper_execute(CPUEZ80State *e, uint32_t op, uint32_t arg,
++                    uint32_t mode, uint32_t next_pc)
++{
++    execute(e, op, arg, mode, next_pc, GETPC());
++}
++typedef struct BoundaryFetch {
++    CPUEZ80State *env;
++    uintptr_t ra;
++} BoundaryFetch;
++static uint8_t boundary_read(void *opaque, uint32_t address)
++{
++    BoundaryFetch *fetch = opaque;
++    return cpu_ldb_code_mmu(fetch->env, address, make_memop_idx(MO_UB, 0),
++                            fetch->ra);
++}
++void helper_boundary(CPUEZ80State *e)
++{
++    BoundaryFetch fetch = { .env = e, .ra = GETPC() };
++    EZ80Decode insn = {
++        .read = boundary_read, .opaque = &fetch,
++        .cursor = e->pc, .adl = e->adl,
++    };
++    ez80_decode(&insn);
++    if (!insn.valid) {
++        helper_illegal(e, ez80_illegal_pc(&insn), insn.mode);
++        return;
++    }
++    execute(e, insn.op, insn.arg, insn.mode, insn.cursor, GETPC());
++    if (ez80_halt(insn.op, insn.mode)) {
++        helper_halt(e);
++    }
++}
+diff --git a/target/ez80/helper.h b/target/ez80/helper.h
+new file mode 100644
+--- /dev/null
++++ b/target/ez80/helper.h
+@@ -0,0 +1,6 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++DEF_HELPER_1(halt, noreturn, env)
++DEF_HELPER_3(unsupported, noreturn, env, i32, i32)
++DEF_HELPER_3(illegal, void, env, i32, i32)
++DEF_HELPER_5(execute, void, env, i32, i32, i32, i32)
++DEF_HELPER_1(boundary, void, env)
+diff --git a/target/ez80/meson.build b/target/ez80/meson.build
+new file mode 100644
+index 0000000..df5d624
+--- /dev/null
++++ b/target/ez80/meson.build
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++ez80_ss = ss.source_set()
++ez80_ss.add(files('cpu.c', 'gdbstub.c', 'helper.c', 'translate.c'))
++target_arch += {'ez80': ez80_ss}
++target_system_arch += {'ez80': ss.source_set()}
++target_common_system_arch += {'ez80': ss.source_set()}
+diff --git a/target/ez80/translate.c b/target/ez80/translate.c
+new file mode 100644
+--- /dev/null
++++ b/target/ez80/translate.c
+@@ -0,0 +1,103 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "qemu/osdep.h"
++#include "cpu.h"
++#include "exec/translation-block.h"
++#include "exec/translator.h"
++#include "decode.h"
++#include "tcg/tcg-op.h"
++#include "exec/helper-proto.h"
++#include "exec/helper-gen.h"
++#define HELPER_H "helper.h"
++#include "exec/helper-info.c.inc"
++#undef HELPER_H
++
++static TCGv_i32 cpu_pc;
++typedef struct DisasContext {
++    DisasContextBase base;
++    bool adl;
++    CPUEZ80State *env;
++} DisasContext;
++
++void ez80_translate_init(void)
++{
++    cpu_pc = tcg_global_mem_new_i32(tcg_env, offsetof(CPUEZ80State, pc), "pc");
++}
++static void ez80_init_context(DisasContextBase *db, CPUState *cs)
++{
++    DisasContext *ctx = container_of(db, DisasContext, base);
++    ctx->adl = db->tb->flags & 1;
++    ctx->env = cpu_env(cs);
++    db->max_insns = 1;
++}
++static void ez80_tb_start(DisasContextBase *db, CPUState *cs)
++{
++}
++static void ez80_insn_start(DisasContextBase *db, CPUState *cs)
++{
++    tcg_gen_insn_start(db->pc_next, 0, 0);
++}
++static uint8_t translate_read(void *opaque, uint32_t address)
++{
++    DisasContext *ctx = opaque;
++    return translator_ldub(ctx->env, &ctx->base, address);
++}
++static void ez80_insn(DisasContextBase *db, CPUState *cs)
++{
++    DisasContext *ctx = container_of(db, DisasContext, base);
++    uint32_t pc = db->pc_next;
++    tcg_gen_movi_i32(cpu_pc, pc);
++    /* Generic translator reads assume virtually contiguous pages. */
++    if ((ctx->adl ? pc : pc & 0xffff) >=
++        (ctx->adl ? 0xfffff8 : 0xfff8)) {
++        translator_io_start(db);
++        gen_helper_boundary(tcg_env);
++        db->pc_next = pc + 1;
++        return;
++    }
++    EZ80Decode insn = {
++        .read = translate_read, .opaque = ctx,
++        .cursor = pc, .adl = ctx->adl,
++    };
++    ez80_decode(&insn);
++    db->pc_next = insn.cursor;
++    if (!insn.valid) {
++        gen_helper_illegal(tcg_env, tcg_constant_i32(ez80_illegal_pc(&insn)),
++                           tcg_constant_i32(insn.mode));
++        db->is_jmp = DISAS_TOO_MANY;
++        return;
++    }
++    if (((insn.mode & EZ80_ED)
++         && ((insn.op & 0xc6) == 0x00 || (insn.op & 0xc6) == 0x40
++             || insn.op == 0x74 || ez80_block_io(insn.op)))
++        || (!(insn.mode & (EZ80_ED | EZ80_CB))
++            && (insn.op == 0xdb || insn.op == 0xd3))) {
++        translator_io_start(db);
++    }
++    gen_helper_execute(tcg_env, tcg_constant_i32(insn.op),
++                       tcg_constant_i32(insn.arg), tcg_constant_i32(insn.mode),
++                       tcg_constant_i32(insn.cursor));
++    if (ez80_halt(insn.op, insn.mode)) {
++        gen_helper_halt(tcg_env);
++        db->is_jmp = DISAS_NORETURN;
++    }
++}
++static void ez80_tb_stop(DisasContextBase *db, CPUState *cs)
++{
++    if (db->is_jmp != DISAS_NORETURN) {
++        tcg_gen_exit_tb(NULL, 0);
++    }
++}
++static const TranslatorOps ez80_ops = {
++    .init_disas_context = ez80_init_context,
++    .tb_start = ez80_tb_start,
++    .insn_start = ez80_insn_start,
++    .translate_insn = ez80_insn,
++    .tb_stop = ez80_tb_stop,
++};
++void ez80_translate_code(CPUState *cs, TranslationBlock *tb, int *max_insns,
++                         vaddr pc, void *host_pc)
++{
++    DisasContext ctx = {};
++    translator_loop(cs, tb, max_insns, pc, host_pc, &ez80_ops, &ctx.base,
++                    TCG_TYPE_VA);
++}
+diff --git a/include/system/system.h b/include/system/system.h
+index 03a2d0e..06e75c9 100644
+--- a/include/system/system.h
++++ b/include/system/system.h
+@@ -14,6 +14,7 @@ extern QemuUUID qemu_uuid;
+ extern bool qemu_uuid_set;
+ 
+ const char *qemu_get_vm_name(void);
++unsigned qemu_get_ez80_debug_port(void);
+ 
+ /* Exit notifiers will run with BQL held. */
+ void qemu_add_exit_notifier(Notifier *notify);
+diff --git a/hw/ez80/rtc.c b/hw/ez80/rtc.c
+new file mode 100644
+--- /dev/null
++++ b/hw/ez80/rtc.c
+@@ -0,0 +1,133 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* F91 RTC calendar counters. Alarm matching and sleep wakeup are not modeled. */
++#include "qemu/osdep.h"
++#include "qemu/cutils.h"
++#include "qemu/timer.h"
++#include "system/rtc.h"
++#include "system/system.h"
++#include "hw/core/sysbus.h"
++#include "system/address-spaces.h"
++
++#define TYPE_F91_RTC "ez80f91-rtc"
++OBJECT_DECLARE_SIMPLE_TYPE(F91RTCState, F91_RTC)
++struct F91RTCState {
++    SysBusDevice parent_obj;
++    MemoryRegion ports;
++    uint8_t r[14];
++    int64_t last_ns;
++};
++static unsigned decode(F91RTCState *s, unsigned value)
++{
++    return s->r[13] & 0x20 ? (value >> 4) * 10 + (value & 15) : value;
++}
++static uint8_t encode(F91RTCState *s, unsigned value)
++{
++    return s->r[13] & 0x20 ? (value / 10) * 16 + value % 10 : value;
++}
++static void store_calendar(F91RTCState *s, struct tm *tm, unsigned dow)
++{
++    unsigned year = tm->tm_year + 1900;
++    unsigned values[] = {tm->tm_sec, tm->tm_min, tm->tm_hour, dow,
++                         tm->tm_mday, tm->tm_mon + 1, year % 100, year / 100};
++    for (unsigned i = 0; i < 8; i++) {
++        s->r[i] = encode(s, values[i]);
++    }
++}
++static void sync_calendar(F91RTCState *s)
++{
++    int64_t now = qemu_clock_get_ns(rtc_clock);
++    int64_t seconds = (now - s->last_ns) / NANOSECONDS_PER_SECOND;
++    struct tm tm = {0};
++    unsigned dow, day_seconds;
++    time_t epoch;
++    if (s->r[13] & 1) {
++        s->last_ns = now;
++        return;
++    }
++    if (seconds <= 0) {
++        return;
++    }
++    s->last_ns += seconds * NANOSECONDS_PER_SECOND;
++    tm.tm_sec = decode(s, s->r[0]);
++    tm.tm_min = decode(s, s->r[1]);
++    tm.tm_hour = decode(s, s->r[2]);
++    tm.tm_mday = decode(s, s->r[4]);
++    tm.tm_mon = decode(s, s->r[5]) - 1;
++    tm.tm_year = decode(s, s->r[7]) * 100 + decode(s, s->r[6]) - 1900;
++    dow = decode(s, s->r[3]);
++    if (tm.tm_sec > 59 || tm.tm_min > 59 || tm.tm_hour > 23 ||
++        tm.tm_mday < 1 || tm.tm_mday > 31 || tm.tm_mon < 0 ||
++        tm.tm_mon > 11 || dow < 1 || dow > 7) {
++        return; /* Counting after invalid software values is unspecified. */
++    }
++    day_seconds = tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec;
++    epoch = mktimegm(&tm) + seconds;
++    gmtime_r(&epoch, &tm);
++    dow = (dow - 1 + (day_seconds + seconds) / 86400) % 7 + 1;
++    store_calendar(s, &tm, dow);
++}
++static uint64_t rtc_read(void *opaque, hwaddr addr, unsigned size)
++{
++    F91RTCState *s = opaque;
++    uint8_t value;
++    sync_calendar(s);
++    value = s->r[addr];
++    if (addr == 13) {
++        s->r[13] &= ~0x82; /* Alarm/wakeup status is read-to-clear. */
++    }
++    return value;
++}
++static void rtc_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    F91RTCState *s = opaque;
++    sync_calendar(s);
++    if (addr == 13) {
++        s->r[13] = (s->r[13] & 0x82) | (value & 0x7d);
++        s->last_ns = qemu_clock_get_ns(rtc_clock);
++    } else if (addr >= 8 || (s->r[13] & 1)) {
++        s->r[addr] = addr == 12 ? value & 15 : value;
++    }
++}
++static const MemoryRegionOps rtc_ops = {
++    .read = rtc_read,
++    .write = rtc_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static void rtc_reset(Object *obj, ResetType type)
++{
++    F91RTCState *s = F91_RTC(obj);
++    sync_calendar(s);
++    s->r[13] &= ~0x43; /* Counter/alarm values survive CPU/system reset. */
++    s->r[12] = 0;
++    s->last_ns = qemu_clock_get_ns(rtc_clock);
++}
++static void rtc_init(Object *obj)
++{
++    F91RTCState *s = F91_RTC(obj);
++    struct tm tm;
++    qemu_get_timedate(&tm, 0);
++    /* Use ISO weekdays (Monday=1 .. Sunday=7) for the F91's 1..7 counter. */
++    store_calendar(s, &tm, tm.tm_wday ? tm.tm_wday : 7);
++    s->last_ns = qemu_clock_get_ns(rtc_clock);
++    memory_region_init_io(&s->ports, obj, &rtc_ops, s, "f91.rtc", 14);
++    memory_region_add_subregion(get_system_io(), 0xe0, &s->ports);
++}
++static void rtc_class_init(ObjectClass *oc, const void *data)
++{
++    RESETTABLE_CLASS(oc)->phases.hold = rtc_reset;
++    DEVICE_CLASS(oc)->user_creatable = false;
++}
++static const TypeInfo rtc_type = {
++    .name = TYPE_F91_RTC,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(F91RTCState),
++    .instance_init = rtc_init,
++    .class_init = rtc_class_init,
++};
++static void rtc_register_types(void)
++{
++    type_register_static(&rtc_type);
++}
++type_init(rtc_register_types);

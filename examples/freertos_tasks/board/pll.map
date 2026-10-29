@@ -1,0 +1,725 @@
+
+IEEE 695 OMF Linker Version 6.25 (19073001)
+Copyright (C) 1999-2008 Zilog, Inc. All Rights Reserved
+
+LINK MAP:
+
+DATE:      Tue Oct 27 19:49:47 2026
+PROCESSOR: assembler
+FILES:     init_params_f91.obj
+           boot.obj               cstartup.obj           main.obj               
+           tasks.obj              list.obj               vectors24.obj          
+           llport.obj             
+           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib
+           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib
+           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\zilog\zsldevinitdummy.obj
+           
+
+
+COMMAND LIST:
+=============
+-FORMAT=INTEL32
+-map -maxhexlen=64 -quiet -warnoverlap -xref -unresolved=fatal
+RANGE ROM $000000 : $06AFFF
+RANGE RAM $06B000 : $07FFFF, $B80000 : $B8FFFF
+RANGE EXTIO $000000 : $00FFFF
+RANGE INTIO $000000 : $0000FF
+ORDER .RESET,.IVECTS,.STARTUP,CODE,DATA
+COPY DATA ROM
+DEFINE __low_romdata = copy base of DATA
+DEFINE __low_data = base of DATA
+DEFINE __len_data = length of DATA
+DEFINE __low_bss = base of BSS
+DEFINE __len_bss = length of BSS
+DEFINE __low_romcode = copy base of CODE
+DEFINE __low_code = base of CODE
+DEFINE __len_code = length of CODE
+DEFINE __copy_code_to_ram = 0
+DEFINE __CS0_LBR_INIT_PARAM = $10
+DEFINE __CS0_UBR_INIT_PARAM = $1f
+DEFINE __CS0_CTL_INIT_PARAM = $a8
+DEFINE __CS0_BMC_INIT_PARAM = $00
+DEFINE __CS1_LBR_INIT_PARAM = $00
+DEFINE __CS1_UBR_INIT_PARAM = $07
+DEFINE __CS1_CTL_INIT_PARAM = $28
+DEFINE __CS1_BMC_INIT_PARAM = $00
+DEFINE __CS2_LBR_INIT_PARAM = $80
+DEFINE __CS2_UBR_INIT_PARAM = $bf
+DEFINE __CS2_CTL_INIT_PARAM = $28
+DEFINE __CS2_BMC_INIT_PARAM = $81
+DEFINE __CS3_LBR_INIT_PARAM = $00
+DEFINE __CS3_UBR_INIT_PARAM = $00
+DEFINE __CS3_CTL_INIT_PARAM = $00
+DEFINE __CS3_BMC_INIT_PARAM = $00
+DEFINE __RAM_CTL_INIT_PARAM = $C0
+DEFINE __RAM_ADDR_U_INIT_PARAM = $FF
+DEFINE __FLASH_CTL_INIT_PARAM = $60
+DEFINE __FLASH_ADDR_U_INIT_PARAM = $00
+DEFINE _SYS_CLK_FREQ = 50000000
+DEFINE _OSC_FREQ = 10000000
+DEFINE _SYS_CLK_SRC = 1
+DEFINE _OSC_FREQ_MULT = 5
+DEFINE __PLL_CTL0_INIT_PARAM = $40
+DEFINE __stack = $B90000
+DEFINE __cstartup = 1
+"probe" = "init_params_f91.obj", "boot.obj", "cstartup.obj", "main.obj", "tasks.obj", "list.obj", "vectors24.obj", "llport.obj", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\zilog\zsldevinitdummy.obj"
+
+SPACE ALLOCATION:
+=================
+
+Space                     Base         Top      Size      Used    Unused
+------------------ ----------- ----------- --------- --------- ---------
+RAM                   D:06B000    D:B8FFFF    25000H    119C2H    1363EH
+                                          (   151552     72130     79422)
+ROM                   C:000000    C:003365    6B000H     3204H    67DFCH
+                                          (   438272     12804    425468)
+
+
+SEGMENTS WITHIN SPACE:
+======================
+
+RAM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+$$$org02D7489D     absolute data          D:B80000    D:B8FFFF    10000h
+BSS                normal data            D:06B170    D:06C8C0     1751h
+DATA               normal data            D:06B000    D:06B02F       30h
+RIVECTS            normal data            D:06C8C4    D:06C9C4      101h
+STRSECT            normal data            D:06B030    D:06B16F      140h
+
+
+ROM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+.IVECTS            normal data            C:000200    C:0002FF      100h
+.RESET             normal data            C:000000    C:00006B       6ch
+.STARTUP           normal data            C:000300    C:0004E6      1e7h
+CODE               normal data            C:0004E7    C:002F24     2a3eh
+DATA               * segment copy *       C:00006F    C:00009E       30h
+TEXT               normal data            C:00006C    C:00006E        3h
+TRAMP              normal data            C:002F26    C:003365      440h
+
+SEGMENTS WITHIN MODULES:
+========================
+
+Module: ..\src\boot\common\zsldevinitdummy.asm (File: zsldevinitdummy.obj) Version: 1:0 10/02/2022 22:49:19
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D46    C:002D46        1h
+
+
+Module: .\list.c (File: list.obj) Version: 1:0 10/27/2026 19:49:45
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002A67    C:002BF9      193h
+
+
+Module: .\main.c (File: main.obj) Version: 1:0 10/27/2026 19:49:42
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: BSS                               D:06B170    D:06C436     12c7h
+    Segment: CODE                              C:000599    C:000815      27dh
+    Segment: DATA                              D:06B003    D:06B005        3h
+    Segment: STRSECT                           D:06B030    D:06B03A        bh
+
+
+Module: .\rtl\common\frameset.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002DA4    C:002DB3       10h
+
+
+Module: .\rtl\common\frameset0.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D8B    C:002D97        dh
+
+
+Module: .\rtl\common\iand.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E9D    C:002EB7       1bh
+
+
+Module: .\rtl\common\icmpzero.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002DBD    C:002DC8        ch
+
+
+Module: .\rtl\common\imulu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002DC9    C:002E10       48h
+
+
+Module: .\rtl\common\inot.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E69    C:002E72        ah
+
+
+Module: .\rtl\common\ior.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D5C    C:002D76       1bh
+
+
+Module: .\rtl\common\ladd.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D47    C:002D5B       15h
+
+
+Module: .\rtl\common\land.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E94    C:002E9C        9h
+
+
+Module: .\rtl\common\lcmpu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E49    C:002E5E       16h
+
+
+Module: .\rtl\common\lcmpzero.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D77    C:002D8A       14h
+
+
+Module: .\rtl\common\lmulu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002EB8    C:002F24       6dh
+
+
+Module: .\rtl\common\lnot.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E5F    C:002E68        ah
+
+
+Module: .\rtl\common\lor.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002DB4    C:002DBC        9h
+
+
+Module: .\rtl\common\lsub.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:51
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002D98    C:002DA3        ch
+
+
+Module: .\rtl\common\memset.asm (Library: crtD.lib) Version: 1:0 10/02/2022 22:48:13
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E73    C:002E93       21h
+
+
+Module: .\rtl\common\seqcase.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:002E11    C:002E48       38h
+
+
+Module: .\tasks.c (File: tasks.obj) Version: 1:0 10/27/2026 19:49:44
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: BSS                               D:06C437    D:06C496       60h
+    Segment: CODE                              C:000816    C:002A66     2251h
+    Segment: DATA                              D:06B006    D:06B029       24h
+    Segment: STRSECT                           D:06B03B    D:06B16F      135h
+    Segment: TEXT                              C:00006C    C:00006E        3h
+
+
+Module: boot.asm (File: boot.obj) Version: 1:0 10/27/2026 19:49:45
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:0004E7    C:000598       b2h
+
+
+Module: cstartup.asm (File: cstartup.obj) Version: 1:0 10/27/2026 19:49:45
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .STARTUP                          C:000434    C:000481       4eh
+    Segment: DATA                              D:06B000    D:06B002        3h
+
+
+Module: init_params_f91.asm (File: init_params_f91.obj) Version: 1:0 10/27/2026 19:49:46
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .STARTUP                          C:000300    C:000433      134h
+
+
+Module: llport.asm (File: llport.obj) Version: 1:0 10/27/2026 19:49:46
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: $$$org02D7489D                    D:B80000    D:B8FFFF    10000h
+    Segment: CODE                              C:002CBB    C:002D45       8bh
+    Segment: DATA                              D:06B02A    D:06B02F        6h
+
+
+Module: vectors24.asm (File: vectors24.obj) Version: 1:0 10/27/2026 19:49:45
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .IVECTS                           C:000200    C:0002FF      100h
+    Segment: .RESET                            C:000000    C:00006B       6ch
+    Segment: .STARTUP                          C:000482    C:0004E6       65h
+    Segment: BSS                               D:06C497    D:06C8C0      42ah
+    Segment: CODE                              C:002BFA    C:002CBA       c1h
+    Segment: RIVECTS                           D:06C8C4    D:06C9C4      101h
+    Segment: TRAMP                             C:002F26    C:003365      440h
+
+EXTERNAL DEFINITIONS:
+=====================
+
+Symbol                               Address Module          Segment
+-------------------------------- ----------- --------------- --------------------------------
+__c_startup                         C:000434 cstartup        .STARTUP                        
+__close_periphdevice                C:002D46 zsldevinitdummy CODE                            
+__copy_code_to_ram                  00000000 (User Defined)
+__CS0_BMC_INIT_PARAM                00000000 (User Defined)
+__CS0_CTL_INIT_PARAM                000000A8 (User Defined)
+__CS0_LBR_INIT_PARAM                00000010 (User Defined)
+__CS0_UBR_INIT_PARAM                0000001F (User Defined)
+__CS1_BMC_INIT_PARAM                00000000 (User Defined)
+__CS1_CTL_INIT_PARAM                00000028 (User Defined)
+__CS1_LBR_INIT_PARAM                00000000 (User Defined)
+__CS1_UBR_INIT_PARAM                00000007 (User Defined)
+__CS2_BMC_INIT_PARAM                00000081 (User Defined)
+__CS2_CTL_INIT_PARAM                00000028 (User Defined)
+__CS2_LBR_INIT_PARAM                00000080 (User Defined)
+__CS2_UBR_INIT_PARAM                000000BF (User Defined)
+__CS3_BMC_INIT_PARAM                00000000 (User Defined)
+__CS3_CTL_INIT_PARAM                00000000 (User Defined)
+__CS3_LBR_INIT_PARAM                00000000 (User Defined)
+__CS3_UBR_INIT_PARAM                00000000 (User Defined)
+__cstartup                          C:000001 cstartup        CODE                            
+__default_mi_handler                C:000487 vectors24       .STARTUP                        
+__default_nmi_handler               C:000484 vectors24       .STARTUP                        
+__exit                              C:0003E8 init_params_f91 .STARTUP                        
+__FLASH_ADDR_U_INIT_PARAM           00000000 (User Defined)
+__FLASH_CTL_INIT_PARAM              00000060 (User Defined)
+__frameset                          C:002DA4 frameset        CODE                            
+__frameset0                         C:002D8B frameset0       CODE                            
+__iand                              C:002E9D iand            CODE                            
+__icmpzero                          C:002DBD icmpzero        CODE                            
+__imul_b                            C:002DC9 imulu           CODE                            
+__imuls                             C:002DD5 imulu           CODE                            
+__imulu                             C:002DD5 imulu           CODE                            
+__init                              C:000300 init_params_f91 .STARTUP                        
+__init_default_vectors              C:00048B vectors24       .STARTUP                        
+__inot                              C:002E69 inot            CODE                            
+__ior                               C:002D5C ior             CODE                            
+__ladd                              C:002D56 ladd            CODE                            
+__ladd_b                            C:002D47 ladd            CODE                            
+__land                              C:002E94 land            CODE                            
+__lcmps                             C:002E49 lcmpu           CODE                            
+__lcmpu                             C:002E49 lcmpu           CODE                            
+__lcmpzero                          C:002D77 lcmpzero        CODE                            
+__len_bss                           00001751 (User Defined)
+__len_code                          00002A3E (User Defined)
+__len_data                          00000030 (User Defined)
+__lmuls                             C:002EB8 lmulu           CODE                            
+__lmulu                             C:002EB8 lmulu           CODE                            
+__lnot                              C:002E5F lnot            CODE                            
+__lor                               C:002DB4 lor             CODE                            
+__low_bss                           0006B170 (User Defined)
+__low_code                          000004E7 (User Defined)
+__low_data                          0006B000 (User Defined)
+__low_romcode                       00000000 (User Defined)
+__low_romdata                       0000006F (User Defined)
+__lsub                              C:002D98 lsub            CODE                            
+__nvectors                          C:000482 vectors24       .STARTUP                        
+__open_periphdevice                 C:002D46 zsldevinitdummy CODE                            
+__PLL_CTL0_INIT_PARAM               00000040 (User Defined)
+__RAM_ADDR_U_INIT_PARAM             000000FF (User Defined)
+__RAM_CTL_INIT_PARAM                000000C0 (User Defined)
+__seqcase                           C:002E11 seqcase         CODE                            
+__set_vector                        C:0004BC vectors24       .STARTUP                        
+__snot                              C:002E69 inot            CODE                            
+__stack                             00B90000 (User Defined)
+__trap                              C:002C0E vectors24       CODE                            
+__vector_table                      D:06C8C4 vectors24       RIVECTS                         
+_abort                              C:0003E8 init_params_f91 .STARTUP                        
+_close_periphdevice                 C:002D46 zsldevinitdummy CODE                            
+_clrtrap                            C:002BFA vectors24       CODE                            
+_cpmram                             D:B80000 llport          $$$org02D7489D                  
+_criticalcounter                    D:06B170 main            BSS                             
+_EnterCritical                      C:000599 main            CODE                            
+_errno                              D:06B000 cstartup        DATA                            
+_exit                               C:0003E8 init_params_f91 .STARTUP                        
+_ExitCritical                       C:0005A4 main            CODE                            
+_failure                            D:06B177 main            BSS                             
+_firstTASK                          C:002D39 llport          CODE                            
+_init_default_vectors               C:00048B vectors24       .STARTUP                        
+_init_sys_clk_pll                   C:0003EE init_params_f91 .STARTUP                        
+_InitSysClk                         C:00041C init_params_f91 .STARTUP                        
+_InitSysClkDone                     C:000428 init_params_f91 .STARTUP                        
+_intrap                             C:002C04 vectors24       CODE                            
+_main                               C:000710 main            CODE                            
+_mbase                              C:002CE5 llport          CODE                            
+_memset                             C:002E73 memset          CODE                            
+_open_periphdevice                  C:002D46 zsldevinitdummy CODE                            
+_OSC_FREQ                           00989680 (User Defined)
+_OSC_FREQ_MULT                      00000005 (User Defined)
+_OscFreq                            C:000429 init_params_f91 .STARTUP                        
+_pcTaskGetName                      C:000FF8 tasks           CODE                            
+_portFreeRTOS_htonl                 C:002CBB llport          CODE                            
+_portFreeRTOS_htons                 C:002CD3 llport          CODE                            
+_pxCurrentTCB                       D:06B006 tasks           DATA                            
+_pxPortInitialiseStack              C:0005DB main            CODE                            
+_reset                              C:000000 vectors24       .RESET                          
+_runs                               D:06B171 main            BSS                             
+_set_vector                         C:0004BC vectors24       .STARTUP                        
+_stacks                             D:06B237 main            BSS                             
+_startup_bss                        D:06B192 main            BSS                             
+_startup_data                       D:06B003 main            DATA                            
+_startup_ok                         D:06B195 main            BSS                             
+_startup_ports                      D:06B17A main            BSS                             
+_startup_snapshot                   C:0004EB boot            CODE                            
+_startup_sp                         D:06B198 main            BSS                             
+_SYS_CLK_FREQ                       02FAF080 (User Defined)
+_SYS_CLK_SRC                        00000001 (User Defined)
+_SysClkFreq                         C:00042F init_params_f91 .STARTUP                        
+_SysClkSrc                          C:000433 init_params_f91 .STARTUP                        
+_tcbs                               D:06B19B main            BSS                             
+_trap                               C:0004E7 boot            CODE                            
+_ulTaskGenericNotifyTake            C:001CA3 tasks           CODE                            
+_ulTaskGenericNotifyValueClear      C:002921 tasks           CODE                            
+_uxListRemove                       C:002B95 list            CODE                            
+_uxTaskGetNumberOfTasks             C:000FF3 tasks           CODE                            
+_uxTaskResetEventItemValue          C:001C6E tasks           CODE                            
+_uxTopUsedPriority                  C:00006C tasks           TEXT                            
+_vApplicationGetIdleTaskMemory      C:00066F main            CODE                            
+_vAssertCalled                      C:0005BD main            CODE                            
+_vListInitialise                    C:002A67 list            CODE                            
+_vListInitialiseItem                C:002AA3 list            CODE                            
+_vListInsert                        C:002B06 list            CODE                            
+_vListInsertEnd                     C:002AB6 list            CODE                            
+_vPortEndScheduler                  C:00066C main            CODE                            
+_vPortYield                         C:002C8A vectors24       CODE                            
+_vPortYieldFromTick                 C:002CFC llport          CODE                            
+_vTaskDelay                         C:000BCF tasks           CODE                            
+_vTaskEndScheduler                  C:000D03 tasks           CODE                            
+_vTaskGenericNotifyGiveFromISR      C:002615 tasks           CODE                            
+_vTaskInternalSetTimeOutState       C:001A80 tasks           CODE                            
+_vTaskMissedYield                   C:001B74 tasks           CODE                            
+_vTaskPlaceOnEventList              C:0014FF tasks           CODE                            
+_vTaskPlaceOnUnorderedEventList     C:00153E tasks           CODE                            
+_vTaskRemoveFromUnorderedEventLi    C:001859 tasks           CODE                            
+_vTaskSetTimeOutState               C:001A47 tasks           CODE                            
+_vTaskStartScheduler                C:000C3C tasks           CODE                            
+_vTaskSuspendAll                    C:000D12 tasks           CODE                            
+_vTaskSwitchContext                 C:00142C tasks           CODE                            
+_xPortStartScheduler                C:00063B main            CODE                            
+_xTaskCatchUpTicks                  C:0010CE tasks           CODE                            
+_xTaskCheckForTimeOut               C:001A9C tasks           CODE                            
+_xTaskCreateStatic                  C:000816 tasks           CODE                            
+_xTaskGenericNotify                 C:001F4C tasks           CODE                            
+_xTaskGenericNotifyFromISR          C:002279 tasks           CODE                            
+_xTaskGenericNotifyStateClear       C:00289A tasks           CODE                            
+_xTaskGenericNotifyWait             C:001DC4 tasks           CODE                            
+_xTaskGetCurrentTaskHandle          C:001C57 tasks           CODE                            
+_xTaskGetStaticBuffers              C:00103F tasks           CODE                            
+_xTaskGetTickCount                  C:000FBC tasks           CODE                            
+_xTaskGetTickCountFromISR           C:000FDC tasks           CODE                            
+_xTaskIncrementTick                 C:001121 tasks           CODE                            
+_xTaskRemoveFromEventList           C:001608 tasks           CODE                            
+_xTaskResumeAll                     C:000D1E tasks           CODE                            
+_xTickCount                         D:06B02A llport          DATA                            
+_xTickCountHeigh                    D:06B02D llport          DATA                            
+switch                              C:002D22 llport          CODE                            
+
+155 external symbol(s).
+
+SYMBOL CROSS REFERENCE:
+=======================
+Name                              Use         Module
+--------------------------------- ----------- -------------------------
+__c_startup                       Defined     cstartup.asm
+                                  Referenced  init_params_f91.asm
+__close_periphdevice              Defined     ..\src\boot\common\zsldevinitdummy.asm
+                                  Referenced  init_params_f91.asm
+__copy_code_to_ram                Defined     LINKER
+                                  Referenced  cstartup.asm
+__CS0_BMC_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS0_CTL_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS0_LBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS0_UBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS1_BMC_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS1_CTL_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS1_LBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS1_UBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS2_BMC_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS2_CTL_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS2_LBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS2_UBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS3_BMC_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS3_CTL_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS3_LBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__CS3_UBR_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__cstartup                        Defined     cstartup.asm
+                                  Referenced  init_params_f91.asm
+__default_mi_handler              Defined     vectors24.asm
+__default_nmi_handler             Defined     vectors24.asm
+__exit                            Defined     init_params_f91.asm
+__FLASH_ADDR_U_INIT_PARAM         Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__FLASH_CTL_INIT_PARAM            Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__frameset                        Defined     .\rtl\common\frameset.asm
+                                  Referenced  .\main.c
+                                  Referenced  .\tasks.c
+                                  Referenced  .\list.c
+__frameset0                       Defined     .\rtl\common\frameset0.asm
+                                  Referenced  .\main.c
+                                  Referenced  .\tasks.c
+                                  Referenced  .\list.c
+__iand                            Defined     .\rtl\common\iand.asm
+                                  Referenced  .\rtl\common\land.asm
+__icmpzero                        Defined     .\rtl\common\icmpzero.asm
+                                  Referenced  .\main.c
+                                  Referenced  .\tasks.c
+__imul_b                          Defined     .\rtl\common\imulu.asm
+                                  Referenced  .\tasks.c
+__imuls                           Defined     .\rtl\common\imulu.asm
+__imulu                           Defined     .\rtl\common\imulu.asm
+                                  Referenced  .\tasks.c
+__init                            Defined     init_params_f91.asm
+                                  Referenced  vectors24.asm
+__init_default_vectors            Defined     vectors24.asm
+                                  Referenced  init_params_f91.asm
+__inot                            Defined     .\rtl\common\inot.asm
+                                  Referenced  .\rtl\common\lnot.asm
+__ior                             Defined     .\rtl\common\ior.asm
+                                  Referenced  .\tasks.c
+                                  Referenced  .\rtl\common\lor.asm
+__ladd                            Defined     .\rtl\common\ladd.asm
+__ladd_b                          Defined     .\rtl\common\ladd.asm
+                                  Referenced  .\tasks.c
+__land                            Defined     .\rtl\common\land.asm
+                                  Referenced  .\tasks.c
+__lcmps                           Defined     .\rtl\common\lcmpu.asm
+__lcmpu                           Defined     .\rtl\common\lcmpu.asm
+                                  Referenced  .\rtl\common\lcmpzero.asm
+__lcmpzero                        Defined     .\rtl\common\lcmpzero.asm
+                                  Referenced  .\tasks.c
+__len_bss                         Defined     LINKER
+                                  Referenced  cstartup.asm
+__len_code                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__len_data                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__lmuls                           Defined     .\rtl\common\lmulu.asm
+__lmulu                           Defined     .\rtl\common\lmulu.asm
+                                  Referenced  .\tasks.c
+__lnot                            Defined     .\rtl\common\lnot.asm
+                                  Referenced  .\tasks.c
+__lor                             Defined     .\rtl\common\lor.asm
+                                  Referenced  .\tasks.c
+__low_bss                         Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_code                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_data                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_romcode                     Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_romdata                     Defined     LINKER
+                                  Referenced  cstartup.asm
+__lsub                            Defined     .\rtl\common\lsub.asm
+                                  Referenced  .\tasks.c
+__nvectors                        Defined     vectors24.asm
+__open_periphdevice               Defined     ..\src\boot\common\zsldevinitdummy.asm
+                                  Referenced  init_params_f91.asm
+__PLL_CTL0_INIT_PARAM             Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__RAM_ADDR_U_INIT_PARAM           Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__RAM_CTL_INIT_PARAM              Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__seqcase                         Defined     .\rtl\common\seqcase.asm
+                                  Referenced  .\tasks.c
+__set_vector                      Defined     vectors24.asm
+                                  Referenced  .\main.c
+__snot                            Defined     .\rtl\common\inot.asm
+__stack                           Defined     LINKER
+                                  Referenced  init_params_f91.asm
+__trap                            Defined     vectors24.asm
+__vector_table                    Defined     vectors24.asm
+_abort                            Defined     init_params_f91.asm
+_close_periphdevice               Defined     ..\src\boot\common\zsldevinitdummy.asm
+_clrtrap                          Defined     vectors24.asm
+_cpmram                           Defined     llport.asm
+_criticalcounter                  Defined     .\main.c
+                                  Referenced  llport.asm
+_EnterCritical                    Defined     .\main.c
+                                  Referenced  .\tasks.c
+_errno                            Defined     cstartup.asm
+_exit                             Defined     init_params_f91.asm
+_ExitCritical                     Defined     .\main.c
+                                  Referenced  .\tasks.c
+_failure                          Defined     .\main.c
+_firstTASK                        Defined     llport.asm
+                                  Referenced  .\main.c
+_init_default_vectors             Defined     vectors24.asm
+_init_sys_clk_pll                 Defined     init_params_f91.asm
+_InitSysClk                       Defined     init_params_f91.asm
+_InitSysClkDone                   Defined     init_params_f91.asm
+_intrap                           Defined     vectors24.asm
+_main                             Defined     .\main.c
+                                  Referenced  init_params_f91.asm
+_mbase                            Defined     llport.asm
+_memset                           Defined     .\rtl\common\memset.asm
+                                  Referenced  .\tasks.c
+_open_periphdevice                Defined     ..\src\boot\common\zsldevinitdummy.asm
+_OSC_FREQ                         Defined     LINKER
+                                  Referenced  init_params_f91.asm
+_OSC_FREQ_MULT                    Defined     LINKER
+                                  Referenced  init_params_f91.asm
+_OscFreq                          Defined     init_params_f91.asm
+_pcTaskGetName                    Defined     .\tasks.c
+_portFreeRTOS_htonl               Defined     llport.asm
+_portFreeRTOS_htons               Defined     llport.asm
+_pxCurrentTCB                     Defined     .\tasks.c
+                                  Referenced  llport.asm
+_pxPortInitialiseStack            Defined     .\main.c
+                                  Referenced  .\tasks.c
+_reset                            Defined     vectors24.asm
+_runs                             Defined     .\main.c
+_set_vector                       Defined     vectors24.asm
+_stacks                           Defined     .\main.c
+_startup_bss                      Defined     .\main.c
+_startup_data                     Defined     .\main.c
+_startup_ok                       Defined     .\main.c
+_startup_ports                    Defined     .\main.c
+                                  Referenced  boot.asm
+_startup_snapshot                 Defined     boot.asm
+                                  Referenced  .\main.c
+_startup_sp                       Defined     .\main.c
+                                  Referenced  boot.asm
+_SYS_CLK_FREQ                     Defined     LINKER
+                                  Referenced  init_params_f91.asm
+_SYS_CLK_SRC                      Defined     LINKER
+                                  Referenced  init_params_f91.asm
+_SysClkFreq                       Defined     init_params_f91.asm
+_SysClkSrc                        Defined     init_params_f91.asm
+_tcbs                             Defined     .\main.c
+_trap                             Defined     boot.asm
+                                  Referenced  vectors24.asm
+_ulTaskGenericNotifyTake          Defined     .\tasks.c
+_ulTaskGenericNotifyValueClear    Defined     .\tasks.c
+_uxListRemove                     Defined     .\list.c
+                                  Referenced  .\tasks.c
+_uxTaskGetNumberOfTasks           Defined     .\tasks.c
+_uxTaskResetEventItemValue        Defined     .\tasks.c
+_uxTopUsedPriority                Defined     .\tasks.c
+_vApplicationGetIdleTaskMemory    Defined     .\main.c
+                                  Referenced  .\tasks.c
+_vAssertCalled                    Defined     .\main.c
+                                  Referenced  .\tasks.c
+_vListInitialise                  Defined     .\list.c
+                                  Referenced  .\tasks.c
+_vListInitialiseItem              Defined     .\list.c
+                                  Referenced  .\tasks.c
+_vListInsert                      Defined     .\list.c
+                                  Referenced  .\tasks.c
+_vListInsertEnd                   Defined     .\list.c
+_vPortEndScheduler                Defined     .\main.c
+                                  Referenced  .\tasks.c
+_vPortYield                       Defined     vectors24.asm
+                                  Referenced  .\tasks.c
+_vPortYieldFromTick               Defined     llport.asm
+                                  Referenced  .\main.c
+_vTaskDelay                       Defined     .\tasks.c
+_vTaskEndScheduler                Defined     .\tasks.c
+_vTaskGenericNotifyGiveFromISR    Defined     .\tasks.c
+_vTaskInternalSetTimeOutState     Defined     .\tasks.c
+_vTaskMissedYield                 Defined     .\tasks.c
+_vTaskPlaceOnEventList            Defined     .\tasks.c
+_vTaskPlaceOnUnorderedEventList   Defined     .\tasks.c
+_vTaskRemoveFromUnorderedEventLis Defined     .\tasks.c
+_vTaskSetTimeOutState             Defined     .\tasks.c
+_vTaskStartScheduler              Defined     .\tasks.c
+                                  Referenced  .\main.c
+_vTaskSuspendAll                  Defined     .\tasks.c
+_vTaskSwitchContext               Defined     .\tasks.c
+                                  Referenced  llport.asm
+_xPortStartScheduler              Defined     .\main.c
+                                  Referenced  .\tasks.c
+_xTaskCatchUpTicks                Defined     .\tasks.c
+_xTaskCheckForTimeOut             Defined     .\tasks.c
+_xTaskCreateStatic                Defined     .\tasks.c
+                                  Referenced  .\main.c
+_xTaskGenericNotify               Defined     .\tasks.c
+_xTaskGenericNotifyFromISR        Defined     .\tasks.c
+_xTaskGenericNotifyStateClear     Defined     .\tasks.c
+_xTaskGenericNotifyWait           Defined     .\tasks.c
+_xTaskGetCurrentTaskHandle        Defined     .\tasks.c
+_xTaskGetStaticBuffers            Defined     .\tasks.c
+_xTaskGetTickCount                Defined     .\tasks.c
+                                  Referenced  .\main.c
+_xTaskGetTickCountFromISR         Defined     .\tasks.c
+_xTaskIncrementTick               Defined     .\tasks.c
+                                  Referenced  llport.asm
+_xTaskRemoveFromEventList         Defined     .\tasks.c
+_xTaskResumeAll                   Defined     .\tasks.c
+_xTickCount                       Defined     llport.asm
+_xTickCountHeigh                  Defined     llport.asm
+switch                            Defined     llport.asm
+                                  Referenced  vectors24.asm
+
+OUTPUT CHECKSUM
+===============
+probe.hex            16BD82
+
+
+
+END OF LINK MAP:
+================
+0 Errors
+0 Warnings

@@ -1,0 +1,137 @@
+
+IEEE 695 OMF Linker Version 6.25 (19073001)
+Copyright (C) 1999-2008 Zilog, Inc. All Rights Reserved
+
+LINK MAP:
+
+DATE:      Tue Oct 27 09:56:17 2026
+PROCESSOR: assembler
+FILES:     vectors24.obj          hooks.obj              
+
+
+COMMAND LIST:
+=============
+-FORMAT=INTEL32
+-map -maxhexlen=64 -quiet -warnoverlap -xref -unresolved=fatal
+RANGE ROM $000000 : $06AFFF
+RANGE RAM $06B000 : $07FFFF
+RANGE EXTIO $000000 : $00FFFF
+RANGE INTIO $000000 : $0000FF
+ORDER .RESET,.IVECTS,.STARTUP,CODE,DATA
+"probe" = "vectors24.obj", "hooks.obj"
+
+SPACE ALLOCATION:
+=================
+
+Space                     Base         Top      Size      Used    Unused
+------------------ ----------- ----------- --------- --------- ---------
+RAM                   D:06B000    D:06B52B    15000H      52CH    14AD4H
+                                          (    86016      1324     84692)
+ROM                   C:000000    C:000883    6B000H      754H    6A8ACH
+                                          (   438272      1876    436396)
+
+
+SEGMENTS WITHIN SPACE:
+======================
+
+RAM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+BSS                normal data            D:06B101    D:06B52B      42bh
+RIVECTS            normal data            D:06B000    D:06B100      101h
+
+
+ROM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+.IVECTS            normal data            C:000200    C:0002FF      100h
+.RESET             normal data            C:000000    C:00006B       6ch
+.STARTUP           normal data            C:00006C    C:0000D0       65h
+CODE               normal data            C:000300    C:000442      143h
+TRAMP              normal data            C:000444    C:000883      440h
+
+SEGMENTS WITHIN MODULES:
+========================
+
+Module: hooks.asm (File: hooks.obj) Version: 1:0 10/27/2026 09:56:11
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: BSS                               D:06B52B    D:06B52B        1h
+    Segment: CODE                              C:0003C1    C:000442       82h
+
+
+Module: vectors24.asm (File: vectors24.obj) Version: 1:0 10/27/2026 09:56:05
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .IVECTS                           C:000200    C:0002FF      100h
+    Segment: .RESET                            C:000000    C:00006B       6ch
+    Segment: .STARTUP                          C:00006C    C:0000D0       65h
+    Segment: BSS                               D:06B101    D:06B52A      42ah
+    Segment: CODE                              C:000300    C:0003C0       c1h
+    Segment: RIVECTS                           D:06B000    D:06B100      101h
+    Segment: TRAMP                             C:000444    C:000883      440h
+
+EXTERNAL DEFINITIONS:
+=====================
+
+Symbol                               Address Module          Segment
+-------------------------------- ----------- --------------- --------------------------------
+__default_mi_handler                C:000071 vectors24       .STARTUP                        
+__default_nmi_handler               C:00006E vectors24       .STARTUP                        
+__init                              C:0003C1 hooks           CODE                            
+__init_default_vectors              C:000075 vectors24       .STARTUP                        
+__nvectors                          C:00006C vectors24       .STARTUP                        
+__set_vector                        C:0000A6 vectors24       .STARTUP                        
+__trap                              C:000314 vectors24       CODE                            
+__vector_table                      D:06B000 vectors24       RIVECTS                         
+_clrtrap                            C:000300 vectors24       CODE                            
+_done                               C:000429 hooks           CODE                            
+_init_default_vectors               C:000075 vectors24       .STARTUP                        
+_intrap                             C:00030A vectors24       CODE                            
+_reset                              C:000000 vectors24       .RESET                          
+_set_vector                         C:0000A6 vectors24       .STARTUP                        
+_ticks                              D:06B52B hooks           BSS                             
+_trap                               C:00043F hooks           CODE                            
+_vPortYield                         C:000390 vectors24       CODE                            
+switch                              C:00043E hooks           CODE                            
+
+18 external symbol(s).
+
+SYMBOL CROSS REFERENCE:
+=======================
+Name                              Use         Module
+--------------------------------- ----------- -------------------------
+__default_mi_handler              Defined     vectors24.asm
+__default_nmi_handler             Defined     vectors24.asm
+__init                            Defined     hooks.asm
+                                  Referenced  vectors24.asm
+__init_default_vectors            Defined     vectors24.asm
+                                  Referenced  hooks.asm
+__nvectors                        Defined     vectors24.asm
+__set_vector                      Defined     vectors24.asm
+__trap                            Defined     vectors24.asm
+__vector_table                    Defined     vectors24.asm
+_clrtrap                          Defined     vectors24.asm
+_done                             Defined     hooks.asm
+_init_default_vectors             Defined     vectors24.asm
+_intrap                           Defined     vectors24.asm
+_reset                            Defined     vectors24.asm
+_set_vector                       Defined     vectors24.asm
+                                  Referenced  hooks.asm
+_ticks                            Defined     hooks.asm
+_trap                             Defined     hooks.asm
+                                  Referenced  vectors24.asm
+_vPortYield                       Defined     vectors24.asm
+switch                            Defined     hooks.asm
+                                  Referenced  vectors24.asm
+
+OUTPUT CHECKSUM
+===============
+probe.hex            037F42
+
+
+
+END OF LINK MAP:
+================
+0 Errors
+0 Warnings

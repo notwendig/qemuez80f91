@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+import pathlib,re,tempfile
+from ez80_testlib import VM
+
+class ROM:
+ def __init__(self):self.b=bytearray([0x5b,0xc3,5,0,0])
+ def emit(self,*bs):self.b.extend(bs)
+ def ld(self,op,value,prefix=()):self.emit(*prefix,op);self.b.extend(value.to_bytes(3,'little'))
+
+def run(d,name,r,expected,mem=()):
+ p=d/(name+'.bin');p.write_bytes(r.b);v=VM(p)
+ try:
+  v.cmd('cont');v.halted()
+  got={k:int(x,16) for k,x in re.findall(r'([A-Z0-9]+)=([0-9a-f]+)',v.hmp('info registers'))}
+  for k,val in expected.items():assert got[k]==val,(name,k,got)
+  for addr,data in mem:
+   f=d/'mem.bin';v.cmd('pmemsave',{'val':addr,'size':len(data),'filename':str(f)})
+   assert f.read_bytes()==data,(name,f.read_bytes(),data)
+ finally:v.close()
+ print('PASS:',name)
+
+with tempfile.TemporaryDirectory(prefix='ez80-c-ops-') as td:
+ d=pathlib.Path(td)
+ # Overflow/half-carry of ADD and borrow of SBC at the 24-bit boundary.
+ r=ROM();r.ld(0x21,0xffffff);r.ld(0x01,1);r.emit(0x09,0x76)
+ run(d,'add24-carry-halfcarry',r,{'HL':0,'AF':0x11})
+ r=ROM();r.ld(0x21,0x800000);r.ld(0x01,1);r.emit(0xb7,0xed,0x42,0x76)
+ run(d,'sbc24-overflow',r,{'HL':0x7fffff,'AF':0x16})
+ r=ROM();r.ld(0x21,0);r.ld(0x01,0);r.emit(0x37,0xed,0x42,0x76)
+ run(d,'sbc24-borrow',r,{'HL':0xffffff,'AF':0x93})
+
+ # Indexed three-byte loads/stores with negative displacement and a guard byte.
+ r=ROM();r.ld(0x21,0xffe103,prefix=(0xdd,));r.ld(0x01,0x123456)
+ r.emit(0xdd,0x0f,0xfd,0xdd,0x17,0xfd,0x76)
+ run(d,'indexed-negative-displacement-multibyte',r,{'DE':0x123456},
+     [(0xffe100,b'\x56\x34\x12\x00')])
+
+ # EX (SP),IX exchanges exactly three bytes and leaves SP unchanged.
+ r=ROM();r.ld(0x31,0xfffff0);r.ld(0x01,0x123456);r.emit(0xc5)
+ r.ld(0x21,0xabcdef,prefix=(0xdd,));r.emit(0xdd,0xe3,0xd1,0x76)
+ run(d,'exchange-index-stack',r,{'DE':0xabcdef,'IX':0x123456,'SPL':0xfffff0})
+
+ # LEA signed offsets and both cross-index forms preserve flags.
+ r=ROM();r.ld(0x21,0xffe100,prefix=(0xdd,));r.emit(0x37)
+ r.emit(0xed,0x12,0xfd,0xed,0x55,0x04,0xed,0x54,0xff,0x76)
+ run(d,'lea-signed-and-cross-index',r,{'DE':0xffe0fd,'IY':0xffe104,
+     'IX':0xffe103,'AF':1})
+
+ # LDIR repeats bytewise and stops at BC=0; guard bytes are untouched.
+ r=ROM();r.ld(0x21,0x123456);r.ld(0x22,0xffe100)
+ r.ld(0x21,0xffe100);r.ld(0x11,0xffe200);r.ld(0x01,3)
+ r.emit(0xed,0xb0,0x76)
+ run(d,'ldir-three-byte-copy',r,{'BC':0,'HL':0xffe103,'DE':0xffe203},
+     [(0xffe200,b'\x56\x34\x12\x00')])
+
+ # Shadow register exchange is required by the FreeRTOS context wrappers.
+ r=ROM();r.ld(0x01,0x123456);r.ld(0x11,0xabcdef);r.ld(0x21,0x654321)
+ r.emit(0xd9);r.ld(0x01,0);r.ld(0x11,0);r.ld(0x21,0);r.emit(0xd9,0x76)
+ run(d,'shadow-register-exchange',r,{'BC':0x123456,'DE':0xabcdef,'HL':0x654321})
+
+with tempfile.TemporaryDirectory(prefix='ez80-stack-rotate-') as td:
+ d=pathlib.Path(td)
+ # Accumulator rotations preserve S/Z/PV and clear H/N (unlike CB rotations).
+ for op,a,flags,result,carry in ((0x07,0x81,0,3,1),(0x0f,0x81,0,0xc0,1),
+                               (0x17,0x80,1,1,1),(0x1f,1,1,0x80,1),
+                               (0x17,0,0,0,0),(0x1f,0,0,0,0)):
+  r=ROM();r.ld(0x31,0xfffff0);r.ld(0x01,(a<<8)|0xd6|flags)
+  r.emit(0xc5,0xf1,op,0x76)
+  run(d,f'rotate-{op:02x}-{a:02x}-{flags}',r,{'AF':(result<<8)|0xc4|carry})
+ # PEA uses signed displacement and leaves both source registers and flags alone.
+ r=ROM();r.ld(0x31,0xfffff0);r.ld(0x21,0,prefix=(0xdd,))
+ r.ld(0x21,0x123456,prefix=(0xfd,));r.emit(0x37,0xed,0x65,0xff,0xed,0x66,0x7f,
+                                         0xd1,0xc1,0x76)
+ run(d,'pea-adl-signed-wrap',r,{'BC':0xffffff,'DE':0x1234d5,'IX':0,
+                              'IY':0x123456,'SPL':0xfffff0,'AF':1})
+ # PEA.S pushes two bytes to SPS even when the CPU executes in ADL mode.
+ r=ROM();r.emit(0x3e,0xff,0xed,0x6d,0x52,0x31,0x00,0xf0,0x00)
+ r.ld(0x21,0x123400,prefix=(0xdd,));r.emit(0x52,0xed,0x65,0xfe,
+                                         0x52,0xd1,0x76)
+ run(d,'pea-short-stack',r,{'DE':0x33fe,'SPS':0xf000,'IX':0x123400})
+
+with tempfile.TemporaryDirectory(prefix='ez80-kernel-ops-') as td:
+ d=pathlib.Path(td)
+ r=ROM();r.ld(0x01,0xffe100);r.ld(0x11,0xffe101)
+ r.emit(0x3e,0x5a,0x02,0x3e,0xa5,0x12,0x0a,0x12,0x3e,0,0x1a,0x76)
+ run(d,'indirect-byte-bc-de',r,{'AF':0x5a00},[(0xffe100,b'ZZ')])
+ for op,reg in ((0x4c,'BC'),(0x5c,'DE'),(0x6c,'HL'),(0x7c,'SPL')):
+  r=ROM();r.ld({0x4c:0x01,0x5c:0x11,0x6c:0x21,0x7c:0x31}[op],0x12ffff)
+  r.emit(0x37,0xed,op,0x76)
+  run(d,f'mlt-{reg}',r,{reg:0xfe01,'AF':1})
+ # Zilog RZK scheduler: MLT HL follows byte writes to an old code pointer.
+ r=ROM();r.ld(0x21,0x2a0600);r.emit(0xed,0x6c,0x76)
+ run(d,'mlt-clears-stale-scheduler-pointer-upper-byte',r,{'HL':0})
+ for op,a,carry,b,expected in ((0xc6,0x7f,0,1,0x8094),
+                              (0xce,0xff,1,0,0x0051),
+                              (0xd6,0,0,1,0xff93),
+                              (0xde,0x80,1,0x7f,0x0056)):
+  r=ROM();r.ld(0x31,0xfffff0);r.ld(0x01,(a<<8)|carry)
+  r.emit(0xc5,0xf1,op,b,0x76)
+  run(d,f'immediate-alu-{op:02x}',r,{'AF':expected})
+ # Index register memory operations: same and cross-index destinations.
+ for prefix,index in ((0xdd,'IX'),(0xfd,'IY')):
+  for load,store,same in ((0x37,0x3f,True),(0x31,0x3e,False)):
+   r=ROM();r.ld(0x21,0xffe103,prefix=(prefix,))
+   other=0xfd if prefix==0xdd else 0xdd
+   r.ld(0x21,0x123456,prefix=(other,));r.emit(0x37,prefix,store,0xfd)
+   r.emit(prefix,load,0xfd,0x76)
+   target=index if same else ('IY' if index=='IX' else 'IX')
+   val=0xffe103 if same else 0x123456
+   run(d,f'indexed-index-{prefix:02x}-{load:02x}',r,{target:val,'AF':1},
+       [(0xffe100,val.to_bytes(3,'little')+b'\0')])
+ # UM0077 pp.195/206 and the independent ZDS encoding probe: ED37=IX, ED31=IY.
+ for store,load,reg,prefix in ((0x3f,0x37,'IX',0xdd),(0x3e,0x31,'IY',0xfd)):
+  r=ROM();r.ld(0x21,0xffe100);r.ld(0x21,0xabcdef,prefix=(prefix,))
+  r.emit(0x37,0xed,store);r.ld(0x21,0,prefix=(prefix,));r.emit(0xed,load,0x76)
+  run(d,f'hl-index-{reg}',r,{reg:0xabcdef,'AF':1},[(0xffe100,b'\xef\xcd\xab\0')])
+
+with tempfile.TemporaryDirectory(prefix='ez80-bit-ops-') as td:
+ d=pathlib.Path(td)
+ r=ROM();r.ld(0x31,0xfffff0);r.ld(0x01,0x5ad7);r.emit(0xc5,0xf1,0xcb,0xc7,0x76)
+ run(d,'set-register-preserves-flags',r,{'AF':0x5bd7})
+ r=ROM();r.emit(0x3e,0x81,0x37,0xcb,0x87,0x76)
+ run(d,'res-register-preserves-flags',r,{'AF':0x8001})
+ for bit,flags in ((7,0x91),(0,0x55)):
+  r=ROM();r.emit(0x3e,0x80,0x37,0xcb,0x40|(bit<<3)|7,0x76)
+  run(d,f'bit-register-{bit}',r,{'AF':0x8000|flags})
+ r=ROM();r.ld(0x21,0xffe100);r.emit(0x36,0,0x37,0xcb,0xf6,0xcb,0x76,0x76)
+ run(d,'bit-memory-is-not-halt',r,{'AF':0x11},[(0xffe100,b'\x40')])
+ # Short memory BIT/SET/RES use MBASE and preserve HL; BIT 6,(HL) is CB 76.
+ r=ROM();r.emit(0x3e,0xff,0xed,0x6d);r.ld(0x21,0x12e100)
+ r.emit(0x52,0x36,0,0x37,0x52,0xcb,0xf6,0x52,0xcb,0x76,
+        0x52,0xcb,0xb6,0x76)
+ run(d,'bit-short-memory-override',r,{'AF':0xff11,'HL':0x12e100},[(0xffe100,b'\0')])
+
+with tempfile.TemporaryDirectory(prefix='ez80-forth-ops-') as td:
+ d=pathlib.Path(td)
+ r=ROM();r.ld(0x21,0x332211);r.ld(0x22,0xffe100)
+ r.ld(0x21,0xffe100);r.ld(0x01,3);r.emit(0x3e,0x22,0x37,0xed,0xb1,0x76)
+ run(d,'cpir-stops-on-match',r,{'AF':0x2247,'BC':1,'HL':0xffe102})
+ r=ROM();r.ld(0x21,0x332211);r.ld(0x22,0xffe100)
+ r.ld(0x21,0xffe102);r.ld(0x01,3);r.emit(0x3e,0x11,0x37,0xed,0xb9,0x76)
+ run(d,'cpdr-backwards-to-match',r,{'AF':0x1143,'BC':0,'HL':0xffe0ff})
+ for op,hl in ((0xa1,0xffe101),(0xa9,0xffe0ff)):
+  r=ROM();r.ld(0x21,0xffe100);r.emit(0x36,0x11);r.ld(0x01,3)
+  r.emit(0x3e,0x10,0x37,0xed,op,0x76)
+  run(d,f'block-compare-flags-{op:02x}',r,{'AF':0x1097,'BC':2,'HL':hl})
+ r=ROM();r.ld(0x21,0x332211);r.ld(0x22,0xffe100)
+ r.ld(0x21,0xffe102);r.ld(0x11,0xffe103);r.ld(0x01,3);r.emit(0x37,0xed,0xb8,0x76)
+ run(d,'lddr-overlapping-copy',r,{'HL':0xffe0ff,'DE':0xffe100,'BC':0,'AF':1},
+     [(0xffe100,b'\x11\x11\x22\x33\0')])
+ for op,old,result,flags in ((0x06,0x81,3,5),(0x0e,0x81,0xc0,0x85),
+                            (0x16,0x80,1,1),(0x1e,1,0x80,0x81),
+                            (0x26,0x80,0,0x45),(0x2e,0x80,0xc0,0x84),
+                            (0x3e,0x81,0x40,1)):
+  r=ROM();r.ld(0x21,0xffe100);r.emit(0x36,old)
+  r.ld(0x21,0xffe101,prefix=(0xfd,));r.emit(0x37,0xfd,0xcb,0xff,op,0x76)
+  run(d,f'indexed-cb-rotate-{op:02x}',r,{'AF':flags,'IY':0xffe101},
+      [(0xffe100,bytes([result,0]))])
+ r=ROM();r.emit(0x3e,0x81,0xcb,0x07,0x76)
+ run(d,'cb-register-rotate-flags',r,{'AF':0x0305})
+ r=ROM();r.ld(0x21,0xffe100);r.emit(0x36,0x80)
+ r.ld(0x21,0xffe101,prefix=(0xdd,));r.emit(0x37,0xdd,0xcb,0xff,0x7e,0x76)
+ run(d,'indexed-bit-sign-and-carry',r,{'AF':0x91},[(0xffe100,b'\x80')])
+ r=ROM();r.ld(0x21,0xffe100);r.emit(0x36,1)
+ r.ld(0x21,0xffe101,prefix=(0xdd,));r.emit(0x3e,0x7f,0xdd,0x86,0xff,0x76)
+ run(d,'indexed-alu-overflow',r,{'AF':0x8094})
+ r=ROM();r.emit(0x3e,0x55,0x37,0x2f,0x76)
+ run(d,'cpl-preserves-carry',r,{'AF':0xaa13})
+ r=ROM();r.ld(0x01,0x1202aa);r.ld(0x11,0);r.emit(0x37,0x13,0x10,0xfd,0x76)
+ run(d,'djnz-eight-bit-count-and-flags',r,{'BC':0x1200aa,'DE':2,'AF':1})
+ for cc,flag in enumerate((0x40,0x40,1,1,4,4,0x80,0x80)):
+  for set_flag in (False,True):
+   r=ROM();r.ld(0x31,0xfffff0);r.ld(0x01,0x3400|(flag if set_flag else 0))
+   r.emit(0xc5,0xf1);target=len(r.b)+5
+   r.ld(0xc4+(cc<<3),target);r.emit(0x76);r.ld(0x11,0x123456);r.emit(0xc9)
+   taken=set_flag==bool(cc&1)
+   run(d,f'conditional-call-{cc}-{set_flag}',r,
+       {'DE':0x123456 if taken else 0,'SPL':0xfffff0,'AF':0x3400|(flag if set_flag else 0)})

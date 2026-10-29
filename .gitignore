@@ -1,0 +1,7 @@
+/build/
+/upstream-qemu/
+__pycache__/
+*.pyc
+/qemu/
+
+/ez80f91_*.[0-9]*

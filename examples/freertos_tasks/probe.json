@@ -1,0 +1,36 @@
+{
+  "freertos_commit": "cc64b750e7a5c6dfd19dd8eb3a644a9243ce10a9",
+  "startup_sha256": "697803471cc7d34f33a011db7fee2f12d482872475189551ae5120210226ff46",
+  "binary_sha256": "52bc4cd96ddefea7bdbb1eb07b4646b9bfcf4dc72163a54e6c9bed84eb09f9ee",
+  "symbols": {
+    "_main": 1181,
+    "_runs": 438631,
+    "_failure": 438637,
+    "_pxCurrentTCB": 438275,
+    "_xTickCount": 438311,
+    "switch": 10807,
+    "_firstTASK": 10830,
+    "_tcbs": 438640,
+    "_stacks": 438796,
+    "_criticalcounter": 438630
+  },
+  "board": "ez80f91-freertos,ram-boot=on",
+  "kernel_commit": "0264280230aa6a828247b5f05bf57e33f1994581",
+  "kernel_patch_sha256": "0a74ef06c9793e52c695454703d4fca29de371720443257c69b1d73d335aa659",
+  "source_sha256": {
+    "tasks.c": "c4ec1af6af0095f90b8180d4eb4990a4b84a3d9de5daac2d81f8266365a4863a",
+    "list.c": "71f4580124ee82e23ea22eb91638dfb7c3d3d86bd72a7717dfb4f81b3bed6454",
+    "vectors24.asm": "994be83e3f99fe062e8c05de8089f1badcc43e6112527d1dbc9e39a40f943b2b",
+    "llport.asm": "26c7a128e0b45c3ec3d29e2117093c70857a66c364b6433b8dd640767484fea6",
+    "cstartup.asm": "697803471cc7d34f33a011db7fee2f12d482872475189551ae5120210226ff46",
+    "portmacro.h": "a40f7bc4b807182247aad6b3dad295015bf91944ad5aab47eae0aeee729d228f",
+    "stdint.h": "c14a892dddd7cace73d4fb57ba37aa44e8b8e4042712d5fa8b178446c2c5538c",
+    "main.c": "7cb9cf081c5d3c66c32f7f767c2f0d6ed1c3512971227fd64bf46762191592d4",
+    "boot.asm": "d51c9016a600aa94cdbfca4b83b6296528a7360f2434d613b4cb29da6ab18207",
+    "FreeRTOSConfig.h": "d06058e43b46f22c66c31964f34dfc7850974b54dd745c5553900649e73b5083"
+  },
+  "expected_uart_hex": "424142414241424121",
+  "tcb_size": 52,
+  "stack_words": 512,
+  "note": "FreeRTOS V10.6.1 with project patch; original vectors and llport, minimal application port."
+}

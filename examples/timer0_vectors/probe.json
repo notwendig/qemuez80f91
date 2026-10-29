@@ -1,0 +1,16 @@
+{
+  "symbols": {
+    "_ticks": 439595,
+    "_done": 1065,
+    "__init": 961,
+    "__vector_table": 438272,
+    "__init_default_vectors": 117,
+    "_set_vector": 166
+  },
+  "freertos_commit": "cc64b750e7a5c6dfd19dd8eb3a644a9243ce10a9",
+  "vectors_sha256": "994be83e3f99fe062e8c05de8089f1badcc43e6112527d1dbc9e39a40f943b2b",
+  "binary_sha256": "30ba24f4b72e5de974a5b4ff6b36da0a5014a0724611e2847f72eaf8b66d3320",
+  "board": "ez80f91-freertos,ram-boot=on",
+  "expected_uart_hex": "545454",
+  "note": "Original vectors24.asm, custom Timer0 handler; no FreeRTOS scheduler."
+}

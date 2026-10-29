@@ -1,0 +1,6 @@
+[submodule "subprojects/CAMELF91_24"]
+	path = subprojects/CAMELF91_24
+	url = https://github.com/notwendig/CAMELF91_24.git
+[submodule "subprojects/FreeRTOS-eZ80f91"]
+	path = subprojects/FreeRTOS-eZ80f91
+	url = https://github.com/notwendig/FreeRTOS-eZ80f91.git

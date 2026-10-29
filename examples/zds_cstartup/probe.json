@@ -1,0 +1,17 @@
+{
+  "freertos_commit": "cc64b750e7a5c6dfd19dd8eb3a644a9243ce10a9",
+  "startup_sha256": "697803471cc7d34f33a011db7fee2f12d482872475189551ae5120210226ff46",
+  "binary_sha256": "d25b5b373c09e742b48246fe86049b8201c840f61f632edd9eb73a5154ed6de2",
+  "symbols": {
+    "_main": 121,
+    "_bss_probe": 438278,
+    "_data_probe": 438275,
+    "_result": 438286,
+    "__c_startup": 43,
+    "__frameset": 231
+  },
+  "board": "ez80f91-freertos,ram-boot=on",
+  "expected_result": 1193046,
+  "expected_uart_hex": "43",
+  "note": "Original C startup plus ZDS C probe; no FreeRTOS scheduler yet."
+}

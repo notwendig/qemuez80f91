@@ -1,0 +1,163 @@
+
+IEEE 695 OMF Linker Version 6.25 (19073001)
+Copyright (C) 1999-2008 Zilog, Inc. All Rights Reserved
+
+LINK MAP:
+
+DATE:      Tue Oct 27 09:41:00 2026
+PROCESSOR: assembler
+FILES:     boot.obj               cstartup.obj           main.obj               
+           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib
+           
+
+
+COMMAND LIST:
+=============
+-FORMAT=INTEL32
+-map -maxhexlen=64 -quiet -warnoverlap -xref -unresolved=fatal
+RANGE ROM $000000 : $06AFFF
+RANGE RAM $06B000 : $07FFFF
+RANGE EXTIO $000000 : $00FFFF
+RANGE INTIO $000000 : $0000FF
+ORDER .RESET,.STARTUP,CODE,DATA
+COPY DATA ROM
+DEFINE __low_romdata = copy base of DATA
+DEFINE __low_data = base of DATA
+DEFINE __len_data = length of DATA
+DEFINE __low_bss = base of BSS
+DEFINE __len_bss = length of BSS
+DEFINE __low_romcode = copy base of CODE
+DEFINE __low_code = base of CODE
+DEFINE __len_code = length of CODE
+DEFINE __copy_code_to_ram = 0
+"probe" = "boot.obj", "cstartup.obj", "main.obj", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib"
+
+SPACE ALLOCATION:
+=================
+
+Space                     Base         Top      Size      Used    Unused
+------------------ ----------- ----------- --------- --------- ---------
+RAM                   D:06B000    D:06B010    15000H       11H    14FEFH
+                                          (    86016        17     85999)
+ROM                   C:000000    C:0000FC    6B000H       FDH    6AF03H
+                                          (   438272       253    438019)
+
+
+SEGMENTS WITHIN SPACE:
+======================
+
+RAM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+BSS                normal data            D:06B006    D:06B010        bh
+DATA               normal data            D:06B000    D:06B005        6h
+
+
+ROM                               Type        Base         Top      Size
+------------------ ------------------- ----------- ----------- ---------
+.RESET             normal data            C:000000    C:00002A       2bh
+.STARTUP           normal data            C:00002B    C:000078       4eh
+CODE               normal data            C:000079    C:0000F6       7eh
+DATA               * segment copy *       C:0000F7    C:0000FC        6h
+
+SEGMENTS WITHIN MODULES:
+========================
+
+Module: .\main.c (File: main.obj) Version: 1:0 10/27/2026 09:40:43
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: BSS                               D:06B006    D:06B010        bh
+    Segment: CODE                              C:000079    C:0000E6       6eh
+    Segment: DATA                              D:06B003    D:06B005        3h
+
+
+Module: .\rtl\common\frameset.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:0000E7    C:0000F6       10h
+
+
+Module: boot.asm (File: boot.obj) Version: 1:0 10/27/2026 09:40:49
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .RESET                            C:000000    C:00002A       2bh
+
+
+Module: cstartup.asm (File: cstartup.obj) Version: 1:0 10/27/2026 09:40:54
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .STARTUP                          C:00002B    C:000078       4eh
+    Segment: DATA                              D:06B000    D:06B002        3h
+
+EXTERNAL DEFINITIONS:
+=====================
+
+Symbol                               Address Module          Segment
+-------------------------------- ----------- --------------- --------------------------------
+__c_startup                         C:00002B cstartup        .STARTUP                        
+__copy_code_to_ram                  00000000 (User Defined)
+__cstartup                          C:000001 cstartup        CODE                            
+__frameset                          C:0000E7 frameset        CODE                            
+__len_bss                           0000000B (User Defined)
+__len_code                          0000007E (User Defined)
+__len_data                          00000006 (User Defined)
+__low_bss                           0006B006 (User Defined)
+__low_code                          00000079 (User Defined)
+__low_data                          0006B000 (User Defined)
+__low_romcode                       00000000 (User Defined)
+__low_romdata                       000000F7 (User Defined)
+_bss_probe                          D:06B006 main            BSS                             
+_data_probe                         D:06B003 main            DATA                            
+_errno                              D:06B000 cstartup        DATA                            
+_main                               C:000079 main            CODE                            
+_result                             D:06B00E main            BSS                             
+
+17 external symbol(s).
+
+SYMBOL CROSS REFERENCE:
+=======================
+Name                              Use         Module
+--------------------------------- ----------- -------------------------
+__c_startup                       Defined     cstartup.asm
+                                  Referenced  boot.asm
+__copy_code_to_ram                Defined     LINKER
+                                  Referenced  cstartup.asm
+__cstartup                        Defined     cstartup.asm
+__frameset                        Defined     .\rtl\common\frameset.asm
+                                  Referenced  .\main.c
+__len_bss                         Defined     LINKER
+                                  Referenced  cstartup.asm
+__len_code                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__len_data                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_bss                         Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_code                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_data                        Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_romcode                     Defined     LINKER
+                                  Referenced  cstartup.asm
+__low_romdata                     Defined     LINKER
+                                  Referenced  cstartup.asm
+_bss_probe                        Defined     .\main.c
+_data_probe                       Defined     .\main.c
+_errno                            Defined     cstartup.asm
+_main                             Defined     .\main.c
+                                  Referenced  boot.asm
+_result                           Defined     .\main.c
+
+OUTPUT CHECKSUM
+===============
+probe.hex            0060F4
+
+
+
+END OF LINK MAP:
+================
+0 Errors
+0 Warnings

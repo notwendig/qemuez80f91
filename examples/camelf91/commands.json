@@ -1,0 +1,339 @@
+[
+  {
+    "command": "1 2 + .",
+    "result": "3 "
+  },
+  {
+    "command": "HEX FFFFFF 1 + . DECIMAL",
+    "result": "0 "
+  },
+  {
+    "command": "100 7 /MOD . .",
+    "result": "14 2 "
+  },
+  {
+    "command": ": SQUARE DUP * ;",
+    "result": ""
+  },
+  {
+    "command": "123 SQUARE .",
+    "result": "15129 "
+  },
+  {
+    "command": ": SUM10 0 10 0 DO I + LOOP ; SUM10 .",
+    "result": "45 "
+  },
+  {
+    "command": "VARIABLE CELLX HEX 123456 CELLX ! CELLX @ . DECIMAL",
+    "result": "123456 "
+  },
+  {
+    "command": ": SIGNTEST -1 0< IF 77 ELSE 88 THEN ; SIGNTEST .",
+    "result": "77 "
+  },
+  {
+    "command": "HEX 800001 1 RSHIFT . 400000 1 LSHIFT . DECIMAL",
+    "result": "400000 -800000 "
+  },
+  {
+    "command": ": RETTEST 123 >R 456 R> + ; RETTEST .",
+    "result": "579 "
+  },
+  {
+    "command": "CREATE BUF 8 ALLOT BUF 8 0 FILL 65 BUF C! 66 BUF 1 + C! BUF BUF 1 + 2 CMOVE> BUF C@ . BUF 1 + C@ . BUF 2 + C@ .",
+    "result": "65 65 66 "
+  },
+  {
+    "command": "DEPTH .",
+    "result": "0 "
+  },
+  {
+    "command": "1 2 3 DEPTH . DROP DROP DROP",
+    "result": "3 "
+  },
+  {
+    "command": ": DTEST DEPTH ; 11 22 DTEST . 2DROP",
+    "result": "2 "
+  },
+  {
+    "command": "0 1 -1 M+ . .",
+    "result": "0 -1 "
+  },
+  {
+    "command": "0 0 -1 M+ . .",
+    "result": "-1 -1 "
+  },
+  {
+    "command": "-1 0 1 M+ . .",
+    "result": "1 0 "
+  },
+  {
+    "command": "0 -1 1 M+ . .",
+    "result": "-1 1 "
+  },
+  {
+    "command": "-7 -3 /MOD . .",
+    "result": "2 -1 "
+  },
+  {
+    "command": "-7 3 /MOD . .",
+    "result": "-3 2 "
+  },
+  {
+    "command": "-6 -3 /MOD . .",
+    "result": "2 0 "
+  },
+  {
+    "command": "-6 3 /MOD . .",
+    "result": "-2 0 "
+  },
+  {
+    "command": "-1 -3 /MOD . .",
+    "result": "0 -1 "
+  },
+  {
+    "command": "-1 3 /MOD . .",
+    "result": "-1 2 "
+  },
+  {
+    "command": "0 -3 /MOD . .",
+    "result": "0 0 "
+  },
+  {
+    "command": "0 3 /MOD . .",
+    "result": "0 0 "
+  },
+  {
+    "command": "1 -3 /MOD . .",
+    "result": "-1 -2 "
+  },
+  {
+    "command": "1 3 /MOD . .",
+    "result": "0 1 "
+  },
+  {
+    "command": "6 -3 /MOD . .",
+    "result": "-2 0 "
+  },
+  {
+    "command": "6 3 /MOD . .",
+    "result": "2 0 "
+  },
+  {
+    "command": "7 -3 /MOD . .",
+    "result": "-3 -2 "
+  },
+  {
+    "command": "7 3 /MOD . .",
+    "result": "2 1 "
+  },
+  {
+    "command": "-8388608 1 /MOD . .",
+    "result": "-8388608 0 "
+  },
+  {
+    "command": "-8388608 3 /MOD . .",
+    "result": "-2796203 1 "
+  },
+  {
+    "command": "8388607 -3 /MOD . .",
+    "result": "-2796203 -2 "
+  },
+  {
+    "command": "-8388608 -3 /MOD . .",
+    "result": "2796202 -2 "
+  },
+  {
+    "command": "-8388608 -2 /MOD . .",
+    "result": "4194304 0 "
+  },
+  {
+    "command": "BUF 8 90 FILL BUF 1 + 4 ACCEPT . BUF C@ . BUF 5 + C@ .",
+    "input": "ABCD\r",
+    "result": "ABCD4 90 90 "
+  },
+  {
+    "command": "BUF 8 90 FILL BUF 1 + 0 ACCEPT . BUF C@ . BUF 1 + C@ .",
+    "input": "XYZ\r",
+    "result": "XYZ0 90 90 "
+  },
+  {
+    "command": "BUF 8 90 FILL BUF 1 + 1 ACCEPT . BUF 1 + C@ . BUF 2 + C@ .",
+    "input": "ABCD\r",
+    "result": "ABCD1 65 90 "
+  },
+  {
+    "command": "BUF 8 90 FILL BUF 1 + 4 ACCEPT . BUF 1 + C@ . BUF 2 + C@ . BUF 5 + C@ .",
+    "input": "\bAB\bC\r",
+    "result": "\bAB\bC2 65 67 90 "
+  },
+  {
+    "command": "HEX 0 0 UM* U. U. DECIMAL",
+    "result": "0 0 "
+  },
+  {
+    "command": "HEX FFFFFF FFFFFF UM* U. U. DECIMAL",
+    "result": "FFFFFE 1 "
+  },
+  {
+    "command": "HEX 800000 2 UM* U. U. DECIMAL",
+    "result": "1 0 "
+  },
+  {
+    "command": "HEX 123456 ABCDEF UM* U. U. DECIMAL",
+    "result": "C379A 59BA4A "
+  },
+  {
+    "command": "HEX DE6A7B E485A0 UM* U. U. DECIMAL",
+    "result": "C68AED E073E0 "
+  },
+  {
+    "command": "HEX 4BBC13 746686 UM* U. U. DECIMAL",
+    "result": "226F8D 3003F2 "
+  },
+  {
+    "command": "HEX 5D6D8A 957950 UM* U. U. DECIMAL",
+    "result": "368D07 4A7520 "
+  },
+  {
+    "command": "HEX F60F88 D645B7 UM* U. U. DECIMAL",
+    "result": "CDF3FD C4C238 "
+  },
+  {
+    "command": "HEX D0A78F A5E4F5 UM* U. U. DECIMAL",
+    "result": "87369C 16B7DB "
+  },
+  {
+    "command": "HEX D049A0 4CCEA6 UM* U. U. DECIMAL",
+    "result": "3E7DFD CE7DC0 "
+  },
+  {
+    "command": "HEX FD2AF7 2FD5D5 UM* U. U. DECIMAL",
+    "result": "2F4E5A BD4283 "
+  },
+  {
+    "command": "HEX 4BD4D1 BE48EB UM* U. U. DECIMAL",
+    "result": "385D8C 9523DB "
+  },
+  {
+    "command": "HEX F11BB7 80E3F8 UM* U. U. DECIMAL",
+    "result": "796490 A61E48 "
+  },
+  {
+    "command": "HEX 9F1FAF 745764 UM* U. U. DECIMAL",
+    "result": "4850AD 38D95C "
+  },
+  {
+    "command": "HEX 7A3537 6C007F UM* U. U. DECIMAL",
+    "result": "338EAF D46649 "
+  },
+  {
+    "command": "HEX A5D42E 323BA0 UM* U. U. DECIMAL",
+    "result": "208A10 8736C0 "
+  },
+  {
+    "command": "HEX FC7937 30BC34 C4357F UM/MOD U. U. DECIMAL",
+    "result": "3F9619 39D5D0 "
+  },
+  {
+    "command": "HEX 784344 1296E E67C31 UM/MOD U. U. DECIMAL",
+    "result": "14A5B 72F3D9 "
+  },
+  {
+    "command": "HEX BEC1EE FA64E 3047A9 UM/MOD U. U. DECIMAL",
+    "result": "52FB17 39EBF "
+  },
+  {
+    "command": "HEX CD2456 6D5861 7F6574 UM/MOD U. U. DECIMAL",
+    "result": "DBBA0F 63EA8A "
+  },
+  {
+    "command": "HEX 298B22 C14F3A D4C228 UM/MOD U. U. DECIMAL",
+    "result": "E89923 C917AA "
+  },
+  {
+    "command": "HEX 1F8F3E 7B670A D7BB99 UM/MOD U. U. DECIMAL",
+    "result": "926F9A BF5E34 "
+  },
+  {
+    "command": "HEX 1966EC 6B8D53 850E50 UM/MOD U. U. DECIMAL",
+    "result": "CEEE34 641EAC "
+  },
+  {
+    "command": "HEX 8D5904 21FFA0 4E5D4A UM/MOD U. U. DECIMAL",
+    "result": "6F10EA 17360 "
+  },
+  {
+    "command": "HEX 446A0C DDB6A 4483E2 UM/MOD U. U. DECIMAL",
+    "result": "33C68E 3C76B0 "
+  },
+  {
+    "command": "HEX 3AF3B 112228 1C55E6 UM/MOD U. U. DECIMAL",
+    "result": "9ACB1F 1BE661 "
+  },
+  {
+    "command": "HEX 78A342 66410 B8415C UM/MOD U. U. DECIMAL",
+    "result": "8E11B B7E28E "
+  },
+  {
+    "command": "HEX 60D38C 16A75E A677C7 UM/MOD U. U. DECIMAL",
+    "result": "22D677 70CC0B "
+  },
+  {
+    "command": "7016206 7927292 -5879154 M+ . .",
+    "result": "7927292 1137052 "
+  },
+  {
+    "command": "5078931 6257980 1438294 M+ . .",
+    "result": "6257980 6517225 "
+  },
+  {
+    "command": "-1410972 4683092 -5830762 M+ . .",
+    "result": "4683092 -7241734 "
+  },
+  {
+    "command": "923648 1040804 621564 M+ . .",
+    "result": "1040804 1545212 "
+  },
+  {
+    "command": "-7893401 -7948020 5013627 M+ . .",
+    "result": "-7948020 -2879774 "
+  },
+  {
+    "command": "-6387200 866790 2848159 M+ . .",
+    "result": "866790 -3539041 "
+  },
+  {
+    "command": "-1836482 995504 -8196120 M+ . .",
+    "result": "995504 6744614 "
+  },
+  {
+    "command": "-1636134 3312812 -5272099 M+ . .",
+    "result": "3312812 -6908233 "
+  },
+  {
+    "command": "-5242566 -479996 4149796 M+ . .",
+    "result": "-479996 -1092770 "
+  },
+  {
+    "command": "8259575 5048653 -2573155 M+ . .",
+    "result": "5048653 5686420 "
+  },
+  {
+    "command": "-4932752 1890003 -5763561 M+ . .",
+    "result": "1890003 6080903 "
+  },
+  {
+    "command": "-3927929 -3665055 -3398777 M+ . .",
+    "result": "-3665055 -7326706 "
+  },
+  {
+    "command": "DEPTH .",
+    "result": "0 "
+  },
+  {
+    "command": "0 1 ACCEPT .",
+    "input": "\b\r",
+    "result": "\b0 "
+  }
+]
