@@ -32,10 +32,17 @@ if [ ${#port} -gt 5 ] || [ -z "$port" ] || [ "$port" -lt 1 ] || [ "$port" -gt 65
     echo 'Debugport muss zwischen 1 und 65535 liegen.' >&2
     exit 2
 fi
-qemu=${QEMU_EZ80:-/tmp/qemuez80f91-build-baseline/qemu-system-ez80}
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -x "$script_dir/install/bin/qemu-system-ez80" ]; then
+    default_qemu=$script_dir/install/bin/qemu-system-ez80
+elif [ -x "$script_dir/build/ez80/qemu-system-ez80" ]; then
+    default_qemu=$script_dir/build/ez80/qemu-system-ez80
+else
+    default_qemu=/tmp/qemuez80f91-build-baseline/qemu-system-ez80
+fi
+qemu=${QEMU_EZ80:-$default_qemu}
 if [ ! -x "$qemu" ]; then
     echo "QEMU nicht ausführbar: $qemu (QEMU_EZ80 setzen)." >&2
     exit 1
 fi
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$script_dir/tools/start.py" --launch "$port" "$qemu" ${run:+"$run"} ${kit:+"$kit"}

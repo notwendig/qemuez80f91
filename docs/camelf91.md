@@ -1,91 +1,80 @@
-# CamelForth für eZ80F91
+# CamelForth for eZ80F91
 
-`subprojects/CAMELF91_24` ist ein eigenständiges Git-Submodul mit einem
-24-Bit-CamelForth, Original-ZDS-Boardstart und Development-Kit-Wörtern.
-Der historische geprüfte Kern basiert auf Commit
-`b975f3acac08c70c05d951aad22e5c1824446206`; der aktuelle Projektstand wird
-über den Gitlink des Workspace festgelegt und enthält die nativen Korrekturen.
+`subprojects/CAMELF91_24` is an independent Git submodule containing 24-bit
+CamelForth, native ZDS board startup and development-kit words. The polling
+builder uses corrected commit `af47e6520adc220cef5ee7e9ab96f0c336f7e299` directly.
+The earlier `b975f3a` baseline is retained only as a historical reference.
 
-## Zwei Buildwege
+## Two build paths
 
-| Weg | Konsole und Ausgabe | Zweck |
+| Path | Console and output | Purpose |
 | --- | --- | --- |
-| Natives ZDS-Projekt | `libbsp`, interruptgesteuertes UART0; `Debug/camel_f91.lod`/`.hex` | Originalprojekt und Board-/ZDS-Debugging |
-| Workspace-Builder | Eigener Polling-Adapter; `build/camelf91/camel.bin`/`.json`/`.map` | Reproduzierbare Regression und separater ZDS-Start |
+| Native ZDS project | Interrupt-driven UART0 through `libbsp`; `Debug/camel_f91.lod`/`.hex` | Board and source debugging |
+| Workspace polling build | Polling adapter; `build/camelf91/camel.bin`/`.json`/`.map` | Reproducible regression tests and a separate ZDS project |
 
-Der vollständige Worttest führt alle **237 Wörterbuch-Einträge** aus und
-enthält **201 Ergebnisprüfungen**. Die zusätzliche UART-Regression enthält
-89 Fälle, jeweils vor und nach Systemreset.
-[Worttest](camelf91-words.md), [Kit-Wörter](camelf91-kit.md).
+The [dictionary test](camelf91-words.md) executes 237 entries and makes 201
+result checks. A separate UART regression runs 89 cases before and after reset.
+[Kit words](camelf91-kit.md) cover buttons and the matrix.
 
-## Checkout und nativer Build
+## Native setup and build
 
 ```sh
 sh scripts/setup-camelf91.sh
 ```
 
-Das Setup initialisiert CAMEL und dessen BSP. Der BSP-Gitlink zeigt auf einen
-öffentlichen `ez80f91bsp`-Stand; die frühere lokale SSH-URL und der ungültige
-Symlink wurden ersetzt. Der ursprüngliche alte BSP-Commit war öffentlich
-nicht abrufbar und ist nicht mehr Voraussetzung des aktuellen nativen Builds.
+Setup initializes CAMEL and its nested public `ez80f91bsp` dependency.
+It no longer requires the former local SSH configuration or unavailable BSP revision.
 
-1. `libbsp/libbsp.zdsproj` in ZDS II 5.3.5 mit **Debug → Rebuild All** bauen.
-2. `camel_f91.zdsproj` öffnen und **Debug** neu bauen.
-3. Das RAM-Target mit Ethernet Smart Cable bzw. passendem Hardwaredebugger
-   wählen, `Debug/camel_f91.lod` laden und mit F5 starten.
+1. Build `libbsp/libbsp.zdsproj` with ZDS II 5.3.5, **Debug → Rebuild All**.
+2. Open `camel_f91.zdsproj` and rebuild **Debug**.
+3. Select the RAM target and Ethernet Smart Cable or the appropriate hardware
+   debugger. Load `Debug/camel_f91.lod`, then press **F5**.
 
-Alternativ nach Erzeugung der ZDS-Make-Datei:
+After ZDS has generated its makefile, Linux/Wine can also build with:
 
 ```sh
 make -C subprojects/CAMELF91_24
 ```
 
-`ZDS_HOME`, `WINE` und `BUILD` sind überschreibbar. `_main` ruft nach
-`init_bsp` explizit `init_uart0` für 115200 8N1 auf. Ohne diesen zusätzlichen
-Aufruf initialisiert das aktuelle BSP nur die Board-Pins und die Konsole
-bleibt leer. Das Debug-Target hat `externalAutoSelect=false`, da CS0 für
-einen externen Flashbaustein in diesem RAM-Profil nicht freigegeben ist.
+`ZDS_HOME`, `WINE` and `BUILD` are configurable. Native `_main` calls
+`init_uart0` after `init_bsp`, selecting 115200 baud, 8N1. The BSP's board-pin
+initialization alone does not initialize the console. The RAM debug target
+uses `externalAutoSelect=false`, since CS0 external flash is disabled there.
 
-## Reproduzierbarer Polling-Build
+## Reproducible polling build
 
 ```sh
 python3 examples/camelf91/build.py --zds "$ZDS_HOME"
 python3 tools/zds/f24.py --prepare-only
 ```
 
-Der Builder liest die bekannten ASM-Dateien aus dem festgelegten historischen
-Commit, wendet `patches/camelf91/0001-fix-24bit-core.patch` in einer Buildkopie
-an und ergänzt die gemeinsamen Kit-Includes. Er akzeptiert im nativen
-Checkout die ursprünglichen oder exakt korrigierten Kernfassungen sowie die
-bekannte UART-Startup-Anpassung. Fremde Kernänderungen werden abgewiesen.
-Lokale IDE-Einstellungen ändern das Polling-Image nicht.
+The builder reads the pinned corrected assembly sources, enables the shared
+kit includes and delegates UART setup to the polling BSP. It rejects unreviewed
+local assembly changes. IDE settings do not alter this image.
 
-`console.inc` deklariert die gemeinsame Konsolen-ABI. `poll_bsp.asm`
-initialisiert UART0 und stellt `init_bsp`, `putc`, `getc` und `kbhit` ohne
-UART-Interrupts bereit. `__cstartup=1` aktiviert die Original-BSS-/DATA-
-Initialisierung. Die beiden Kit-Includes müssen im nativen Checkout und
-unter `examples/camelf91/` identisch sein.
+`console.inc` declares the console ABI; `poll_bsp.asm` initializes UART0 and
+provides `init_bsp`, `putc`, `getc` and `kbhit` without UART interrupts.
+`__cstartup=1` enables original BSS/DATA initialization. Native and workspace
+`kit.inc`/`kit_font.inc` files must match.
 
-Die Metadaten speichern Basiscommit, Patch-/Quellhashes, Symboladressen und
-Image-SHA256. Das aktuelle gespeicherte Polling-Image hat 10688 Bytes und
-441 Bytes statischen RAM-Bedarf zuzüglich Forth-Stacks/Arbeitsbereichen.
-Die Map weist 10691 ROM-Bytes einschließlich drei nicht ausgegebener
-Reservierungsbytes aus.
+Metadata records the source commit, source hashes, symbols and binary SHA-256.
+No CAMEL patch hash is required. The saved image is 10688 bytes, with 441 bytes
+of static RAM plus Forth stacks/work areas. The map lists 10691 ROM bytes,
+including three reserved bytes omitted from the raw image.
 
-## Speicher und Takt im geprüften Debugprofil
+## Tested memory and clock profile
 
-| Bereich | Verwendung |
+| Range | Use |
 | --- | --- |
-| 000000h–07FFFFh | Externes SRAM als Code-/ROM-Bereich |
-| B7D000h–BFFFFFh | Linker-RAM, interner RAM und hohes externes SRAM |
-| C00000h | Oberes Stackende; erstes Push darunter |
-| 800000h–800002h | Kit-Latches bei aktiviertem Kit und passendem CS2 |
-| Systemtakt | 50-MHz-Oszillator, PLL aus |
+| 000000h–07FFFFh | External SRAM used for code |
+| B7D000h–BFFFFFh | Linker RAM, internal RAM and upper external SRAM |
+| C00000h | Initial stack top; the first push is below it |
+| 800000h–800002h | Kit latches with kit enabled and matching CS2 |
+| System clock | 50-MHz oscillator, PLL disabled |
 
-Die Release-/Chiponly-Konfigurationen haben eigene Linker-/Targetdateien.
-Die hier beschriebenen Tests betreffen das Debug-RAM-Profil.
+Release/Chiponly have separate linker/target settings. These tests cover Debug RAM.
 
-## Verwenden und testen
+## Use and tests
 
 ```sh
 python3 tools/zds/f24.py
@@ -96,20 +85,14 @@ python3 tests/test_camelf91_kit.py "$QEMU_EZ80"
 
 ```forth
 1 2 + .
-: QUADRAT DUP * ;
-12 QUADRAT .
+: SQUARE DUP * ;
+12 SQUARE .
 BUTTONS .
 CHAR A MATRIX-CHAR
 MATRIX-OFF
 ```
 
-Der interaktive Starter öffnet ein getrenntes Projekt unter `build/f24/`.
-[ZDS-Bedienung](start-f24.md) und [Kernanalyse](camelf91-analysis.md)
-beschreiben Debuggerkommandos und die fünf korrigierten Fehlerbereiche.
-
-## Herkunft
-
-Die ursprünglichen CamelForth-Port-/Nutzungshinweise stehen weiterhin in
-`ReadMe.txt`, `LICENSE` und den Quellköpfen des Teilprojekts. Sie werden durch
-die Integration und die neuen Anleitungen nicht ersetzt.
-[Quellen und Lizenzhinweise](licenses.md).
+The launcher creates `build/f24/`. See [ZDS operation](start-f24.md) and
+[core analysis](camelf91-analysis.md) for commands and corrected defects.
+Original port and usage notices remain in the subproject's `ReadMe.txt`,
+`LICENSE` and source headers; see [Licenses](licenses.md).

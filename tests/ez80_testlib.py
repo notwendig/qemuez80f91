@@ -13,10 +13,14 @@ binary = str(pathlib.Path(sys.argv[1]).resolve())
 class VM:
     def __init__(self, rom, serial="none", extra=(),
                  machine="ez80f91-minimal", loader="-bios", pass_fds=(), cwd=None):
-        self.p = subprocess.Popen([binary, '-M', machine, loader, str(rom),
+        # Ordinary tests must not read or overwrite the caller's saved flash.
+        self._workspace = tempfile.TemporaryDirectory(prefix='f91-vm-') if cwd is None else None
+        run_cwd = self._workspace.name if self._workspace is not None else cwd
+        rom = str(pathlib.Path(rom).resolve())
+        self.p = subprocess.Popen([binary, '-M', machine, loader, rom,
                                    '-display', 'none', '-serial', serial, '-monitor', 'none',
                                    '-S', '-qmp', 'stdio', *extra], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=pass_fds, cwd=cwd)
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=pass_fds, cwd=run_cwd)
         self.buffer = b''
         assert 'QMP' in self.read()
         self.cmd('qmp_capabilities')
@@ -62,5 +66,8 @@ class VM:
         if self.p.poll() is None:
             self.cmd('quit')
         self.p.wait(timeout=5)
+        workspace = getattr(self, '_workspace', None)
+        if workspace is not None:
+            workspace.cleanup()
         assert self.p.returncode == 0, self.p.stderr.read().decode()
 

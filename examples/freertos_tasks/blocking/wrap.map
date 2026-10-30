@@ -4,14 +4,14 @@ Copyright (C) 1999-2008 Zilog, Inc. All Rights Reserved
 
 LINK MAP:
 
-DATE:      Tue Oct 27 19:35:38 2026
+DATE:      Fri Oct 30 07:13:39 2026
 PROCESSOR: assembler
-FILES:     boot.obj               cstartup.obj           main.obj               
-           tasks.obj              list.obj               vectors24.obj          
-           llport.obj             
-           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib
-           Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib
-           
+FILES:     boot.obj               cstartup.obj           main.obj
+           tasks.obj              list.obj               vectors24.obj
+           llport.obj
+           Z:\home\juergen\.wine\drive_c\Zilog\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib
+           Z:\home\juergen\.wine\drive_c\Zilog\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib
+
 
 
 COMMAND LIST:
@@ -33,17 +33,18 @@ DEFINE __low_romcode = copy base of CODE
 DEFINE __low_code = base of CODE
 DEFINE __len_code = length of CODE
 DEFINE __copy_code_to_ram = 0
-"probe" = "boot.obj", "cstartup.obj", "main.obj", "tasks.obj", "list.obj", "vectors24.obj", "llport.obj", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib", "Z:\home\juergen\Projects\eZ80Acclaime!\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib"
-
+"probe" = "boot.obj", "cstartup.obj", "main.obj", "tasks.obj", "list.obj", "vectors24.obj", "llport.obj", "Z:\home\juergen\.wine\drive_c\Zilog\ZDSII_eZ80Acclaim!_5.3.5\lib\std\chelpD.lib", "Z:\home\juergen\.wine\drive_c\Zilog\ZDSII_eZ80Acclaim!_5.3.5\lib\std\crtD.lib"
+
+
 SPACE ALLOCATION:
 =================
 
 Space                     Base         Top      Size      Used    Unused
 ------------------ ----------- ----------- --------- --------- ---------
-RAM                   D:06B000    D:B8FFFF   B95000H    11A46H   B835BAH
-                                          ( 12144640     72262  12072378)
-ROM                   C:000000    C:00356F    6B000H     34BEH    67B42H
-                                          (   438272     13502    424770)
+RAM                   D:06B000    D:B8FFFF   B95000H    11A66H   B8359AH
+                                          ( 12144640     72294  12072346)
+ROM                   C:000000    C:0038BF    6B000H     3814H    677ECH
+                                          (   438272     14356    423916)
 
 
 SEGMENTS WITHIN SPACE:
@@ -52,10 +53,10 @@ SEGMENTS WITHIN SPACE:
 RAM                               Type        Base         Top      Size
 ------------------ ------------------- ----------- ----------- ---------
 $$$org02D7489D     absolute data          D:B80000    D:B8FFFF    10000h
-BSS                normal data            D:06B1D6    D:06C944     176fh
-DATA               normal data            D:06B000    D:06B02C       2dh
-RIVECTS            normal data            D:06C948    D:06CA48      101h
-STRSECT            normal data            D:06B02D    D:06B1D5      1a9h
+BSS                normal data            D:06B1F3    D:06C964     1772h
+DATA               normal data            D:06B000    D:06B029       2ah
+RIVECTS            normal data            D:06C968    D:06CA68      101h
+STRSECT            normal data            D:06B02A    D:06B1F2      1c9h
 
 
 ROM                               Type        Base         Top      Size
@@ -63,168 +64,183 @@ ROM                               Type        Base         Top      Size
 .IVECTS            normal data            C:000200    C:0002FF      100h
 .RESET             normal data            C:000000    C:00006B       6ch
 .STARTUP           normal data            C:00006C    C:00011E       b3h
-CODE               normal data            C:000300    C:00312E     2e2fh
-DATA               * segment copy *       C:000122    C:00014E       2dh
-TEXT               normal data            C:00011F    C:000121        3h
-TRAMP              normal data            C:003130    C:00356F      440h
-
+CODE               normal data            C:000300    C:00347F     3180h
+DATA               * segment copy *       C:00012A    C:000153       2ah
+TEXT               normal data            C:00011F    C:000129        bh
+TRAMP              normal data            C:003480    C:0038BF      440h
+
+
 SEGMENTS WITHIN MODULES:
 ========================
 
-Module: .\list.c (File: list.obj) Version: 1:0 10/27/2026 19:35:36
+Module: .\list.c (File: list.obj) Version: 1:0 10/30/2026 07:13:38
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002C72    C:002E04      193h
+    Segment: CODE                              C:002FC2    C:003159      198h
 
 
-Module: .\main.c (File: main.obj) Version: 1:0 10/27/2026 19:35:34
+Module: .\main.c (File: main.obj) Version: 1:0 10/30/2026 07:13:36
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: BSS                               D:06B1D6    D:06C4BA     12e5h
-    Segment: CODE                              C:00032F    C:000A1C      6eeh
-    Segment: STRSECT                           D:06B02D    D:06B0A0       74h
+    Segment: BSS                               D:06B1F3    D:06C4D7     12e5h
+    Segment: CODE                              C:00032F    C:000A0D      6dfh
+    Segment: STRSECT                           D:06B02A    D:06B09D       74h
 
 
 Module: .\rtl\common\frameset.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002FAE    C:002FBD       10h
+    Segment: CODE                              C:003312    C:003321       10h
 
 
 Module: .\rtl\common\frameset0.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002F95    C:002FA1        dh
+    Segment: CODE                              C:0032F9    C:003305        dh
 
 
 Module: .\rtl\common\iand.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:0030A7    C:0030C1       1bh
+    Segment: CODE                              C:003465    C:00347F       1bh
 
 
 Module: .\rtl\common\icmpzero.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002FC7    C:002FD2        ch
+    Segment: CODE                              C:00332B    C:003336        ch
+
+
+Module: .\rtl\common\idivs.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:003337    C:00336F       39h
+
+
+Module: .\rtl\common\idivu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              C:003370    C:003390       21h
 
 
 Module: .\rtl\common\imulu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002FD3    C:00301A       48h
+    Segment: CODE                              C:003391    C:0033D8       48h
 
 
 Module: .\rtl\common\inot.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:003073    C:00307C        ah
+    Segment: CODE                              C:003431    C:00343A        ah
 
 
 Module: .\rtl\common\ior.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002F66    C:002F80       1bh
+    Segment: CODE                              C:0032CA    C:0032E4       1bh
 
 
 Module: .\rtl\common\ladd.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002F51    C:002F65       15h
+    Segment: CODE                              C:0032B5    C:0032C9       15h
 
 
 Module: .\rtl\common\land.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:00309E    C:0030A6        9h
+    Segment: CODE                              C:00345C    C:003464        9h
 
 
 Module: .\rtl\common\lcmpu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:003053    C:003068       16h
+    Segment: CODE                              C:003411    C:003426       16h
 
 
 Module: .\rtl\common\lcmpzero.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002F81    C:002F94       14h
-
-
-Module: .\rtl\common\lmulu.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
-
-    Name                                           Base         Top      Size
-    --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:0030C2    C:00312E       6dh
+    Segment: CODE                              C:0032E5    C:0032F8       14h
 
 
 Module: .\rtl\common\lnot.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:003069    C:003072        ah
+    Segment: CODE                              C:003427    C:003430        ah
 
 
 Module: .\rtl\common\lor.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:50
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002FBE    C:002FC6        9h
+    Segment: CODE                              C:003322    C:00332A        9h
 
 
 Module: .\rtl\common\lsub.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:51
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:002FA2    C:002FAD        ch
+    Segment: CODE                              C:003306    C:003311        ch
 
 
 Module: .\rtl\common\memset.asm (Library: crtD.lib) Version: 1:0 10/02/2022 22:48:13
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:00307D    C:00309D       21h
+    Segment: CODE                              C:00343B    C:00345B       21h
 
 
 Module: .\rtl\common\seqcase.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: CODE                              C:00301B    C:003052       38h
+    Segment: CODE                              C:0033D9    C:003410       38h
 
 
-Module: .\tasks.c (File: tasks.obj) Version: 1:0 10/27/2026 19:35:35
+Module: .\rtl\common\setflag.asm (Library: chelpD.lib) Version: 1:0 10/02/2022 22:48:52
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
-    Segment: BSS                               D:06C4BB    D:06C51A       60h
-    Segment: CODE                              C:000A1D    C:002C71     2255h
-    Segment: DATA                              D:06B003    D:06B026       24h
-    Segment: STRSECT                           D:06B0A1    D:06B1D5      135h
-    Segment: TEXT                              C:00011F    C:000121        3h
+    Segment: CODE                              C:0032A6    C:0032B4        fh
 
 
-Module: boot.asm (File: boot.obj) Version: 1:0 10/27/2026 19:35:36
+Module: .\tasks.c (File: tasks.obj) Version: 1:0 10/30/2026 07:13:37
+
+    Name                                           Base         Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: BSS                               D:06C4D8    D:06C53A       63h
+    Segment: CODE                              C:000A0E    C:002FC1     25b4h
+    Segment: DATA                              D:06B003    D:06B023       21h
+    Segment: STRSECT                           D:06B09E    D:06B1F2      155h
+    Segment: TEXT                              C:00011F    C:000129        bh
+
+
+Module: boot.asm (File: boot.obj) Version: 1:0 10/30/2026 07:13:38
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
     Segment: CODE                              C:000300    C:00032E       2fh
 
 
-Module: cstartup.asm (File: cstartup.obj) Version: 1:0 10/27/2026 19:35:37
+Module: cstartup.asm (File: cstartup.obj) Version: 1:0 10/30/2026 07:13:38
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
@@ -232,155 +248,160 @@ Module: cstartup.asm (File: cstartup.obj) Version: 1:0 10/27/2026 19:35:37
     Segment: DATA                              D:06B000    D:06B002        3h
 
 
-Module: llport.asm (File: llport.obj) Version: 1:0 10/27/2026 19:35:37
+Module: llport.asm (File: llport.obj) Version: 1:0 10/30/2026 07:13:39
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
     Segment: $$$org02D7489D                    D:B80000    D:B8FFFF    10000h
-    Segment: CODE                              C:002EC6    C:002F50       8bh
-    Segment: DATA                              D:06B027    D:06B02C        6h
+    Segment: CODE                              C:00321B    C:0032A5       8bh
+    Segment: DATA                              D:06B024    D:06B029        6h
 
 
-Module: vectors24.asm (File: vectors24.obj) Version: 1:0 10/27/2026 19:35:37
+Module: vectors24.asm (File: vectors24.obj) Version: 1:0 10/30/2026 07:13:39
 
     Name                                           Base         Top      Size
     --------------------------------------- ----------- ----------- ---------
     Segment: .IVECTS                           C:000200    C:0002FF      100h
     Segment: .RESET                            C:000000    C:00006B       6ch
     Segment: .STARTUP                          C:0000BA    C:00011E       65h
-    Segment: BSS                               D:06C51B    D:06C944      42ah
-    Segment: CODE                              C:002E05    C:002EC5       c1h
-    Segment: RIVECTS                           D:06C948    D:06CA48      101h
-    Segment: TRAMP                             C:003130    C:00356F      440h
-
+    Segment: BSS                               D:06C53B    D:06C964      42ah
+    Segment: CODE                              C:00315A    C:00321A       c1h
+    Segment: RIVECTS                           D:06C968    D:06CA68      101h
+    Segment: TRAMP                             C:003480    C:0038BF      440h
+
+
 EXTERNAL DEFINITIONS:
 =====================
 
 Symbol                               Address Module          Segment
 -------------------------------- ----------- --------------- --------------------------------
-__c_startup                         C:00006C cstartup        .STARTUP                        
+__c_startup                         C:00006C cstartup        .STARTUP
 __copy_code_to_ram                  00000000 (User Defined)
-__cstartup                          C:000001 cstartup        CODE                            
-__default_mi_handler                C:0000BF vectors24       .STARTUP                        
-__default_nmi_handler               C:0000BC vectors24       .STARTUP                        
-__frameset                          C:002FAE frameset        CODE                            
-__frameset0                         C:002F95 frameset0       CODE                            
-__iand                              C:0030A7 iand            CODE                            
-__icmpzero                          C:002FC7 icmpzero        CODE                            
-__imul_b                            C:002FD3 imulu           CODE                            
-__imuls                             C:002FDF imulu           CODE                            
-__imulu                             C:002FDF imulu           CODE                            
-__init                              C:000300 boot            CODE                            
-__init_default_vectors              C:0000C3 vectors24       .STARTUP                        
-__inot                              C:003073 inot            CODE                            
-__ior                               C:002F66 ior             CODE                            
-__ladd                              C:002F60 ladd            CODE                            
-__ladd_b                            C:002F51 ladd            CODE                            
-__land                              C:00309E land            CODE                            
-__lcmps                             C:003053 lcmpu           CODE                            
-__lcmpu                             C:003053 lcmpu           CODE                            
-__lcmpzero                          C:002F81 lcmpzero        CODE                            
-__len_bss                           0000176F (User Defined)
-__len_code                          00002E2F (User Defined)
-__len_data                          0000002D (User Defined)
-__lmuls                             C:0030C2 lmulu           CODE                            
-__lmulu                             C:0030C2 lmulu           CODE                            
-__lnot                              C:003069 lnot            CODE                            
-__lor                               C:002FBE lor             CODE                            
-__low_bss                           0006B1D6 (User Defined)
+__cstartup                          C:000001 cstartup        CODE
+__default_mi_handler                C:0000BF vectors24       .STARTUP
+__default_nmi_handler               C:0000BC vectors24       .STARTUP
+__frameset                          C:003312 frameset        CODE
+__frameset0                         C:0032F9 frameset0       CODE
+__iand                              C:003465 iand            CODE
+__icmpzero                          C:00332B icmpzero        CODE
+__idivs                             C:003337 idivs           CODE
+__idivu                             C:003370 idivu           CODE
+__idvrmu                            C:00337A idivu           CODE
+__imul_b                            C:003391 imulu           CODE
+__imuls                             C:00339D imulu           CODE
+__imulu                             C:00339D imulu           CODE
+__init                              C:000300 boot            CODE
+__init_default_vectors              C:0000C3 vectors24       .STARTUP
+__inot                              C:003431 inot            CODE
+__ior                               C:0032CA ior             CODE
+__ladd                              C:0032C4 ladd            CODE
+__ladd_b                            C:0032B5 ladd            CODE
+__land                              C:00345C land            CODE
+__lcmps                             C:003411 lcmpu           CODE
+__lcmpu                             C:003411 lcmpu           CODE
+__lcmpzero                          C:0032E5 lcmpzero        CODE
+__len_bss                           00001772 (User Defined)
+__len_code                          00003180 (User Defined)
+__len_data                          0000002A (User Defined)
+__lnot                              C:003427 lnot            CODE
+__lor                               C:003322 lor             CODE
+__low_bss                           0006B1F3 (User Defined)
 __low_code                          00000300 (User Defined)
 __low_data                          0006B000 (User Defined)
 __low_romcode                       00000000 (User Defined)
-__low_romdata                       00000122 (User Defined)
-__lsub                              C:002FA2 lsub            CODE                            
-__nvectors                          C:0000BA vectors24       .STARTUP                        
-__seqcase                           C:00301B seqcase         CODE                            
-__set_vector                        C:0000F4 vectors24       .STARTUP                        
-__snot                              C:003073 inot            CODE                            
-__trap                              C:002E19 vectors24       CODE                            
-__vector_table                      D:06C948 vectors24       RIVECTS                         
-_clrtrap                            C:002E05 vectors24       CODE                            
-_cooperative_done                   D:06B213 main            BSS                             
-_cpmram                             D:B80000 llport          $$$org02D7489D                  
-_criticalcounter                    D:06B1D6 main            BSS                             
-_done                               D:06B216 main            BSS                             
-_EnterCritical                      C:00032F main            CODE                            
-_errno                              D:06B000 cstartup        DATA                            
-_event_count                        D:06B1DD main            BSS                             
-_event_ticks                        D:06B1EA main            BSS                             
-_events                             D:06B1E0 main            BSS                             
-_ExitCritical                       C:00033A main            CODE                            
-_failure                            D:06B21C main            BSS                             
-_final_tick                         D:06B219 main            BSS                             
-_firstTASK                          C:002F44 llport          CODE                            
-_idle_entries                       D:06B210 main            BSS                             
-_idle_seen                          D:06B208 main            BSS                             
-_init_default_vectors               C:0000C3 vectors24       .STARTUP                        
-_interrupts_enabled                 C:000326 boot            CODE                            
-_intrap                             C:002E0F vectors24       CODE                            
-_main                               C:000980 main            CODE                            
-_mbase                              C:002EF0 llport          CODE                            
-_memset                             C:00307D memset          CODE                            
-_pcTaskGetName                      C:0011FF tasks           CODE                            
-_portFreeRTOS_htonl                 C:002EC6 llport          CODE                            
-_portFreeRTOS_htons                 C:002EDE llport          CODE                            
-_pxCurrentTCB                       D:06B003 tasks           DATA                            
-_pxPortInitialiseStack              C:000375 main            CODE                            
-_reset                              C:000000 vectors24       .RESET                          
-_runs                               D:06B1D7 main            BSS                             
-_set_vector                         C:0000F4 vectors24       .STARTUP                        
-_stacks                             D:06B2BB main            BSS                             
-_tcbs                               D:06B21F main            BSS                             
-_trap                               C:000322 boot            CODE                            
-_ulTaskGenericNotifyTake            C:001EAE tasks           CODE                            
-_ulTaskGenericNotifyValueClear      C:002B2C tasks           CODE                            
-_uxListRemove                       C:002DA0 list            CODE                            
-_uxTaskGetNumberOfTasks             C:0011FA tasks           CODE                            
-_uxTaskResetEventItemValue          C:001E79 tasks           CODE                            
-_uxTopUsedPriority                  C:00011F tasks           TEXT                            
-_vApplicationGetIdleTaskMemory      C:000408 main            CODE                            
-_vApplicationIdleHook               C:0004F7 main            CODE                            
-_vAssertCalled                      C:000353 main            CODE                            
-_vListInitialise                    C:002C72 list            CODE                            
-_vListInitialiseItem                C:002CAE list            CODE                            
-_vListInsert                        C:002D11 list            CODE                            
-_vListInsertEnd                     C:002CC1 list            CODE                            
-_vPortEndScheduler                  C:000405 main            CODE                            
-_vPortYield                         C:002E95 vectors24       CODE                            
-_vPortYieldFromTick                 C:002F07 llport          CODE                            
-_vTaskDelay                         C:000DD6 tasks           CODE                            
-_vTaskEndScheduler                  C:000F0A tasks           CODE                            
-_vTaskGenericNotifyGiveFromISR      C:002820 tasks           CODE                            
-_vTaskInternalSetTimeOutState       C:001C87 tasks           CODE                            
-_vTaskMissedYield                   C:001D7B tasks           CODE                            
-_vTaskPlaceOnEventList              C:001706 tasks           CODE                            
-_vTaskPlaceOnUnorderedEventList     C:001745 tasks           CODE                            
-_vTaskRemoveFromUnorderedEventLi    C:001A60 tasks           CODE                            
-_vTaskSetTimeOutState               C:001C4E tasks           CODE                            
-_vTaskStartScheduler                C:000E43 tasks           CODE                            
-_vTaskSuspendAll                    C:000F19 tasks           CODE                            
-_vTaskSwitchContext                 C:001633 tasks           CODE                            
-_xPortStartScheduler                C:0003D5 main            CODE                            
-_xTaskCatchUpTicks                  C:0012D5 tasks           CODE                            
-_xTaskCheckForTimeOut               C:001CA3 tasks           CODE                            
-_xTaskCreateStatic                  C:000A1D tasks           CODE                            
-_xTaskGenericNotify                 C:002157 tasks           CODE                            
-_xTaskGenericNotifyFromISR          C:002484 tasks           CODE                            
-_xTaskGenericNotifyStateClear       C:002AA5 tasks           CODE                            
-_xTaskGenericNotifyWait             C:001FCF tasks           CODE                            
-_xTaskGetCurrentTaskHandle          C:001E62 tasks           CODE                            
-_xTaskGetStaticBuffers              C:001246 tasks           CODE                            
-_xTaskGetTickCount                  C:0011C3 tasks           CODE                            
-_xTaskGetTickCountFromISR           C:0011E3 tasks           CODE                            
-_xTaskIncrementTick                 C:001328 tasks           CODE                            
-_xTaskRemoveFromEventList           C:00180F tasks           CODE                            
-_xTaskResumeAll                     C:000F25 tasks           CODE                            
-_xTickCount                         D:06B027 llport          DATA                            
-_xTickCountHeigh                    D:06B02A llport          DATA                            
-switch                              C:002F2D llport          CODE                            
+__low_romdata                       0000012A (User Defined)
+__lsub                              C:003306 lsub            CODE
+__nvectors                          C:0000BA vectors24       .STARTUP
+__seqcase                           C:0033D9 seqcase         CODE
+__set_vector                        C:0000F4 vectors24       .STARTUP
+__setflag                           C:0032A6 setflag         CODE
+__snot                              C:003431 inot            CODE
+__trap                              C:00316E vectors24       CODE
+__vector_table                      D:06C968 vectors24       RIVECTS
+_clrtrap                            C:00315A vectors24       CODE
+_cooperative_done                   D:06B230 main            BSS
+_cpmram                             D:B80000 llport          $$$org02D7489D
+_criticalcounter                    D:06B1F3 main            BSS
+_done                               D:06B233 main            BSS
+_EnterCritical                      C:00032F main            CODE
+_errno                              D:06B000 cstartup        DATA
+_event_count                        D:06B1FA main            BSS
+_event_ticks                        D:06B207 main            BSS
+_events                             D:06B1FD main            BSS
+_ExitCritical                       C:00033A main            CODE
+_failure                            D:06B239 main            BSS
+_final_tick                         D:06B236 main            BSS
+_firstTASK                          C:003299 llport          CODE
+_idle_entries                       D:06B22D main            BSS
+_idle_seen                          D:06B225 main            BSS
+_init_default_vectors               C:0000C3 vectors24       .STARTUP
+_interrupts_enabled                 C:000326 boot            CODE
+_intrap                             C:003164 vectors24       CODE
+_main                               C:00097B main            CODE
+_mbase                              C:003245 llport          CODE
+_memset                             C:00343B memset          CODE
+_pcTaskGetName                      C:001328 tasks           CODE
+_portFreeRTOS_htonl                 C:00321B llport          CODE
+_portFreeRTOS_htons                 C:003233 llport          CODE
+_pxCurrentTCB                       D:06B003 tasks           DATA
+_pxPortInitialiseStack              C:000375 main            CODE
+_reset                              C:000000 vectors24       .RESET
+_runs                               D:06B1F4 main            BSS
+_set_vector                         C:0000F4 vectors24       .STARTUP
+_stacks                             D:06B2D8 main            BSS
+_tcbs                               D:06B23C main            BSS
+_trap                               C:000322 boot            CODE
+_ulTaskGenericNotifyTake            C:00206E tasks           CODE
+_ulTaskGenericNotifyValueClear      C:002DC8 tasks           CODE
+_uxListRemove                       C:0030F0 list            CODE
+_uxTaskGetNumberOfTasks             C:001323 tasks           CODE
+_uxTaskResetEventItemValue          C:002039 tasks           CODE
+_vApplicationGetIdleTaskMemory      C:000408 main            CODE
+_vApplicationIdleHook               C:0004F2 main            CODE
+_vAssertCalled                      C:000353 main            CODE
+_vListInitialise                    C:002FC2 list            CODE
+_vListInitialiseItem                C:002FFE list            CODE
+_vListInsert                        C:003061 list            CODE
+_vListInsertEnd                     C:003011 list            CODE
+_vPortEndScheduler                  C:000405 main            CODE
+_vPortYield                         C:0031EA vectors24       CODE
+_vPortYieldFromTick                 C:00325C llport          CODE
+_vTaskDelay                         C:000E34 tasks           CODE
+_vTaskEndScheduler                  C:00102C tasks           CODE
+_vTaskGenericNotifyGiveFromISR      C:002A99 tasks           CODE
+_vTaskInternalSetTimeOutState       C:001DF2 tasks           CODE
+_vTaskMissedYield                   C:001EE6 tasks           CODE
+_vTaskPlaceOnEventList              C:001868 tasks           CODE
+_vTaskPlaceOnUnorderedEventList     C:0018A7 tasks           CODE
+_vTaskRemoveFromUnorderedEventLi    C:001BC4 tasks           CODE
+_vTaskResetState                    C:002F40 tasks           CODE
+_vTaskSetTimeOutState               C:001DB9 tasks           CODE
+_vTaskStartScheduler                C:000FC1 tasks           CODE
+_vTaskSuspendAll                    C:00103B tasks           CODE
+_vTaskSwitchContext                 C:001795 tasks           CODE
+_xPortStartScheduler                C:0003D5 main            CODE
+_xTaskCatchUpTicks                  C:001435 tasks           CODE
+_xTaskCheckForTimeOut               C:001E0E tasks           CODE
+_xTaskCreateStatic                  C:000B07 tasks           CODE
+_xTaskGenericNotify                 C:0023D1 tasks           CODE
+_xTaskGenericNotifyFromISR          C:002700 tasks           CODE
+_xTaskGenericNotifyStateClear       C:002D1B tasks           CODE
+_xTaskGenericNotifyWait             C:0021F4 tasks           CODE
+_xTaskGetCurrentTaskHandle          C:001FCD tasks           CODE
+_xTaskGetCurrentTaskHandleForCor    C:001FE4 tasks           CODE
+_xTaskGetStaticBuffers              C:001380 tasks           CODE
+_xTaskGetTickCount                  C:0012EC tasks           CODE
+_xTaskGetTickCountFromISR           C:00130C tasks           CODE
+_xTaskIncrementTick                 C:001488 tasks           CODE
+_xTaskRemoveFromEventList           C:001971 tasks           CODE
+_xTaskResumeAll                     C:001047 tasks           CODE
+_xTickCount                         D:06B024 llport          DATA
+_xTickCountHeigh                    D:06B027 llport          DATA
+switch                              C:003282 llport          CODE
 
-120 external symbol(s).
-
+123 external symbol(s).
+
+
 SYMBOL CROSS REFERENCE:
 =======================
 Name                              Use         Module
@@ -405,6 +426,11 @@ __iand                            Defined     .\rtl\common\iand.asm
 __icmpzero                        Defined     .\rtl\common\icmpzero.asm
                                   Referenced  .\main.c
                                   Referenced  .\tasks.c
+__idivs                           Defined     .\rtl\common\idivs.asm
+                                  Referenced  .\tasks.c
+__idivu                           Defined     .\rtl\common\idivu.asm
+                                  Referenced  .\rtl\common\idivs.asm
+__idvrmu                          Defined     .\rtl\common\idivu.asm
 __imul_b                          Defined     .\rtl\common\imulu.asm
                                   Referenced  .\tasks.c
 __imuls                           Defined     .\rtl\common\imulu.asm
@@ -435,9 +461,6 @@ __len_code                        Defined     LINKER
                                   Referenced  cstartup.asm
 __len_data                        Defined     LINKER
                                   Referenced  cstartup.asm
-__lmuls                           Defined     .\rtl\common\lmulu.asm
-__lmulu                           Defined     .\rtl\common\lmulu.asm
-                                  Referenced  .\tasks.c
 __lnot                            Defined     .\rtl\common\lnot.asm
                                   Referenced  .\tasks.c
 __lor                             Defined     .\rtl\common\lor.asm
@@ -459,6 +482,8 @@ __seqcase                         Defined     .\rtl\common\seqcase.asm
                                   Referenced  .\tasks.c
 __set_vector                      Defined     vectors24.asm
                                   Referenced  .\main.c
+__setflag                         Defined     .\rtl\common\setflag.asm
+                                  Referenced  .\tasks.c
 __snot                            Defined     .\rtl\common\inot.asm
 __trap                            Defined     vectors24.asm
 __vector_table                    Defined     vectors24.asm
@@ -511,7 +536,6 @@ _uxListRemove                     Defined     .\list.c
                                   Referenced  .\tasks.c
 _uxTaskGetNumberOfTasks           Defined     .\tasks.c
 _uxTaskResetEventItemValue        Defined     .\tasks.c
-_uxTopUsedPriority                Defined     .\tasks.c
 _vApplicationGetIdleTaskMemory    Defined     .\main.c
                                   Referenced  .\tasks.c
 _vApplicationIdleHook             Defined     .\main.c
@@ -541,6 +565,7 @@ _vTaskMissedYield                 Defined     .\tasks.c
 _vTaskPlaceOnEventList            Defined     .\tasks.c
 _vTaskPlaceOnUnorderedEventList   Defined     .\tasks.c
 _vTaskRemoveFromUnorderedEventLis Defined     .\tasks.c
+_vTaskResetState                  Defined     .\tasks.c
 _vTaskSetTimeOutState             Defined     .\tasks.c
 _vTaskStartScheduler              Defined     .\tasks.c
                                   Referenced  .\main.c
@@ -558,6 +583,7 @@ _xTaskGenericNotifyFromISR        Defined     .\tasks.c
 _xTaskGenericNotifyStateClear     Defined     .\tasks.c
 _xTaskGenericNotifyWait           Defined     .\tasks.c
 _xTaskGetCurrentTaskHandle        Defined     .\tasks.c
+_xTaskGetCurrentTaskHandleForCore Defined     .\tasks.c
 _xTaskGetStaticBuffers            Defined     .\tasks.c
 _xTaskGetTickCount                Defined     .\tasks.c
                                   Referenced  .\main.c
@@ -573,7 +599,7 @@ switch                            Defined     llport.asm
 
 OUTPUT CHECKSUM
 ===============
-probe.hex            17B87A
+probe.hex            193B56
 
 
 

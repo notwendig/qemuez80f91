@@ -1,41 +1,45 @@
-# Dokumentation
+# Documentation
 
-## Einstieg und Betrieb
+Maintained guides and project READMEs use English. Commands, register names,
+API names and ZDS menu labels retain their original spelling. Original vendor
+manuals, source notices and license documents remain authoritative.
 
-| Dokument | Inhalt |
+## Getting started and operation
+
+| Guide | Contents |
 | --- | --- |
-| [Erste Schritte](getting-started.md) | Voraussetzungen, Checkout, QEMU-Build, erster ROM-Start und Starter |
-| [Status](status.md) | Aktuelle Fähigkeiten, bekannte Grenzen und Prüfumfang |
-| [Architektur](architecture.md) | CPU, Geräte, Speicher, Zeitmodell und Debugger |
-| [Entwicklung](development.md) | Repositories, Patches, Buildprodukte, Aufräumen und Veröffentlichung |
-| [Tests](testing.md) | Lokale Regressionen, SDK-Tests und Tests an laufender Firmware |
-| [Quellen und Lizenzen](licenses.md) | Herkunft und vorhandene Lizenzhinweise |
+| [Getting started](getting-started.md) | Dependencies, checkout, build, installation and first ROM |
+| [Status](status.md) | Current capabilities, tested scope and limitations |
+| [Architecture](architecture.md) | CPU, devices, memory, time model and debugging |
+| [Development](development.md) | Repositories, patches, generated files and publication |
+| [Testing](testing.md) | Local, SDK-dependent and live-firmware tests |
+| [Sources](sources.md) | Manuals and pinned dependency versions |
+| [Licenses](licenses.md) | Origins and existing licensing notices |
 
-## Firmwareprojekte
+## Firmware
 
-| Projekt | Dokumente |
+| Project | Guides |
 | --- | --- |
-| CamelForth | [Integration und Build](camelf91.md), [ZDS-Start](start-f24.md), [Kernkorrekturen](camelf91-analysis.md), [Worttest](camelf91-words.md), [Taster/Matrix](camelf91-kit.md) |
-| FreeRTOS | [Projekt-README](https://github.com/notwendig/FreeRTOS-eZ80f91), [Build](https://github.com/notwendig/FreeRTOS-eZ80f91/blob/master/BUILD.md), [C-Startup](freertos-boot.md), [Tasks](freertos-tasks.md), [Blockieren/Yield](freertos-blocking.md), [Boardstart](board-startup.md) |
-| BSP | [Bibliothek und API](https://github.com/notwendig/ez80f91bsp) |
-| ZTP | [Originales TCP/UDP-Demo](ztp-tcpudp.md) |
+| CamelForth | [Integration](camelf91.md), [ZDS launch](start-f24.md), [Core fixes](camelf91-analysis.md), [Dictionary test](camelf91-words.md), [Buttons and matrix](camelf91-kit.md) |
+| FreeRTOS | [Project README](../subprojects/FreeRTOS-eZ80f91/readme.md), [Build](../subprojects/FreeRTOS-eZ80f91/BUILD.md), [C startup](freertos-boot.md), [Tasks](freertos-tasks.md), [Blocking and rollover](freertos-blocking.md), [Board startup](board-startup.md) |
+| BSP | [Library and interfaces](../subprojects/CAMELF91_24/libbsp/README.md) |
+| ZTP | [Original TCP/UDP demonstration](ztp-tcpudp.md) |
 
-## Geräte und Debugging
+## Devices and debugging
 
-- [Speicher und Chip Selects](chip-selects.md)
-- [Flash und UART](flash-uart.md)
-- [Timer, Interrupts und Vektoren](timer0-interrupts.md)
+- [Memory and chip selects](chip-selects.md)
+- [Flash and UART](flash-uart.md)
+- [Timers, interrupts and vectors](timer0-interrupts.md)
 - [RTC](rtc.md)
-- [Ethernet-MAC und PHY](emac.md)
-- [Kit-Matrix und Taster](kit.md)
+- [Ethernet MAC and PHY](emac.md)
+- [Kit display and buttons](kit.md)
 - [Ethernet Smart Cable / ZDS II](zds-ethernet.md)
-- [Erweiterte CPU-Befehle](extended-opcodes.md)
+- [Extended instructions](extended-opcodes.md)
 
-## Implementierungsgrundlagen
+## Implementation references
 
-[QEMU-Basis](qemu-base.md) beschreibt die festgelegte Upstream-Version.
-[Quellen](sources.md) und [F91-Grundlagen](ez80f91-baseline.md) dokumentieren
-Herstellerreferenzen und die anfängliche Register-/Resetprüfung.
-[Erste Ausführung](first-execution.md) hält den frühen CPU-/UART-Meilenstein
-fest; seine historischen Einschränkungen sind nicht die aktuelle Funktionsliste.
-Maßgeblich für den heutigen Umfang ist [Status](status.md).
+[QEMU base](qemu-base.md) identifies the required upstream revision.
+[F91 baseline](ez80f91-baseline.md) records hardware references and reset values.
+[First execution](first-execution.md) describes a historical CPU/UART milestone;
+its original limitations are not the current feature list.
+[Validation](validation.md) separates historical release checks from subsequent upgrades.

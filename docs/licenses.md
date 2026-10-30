@@ -1,25 +1,22 @@
-# Herkunft und Lizenzhinweise
+# Origins and licensing notices
 
-Dieses Workspace kombiniert eigenständige Projekte und Testartefakte.
-Es ersetzt deren Lizenzdateien und Quellkopfhinweise nicht durch eine
-pauschale Workspace-Lizenz.
+This workspace combines independent projects and test artifacts. It does not
+replace their license files or source notices with a blanket workspace license.
 
-| Bestandteil | Herkunft und maßgebliche Hinweise |
+| Component | Origin and authoritative notices |
 | --- | --- |
-| QEMU und eZ80-Integration | Festgelegtes [QEMU-Upstream](qemu-base.md); Lizenzdateien des Quellbaums und SPDX-/Quellkopfhinweise der einzelnen Dateien |
-| CAMELF91_24 | [notwendig/CAMELF91_24](https://github.com/notwendig/CAMELF91_24); `LICENSE`, ursprüngliche `ReadMe.txt` und Quellköpfe. Das Original enthält gesonderte CamelForth-Nutzungshinweise. |
-| ez80f91bsp | [notwendig/ez80f91bsp](https://github.com/notwendig/ez80f91bsp); vorhandene Quellkopfhinweise. Es wird keine zusätzliche Lizenzfreigabe behauptet. |
-| FreeRTOS-eZ80f91 | [Projekt](https://github.com/notwendig/FreeRTOS-eZ80f91), Port-Quellköpfe und Lizenzen der eingebundenen Bibliotheken |
-| FreeRTOS-Kernel / Plus-TCP / uzlib | Jeweilige Upstream-Lizenzdateien; Versionen und Kompatibilitätspatches im [FreeRTOS-Buildablauf](https://github.com/notwendig/FreeRTOS-eZ80f91/blob/master/BUILD.md) |
-| ZDS II, Nexus SDK und ZTP | Separat installierte Herstellerpakete mit deren Bedingungen; keine SDK-Kopie im Workspace |
+| QEMU/eZ80 integration | Pinned [QEMU base](qemu-base.md), upstream license files and per-file SPDX/source notices |
+| CAMELF91_24 | [Project](https://github.com/notwendig/CAMELF91_24), `LICENSE`, original `ReadMe.txt` and source headers; the original has specific CamelForth usage conditions |
+| ez80f91bsp | [Project](https://github.com/notwendig/ez80f91bsp) and existing source notices; no additional license grant is asserted |
+| FreeRTOS-eZ80f91 | [Project](https://github.com/notwendig/FreeRTOS-eZ80f91), port notices and dependency licenses |
+| Kernel / Plus-TCP / uzlib | Respective upstream licenses; versions and patches in the [build guide](../subprojects/FreeRTOS-eZ80f91/BUILD.md) |
+| ZDS II / Nexus SDK / ZTP | Separately installed vendor packages under their own terms; no SDK copy is included |
 
-Die [Quellenübersicht](sources.md) nennt zusätzlich technische Referenzen.
-Die lokalen Hersteller-PDFs können außerhalb des Repositories liegen; ihre
-Verfügbarkeit wird beim Klonen nicht vorausgesetzt. Copyright-Hinweise in
-übernommenen Quelltexten und die ursprünglichen CamelForth-Hinweise bleiben
-bei der Dokumentationsbereinigung erhalten.
+[Sources](sources.md) lists technical references. Local vendor PDFs may reside
+outside the repository and are not required to exist after cloning. Original
+copyright and CamelForth usage notices are preserved; English maintenance guides
+do not supersede them.
 
-`examples/` enthält bewusst gespeicherte, aus den jeweiligen Quellen erzeugte
-Testfixtures. Deren Metadaten dokumentieren Herkunft und Hashes. Umfangreiche
-SDK-Anwendungen werden stattdessen aus der lokalen Herstellerinstallation in
-`build/` erzeugt und dort nicht versioniert.
+`examples/` deliberately includes selected generated fixtures with provenance
+and hashes. Large SDK applications are instead built from the local installation
+into ignored `build/` directories.

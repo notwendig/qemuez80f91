@@ -44,7 +44,7 @@ BaseType_t xPortStartScheduler(void) {
 }
 void vPortEndScheduler(void) { DI(); asm("halt"); }
 void vApplicationGetIdleTaskMemory(StaticTask_t **tcb, StackType_t **stack,
-                                  uint32_t *size) {
+                                  configSTACK_DEPTH_TYPE *size) {
     *tcb = &tcbs[2]; *stack = stacks[2]; *size = 512;
 }
 static void event(uint8_t c) {

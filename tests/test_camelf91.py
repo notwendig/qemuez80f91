@@ -15,8 +15,7 @@ base=Path(__file__).resolve().parents[1]/'examples/camelf91'
 fixture=Path(sys.argv[2]) if len(sys.argv)>2 else base/'camel.bin'
 meta=json.loads(fixture.with_suffix('.json').read_text())
 assert hashlib.sha256(fixture.read_bytes()).hexdigest()==meta['binary_sha256']
-assert meta['patch_sha256']==hashlib.sha256(
-    (base.parents[1]/'patches/camelf91/0001-fix-24bit-core.patch').read_bytes()).hexdigest()
+assert meta['upstream_commit']=='af47e6520adc220cef5ee7e9ab96f0c336f7e299'
 for name in ('kit.inc','kit_font.inc'):
     assert meta['sources'][name]==hashlib.sha256((base/name).read_bytes()).hexdigest(),name
 cases=json.loads((base/'commands.json').read_text())

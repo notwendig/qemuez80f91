@@ -1,138 +1,97 @@
-# CAMELF91: Analyse und Kernkorrekturen
+# CAMELF91 core analysis and fixes
 
-Geprüft wurde der festgelegte Upstream-Commit
-`b975f3acac08c70c05d951aad22e5c1824446206`, mit demselben ZDS-5.3.5-Build,
-Polling-Adapter und QEMU wie beim ersten Integrationstest. Die folgenden
-Fehler sind im Forth-Kern reproduziert. Für diese Korrekturen waren keine
-weiteren Änderungen am Emulator nötig.
+The original defects were reproduced on historical upstream commit
+`b975f3acac08c70c05d951aad22e5c1824446206` using ZDS II 5.3.5, the polling
+adapter and QEMU. The corrected native sources are now in CAMEL commit
+`af47e6520adc220cef5ee7e9ab96f0c336f7e299`; no separate workspace CAMEL patch
+is needed. These fixes did not require additional emulator changes.
 
-## Befunde
+## Findings
 
-| Bereich | Reproduktion | Vorher | Korrigiert |
+| Area | Reproduction | Original result | Corrected result |
 | --- | --- | --- | --- |
-| Stacktiefe | `DEPTH .` auf leerem Stack | `-267804` | `0` |
-| Stacktiefe | `1 2 3 DEPTH .` | `-267799` | `3` |
-| Exakte negative Division | `-6 3 /MOD . .` | `-3 3` | `-2 0` |
-| Negativer Quotient nahe null | `1 -3 /MOD . .` | `0 1` | `-1 -2` |
-| Vorzeichen in 48-Bit-Summe | `0 1 -1 M+ . .` | `1 -1` | `0 -1` |
-| Voller Eingabepuffer | vier Zeichen bei `ACCEPT` mit Kapazität 4 | Länge 3 trotz vier gespeicherter Zeichen | Länge 4 |
-| Eingabe ohne Kapazität | `ACCEPT` mit Kapazität 0, Eingabe XYZ | Länge -1 und Speicher verändert | Länge 0, Speicher unverändert |
-| Zahlenformatierung | `-42 6 .R` und `-42 -1 7 D.R` | Minuszeichen fehlt | Minuszeichen und korrekte Feldbreite |
+| Stack depth | `DEPTH .` on an empty stack | `-267804` | `0` |
+| Stack depth | `1 2 3 DEPTH .` | `-267799` | `3` |
+| Exact negative division | `-6 3 /MOD . .` | `-3 3` | `-2 0` |
+| Negative quotient near zero | `1 -3 /MOD . .` | `0 1` | `-1 -2` |
+| Signed 48-bit addition | `0 1 -1 M+ . .` | `1 -1` | `0 -1` |
+| Full input buffer | Four characters, `ACCEPT` capacity 4 | Length 3 despite four stored characters | Length 4 |
+| Zero-capacity input | `ACCEPT` capacity 0, input XYZ | Length -1 and modified memory | Length 0, unchanged memory |
+| Formatting | `-42 6 .R`, `-42 -1 7 D.R` | Missing minus sign | Correct sign and width |
 
-Bei `/MOD . .` wird zuerst der Quotient, dann der Rest ausgegeben.
-Bei `M+ . .` wird zuerst die obere, dann die untere 24-Bit-Zelle ausgegeben.
-Die konkreten ursprünglichen DEPTH-Fehlwerte gelten für das bisherige Testimage.
+`/MOD . .` prints quotient before remainder; `M+ . .` prints the upper cell
+before the lower cell. Original depth values depend on the historical image.
 
-### DEPTH: falsche Zellbreite und indirekter Stackanfang
+### DEPTH
 
-`S0` ist im 24-Bit-Port eine User-Variable. Der alte Code verwendete ihre
-Adresse statt ihres Inhalts und teilte den Abstand durch zwei statt durch
-drei. Korrigiert ist die Berechnung `SP@ S0 @ SWAP - 3 /`.
-Sie zählt die bereits vorhandenen Stackzellen, auch in kompilierten Wörtern.
-Das entspricht der Definition von
-[DEPTH im Forth-Standard](https://forth-standard.org/standard/core/DEPTH).
+`S0` is a user variable. The original code used its address rather than its
+contents and divided the stack distance by two instead of three. The corrected
+expression is `SP@ S0 @ SWAP - 3 /`, including inside compiled words.
+Reference: [DEPTH](https://forth-standard.org/standard/core/DEPTH).
 
-### FM/MOD: Rundung anhand des Rests
+### FM/MOD
 
-Der alte Code korrigierte jedes negative symmetrische Quotientenergebnis.
-Das ist bei exakter Teilung falsch und übersieht Quotienten null, die bei
-unterschiedlichen Vorzeichen abgerundet werden müssen. Jetzt wird nur
-korrigiert, wenn der Rest ungleich null ist und sein Vorzeichen vom Divisor
-abweicht. Dadurch liefern auch `/`, `MOD`, `*/` und `*/MOD` über ihre bestehende
-Definition die korrigierte Rundung. Als Referenz dient
-[FM/MOD](https://forth-standard.org/standard/core/FMDivMOD); die bisherigen
-Wörter verwenden ausdrücklich dessen nach unten gerundete Division.
-Division durch null und nicht darstellbare Quotienten sind nicht Teil dieser
-Regression, weil der Standard sie als mehrdeutig definiert.
+The original implementation adjusted every negative symmetric quotient,
+including exact divisions, and missed zero quotients requiring downward
+rounding. Adjustment now occurs only for a nonzero remainder whose sign differs
+from the divisor. Existing `/`, `MOD`, `*/` and `*/MOD` definitions inherit
+this floored division behavior. Division by zero and unrepresentable quotients
+are ambiguous standard cases and are excluded.
+Reference: [FM/MOD](https://forth-standard.org/standard/core/FMDivMOD).
 
-### M+: negative Einzelzelle auf Doppelzelle erweitern
+### M+
 
-Der alte ASM-Code addierte die untere Zelle und übernahm nur deren Übertrag
-in die obere Zelle. Ein negatives 24-Bit-Argument benötigt zusätzlich eine
-Vorzeichenerweiterung: zur oberen Zelle wird FFFFFF addiert, also eins
-subtrahiert. Das Addendenvorzeichen wird vor der Addition gesichert; danach
-werden Übertrag und Vorzeichenerweiterung getrennt berücksichtigt.
-Die Summe wird modulo 48 Bit gespeichert. Grundlage ist die signierte
-Einzelzelle in [M+](https://forth-standard.org/standard/double/MPlus).
+Adding a signed 24-bit cell to a double cell requires sign extension as well
+as carry propagation. A negative addend contributes FFFFFF to the upper cell,
+equivalent to subtracting one. The fix preserves the sign before adding and
+handles sign extension and carry separately, modulo 48 bits.
+Reference: [M+](https://forth-standard.org/standard/double/MPlus).
 
-### ACCEPT: exklusive Endadresse und begrenzte Schreibzugriffe
+### ACCEPT
 
-Die bisherige Schleife rechnete mit `start+n-1`, schrieb aber vor der
-Grenzprüfung. Dadurch stimmten gespeicherte Länge und Rückgabewert bei vollem
-Puffer nicht überein. Jetzt wird mit der exklusiven Endadresse `start+n`
-gearbeitet und nur geschrieben, solange der aktuelle Zeiger darunter liegt.
-Backspace bleibt an der Startadresse stehen; auch Startadresse null führt
-nicht mehr zum Zeigerunterlauf. Bestehendes Echo und CR als Terminator bleiben
-erhalten. Überzählige Zeichen werden bis CR konsumiert und nicht gespeichert.
+The old loop used `start+n-1` and wrote before checking the bound. The corrected
+exclusive end is `start+n`; writes occur only below it. Backspace stops at the
+start, including address zero. Echo and CR termination remain; excess input
+is consumed without storing it.
 
-[ACCEPT](https://forth-standard.org/standard/core/ACCEPT) verlangt den
-Rückgabewert als Länge der tatsächlich gespeicherten Zeichen. Länge null ist
-laut Standard ein mehrdeutiger Fall. Das Projekt definiert dafür zusätzlich
-ein defensives Verhalten: Zeichen bis CR konsumieren, nichts schreiben,
-null zurückgeben. Diese Zusatzregel wird nicht als Standardanforderung
-bezeichnet. Guard-Bytes prüfen unveränderten Speicher vor und hinter dem
-Puffer; getestet sind Kapazitäten 0, 1 und 4, Überlänge und Backspace.
+[ACCEPT](https://forth-standard.org/standard/core/ACCEPT) returns the actual
+stored length. Capacity zero is ambiguous in the standard; this project
+additionally defines consuming through CR, storing nothing and returning zero.
+Guard bytes verify bounds for capacities 0, 1 and 4, excess input and backspace.
 
-## Umsetzung und Reproduzierbarkeit
+### D.R and .R
 
-Die Änderungen stehen im überschaubaren Patch
-`patches/camelf91/0001-fix-24bit-core.patch`. Er ändert ausschließlich
-`CAMLF91e.asm` und `CAMLF91h.asm`. Startup, Dictionary-Modell und Konsolen-ABI
-bleiben erhalten. Der native Checkout enthält diese Korrekturen ebenfalls;
-der Polling-Builder liest seine Kernquellen aus dem historischen Basiscommit.
-Er wendet den Patch isoliert an und übersetzt
-die korrigierte Kopie. Er speichert den Patchhash und die Hashes der tatsächlich
-verwendeten Quellen in `camel.json`.
+`D.R` lacked `ROT` before `SIGN`, so the preserved sign below the double cell
+was not selected. The shared fix also corrects `.R`. Six formatting cases
+expanded the UART regression from 83 to 89 cases.
 
-Zusätzlich verweigert der Builder Ausgabeverzeichnisse innerhalb des
-Quellcheckouts und nimmt nur die bekannten Eingabedateien in sein Manifest
-auf. Alte zusätzliche ASM-Dateien in einem wiederverwendeten Buildverzeichnis
-werden dadurch nicht fälschlich als Quellen des neuen Builds ausgewiesen.
+## Reproduction and metadata
 
-Das korrigierte Kernimage ohne Kit-Erweiterung hat 9353 Bytes; die Map
-weist 9356 belegte ROM-Bytes aus. Das aktuelle Fixture einschließlich
-Kit-Wörtern hat 10688 Bytes; dessen Metadaten stehen in `camel.json`.
-Der Kern-RAM-Bedarf liegt bei 432 Bytes, mit Kit-Treiber bei 441 Bytes,
-jeweils plus den reservierten Forth-Stacks/Arbeitsbereichen. Die drei reservierten ROM-Bytes
-werden wie bisher nicht ins Raw-Image ausgegeben.
+The builder reads corrected sources directly from `af47e65`, enables kit words
+and replaces native UART startup with its polling BSP. It checks shared sources,
+rejects output directories inside the source checkout and records only known
+inputs in `camel.json`. Stale assembly files in an output directory cannot
+silently enter the source manifest.
 
-## Regression
+The historical corrected core without kit words was 9353 raw bytes / 9356 ROM
+bytes with 432 static RAM bytes. The current kit image is 10688 raw bytes / 10691
+ROM bytes with 441 static RAM bytes, plus reserved stacks/work areas. Three ROM
+reservation bytes are omitted from raw output.
 
-Der ergänzende [Worttest](camelf91-words.md) führte am 29.10.2026 alle
-zunächst 226 Wörterbuch-Einträge aus und bestand 197 Prüfungen. Mit den
-Kit-Wörtern sind es aktuell 237 Einträge und 201 Prüfungen. Der Test fand das
-fehlende `ROT` vor `SIGN` in `D.R`; dadurch wurde die falsche Stackzelle als
-Vorzeichen verwendet. Die Korrektur gilt auch für `.R`, das `D.R` aufruft.
-Sechs weitere Formatierungsfälle erweitern die ursprünglichen 83 Fälle
-auf jetzt 89; alle bestanden vor und nach Reset.
+## Regression coverage
 
-`examples/camelf91/commands.json` enthält jetzt 89 konkrete Fälle. Der UART-Test
-führt sämtliche Fälle vor und nach Systemreset aus und prüft die Antworten
-zeichengetreu, anschließend auch Dictionary-Neustart, User-Zeiger und HALT.
+The initial dictionary test on 29 October 2026 executed 226 entries with 197
+checks. With kit words, it executes 237 entries with 201 checks. The UART
+regression in `examples/camelf91/commands.json` runs all 89 cases before and
+after system reset, checking exact responses, dictionary restart, user pointer
+and final HALT.
 
-Zusätzlich zu den bisherigen Integrationsfällen enthalten sind:
+Cases cover empty/nonempty/compiled DEPTH; signed division combinations and
+24-bit boundaries; M+ sign/carry behavior; guarded ACCEPT buffers including
+address zero; UM* and valid UM/MOD across 24/48-bit ranges; and signed formatting.
+Arithmetic vectors were independently computed with Python integers using
+seed `0xCAFE91`. These are targeted tests, not exhaustive ANS Forth validation.
 
-- DEPTH bei leerem und belegtem Stack sowie in einem kompilierten Wort.
-- Negative Divisionen aller Vorzeichenkombinationen, exakte Ergebnisse,
-  Quotienten null und die Grenzen des signierten 24-Bit-Bereichs.
-- M+ mit negativen Argumenten, Übertrag und Vorzeichenwechseln.
-- ACCEPT mit Guard-Bytes, exakter Kapazität, Überlänge und Backspace,
-  einschließlich Startadresse null ohne Speicheränderung.
-- UM* und gültige UM/MOD-Fälle über den vollen 24-/48-Bit-Bereich.
-
-Die zusätzlichen Arithmetikvektoren wurden mit unabhängiger Python-
-Ganzzahlarithmetik berechnet; die deterministische Auswahl verwendet Seed
-`0xCAFE91`. Der Test nutzt die fest gespeicherten Ein-/Ausgabewerte.
-Das ist eine gezielte Kernregression und kein vollständiger Nachweis aller
-ANS-Forth-Wörter. Der bisherige Polling-BSP und das Debug-RAM-Profil bleiben
-der getestete Einbindungspfad.
-
-## Abschlussprüfung
-
-Die ursprünglichen zwölf Integrationstestskripte bestanden. Die aktuell
-89 Forth-Fälle wurden vollständig vor und nach Reset ausgeführt. Ein unabhängiger Neubau erzeugt
-dasselbe Image und dieselben Metadaten. Der gespeicherte Patch lässt sich
-auf die ursprünglichen Quellen anwenden; die resultierenden Quellhashes
-stimmen mit den tatsächlich übersetzten Dateien überein. Der native Checkout
-enthält die dokumentierten Korrekturen und Kit-Wörter;
-der Polling-Build leitet seine Kernquellen weiter vom festgelegten Basiskern ab.
+A direct-source rebuild reproduces the saved polling image. Historical test
+counts describe their original milestones, not a new complete-suite run.
+See [Testing](testing.md) and [Validation](validation.md) for current evidence.

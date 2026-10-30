@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Exercise ZDS-style internal flash erase polling and RAM-based programming."""
-import os
 from pathlib import Path
 import tempfile
 from ez80_testlib import VM
@@ -19,7 +18,6 @@ class Code:
 
 
 with tempfile.TemporaryDirectory(prefix='f91-internal-flash-') as td:
-    os.chdir(td)
     code = Code()
     # Reset protection rejects writes and erase.
     code.write(0x100, 0)
@@ -49,7 +47,7 @@ with tempfile.TemporaryDirectory(prefix='f91-internal-flash-') as td:
     for offset, value in enumerate(code.data): boot.write(0xffe200 + offset, value)
     boot.data.extend(bytes.fromhex('c300e2ff'))
     bios = Path(td) / 'loader.bin'; bios.write_bytes(boot.data)
-    vm = VM(bios, extra=('-nic', 'none'))
+    vm = VM(bios, extra=('-nic', 'none'), cwd=td)
     try:
         vm.cmd('cont'); vm.halted(); vm.cmd('stop')
         sample = Path(td) / 'result.bin'
@@ -59,5 +57,5 @@ with tempfile.TemporaryDirectory(prefix='f91-internal-flash-') as td:
         assert sample.read_bytes() == expected, (sample.read_bytes().hex(), expected.hex())
     finally:
         vm.close()
-    assert Path('ez80f91_0.0').read_bytes() == b'\xff' * (256 * 1024)
+    assert (Path(td) / 'ez80f91_0.0').read_bytes() == b'\xff' * (256 * 1024)
 print('PASS: ZDS erase polling, memory/I/O programming, protection, page/mass erase, info selection, persistence')

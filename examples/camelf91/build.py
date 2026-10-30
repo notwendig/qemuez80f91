@@ -9,9 +9,8 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
-COMMIT = 'b975f3acac08c70c05d951aad22e5c1824446206'
+COMMIT = 'af47e6520adc220cef5ee7e9ab96f0c336f7e299'
 ROOT = Path(__file__).resolve().parents[2]
 KIT_INCLUDE = b'    .INCLUDE "kit.inc"\r\n\r\n'
 
@@ -36,31 +35,20 @@ def build(args):
                 ['git','-C',str(source),'show',COMMIT+':'+filename])
             (out/path.name).write_bytes(original)
             input_names.append(path.name)
-    patch = ROOT/'patches/camelf91/0001-fix-24bit-core.patch'
-    with tempfile.TemporaryDirectory(prefix='camel-fixes-') as td:
-        staging = Path(td)
-        (staging/'asm').mkdir()
-        for name in ('CAMLF91e.asm','CAMLF91h.asm'):
-            shutil.copyfile(out/name,staging/'asm'/name)
-        subprocess.run(['git','apply',str(patch)],cwd=staging,check=True)
-        for name in ('CAMLF91e.asm','CAMLF91h.asm'):
-            shutil.copyfile(staging/'asm'/name,out/name)
-        # The native project initializes its interrupt-driven UART explicitly;
-        # the test adapter initializes its own polling UART in init_bsp.
-        subprocess.run(['git','apply',str(ROOT/'patches/camelf91/0002-init-native-uart.patch')],cwd=staging,check=True)
-        native_console_source = (staging/'asm/CAMLF91e.asm').read_bytes()
     for filename in source_files:
         path = source/filename
         if path.suffix in ('.asm','.inc'):
-            original = subprocess.check_output(
-                ['git','-C',str(source),'show',COMMIT+':'+filename])
-            allowed = (original, (out/path.name).read_bytes())
-            if path.name == 'CAMLF91e.asm': allowed += (native_console_source,)
-            current = path.read_bytes()
-            if path.name == 'CAMLF91h.asm' and current.count(KIT_INCLUDE) == 1:
-                current = current.replace(KIT_INCLUDE, b'')
-            if current not in allowed:
+            if path.read_bytes() != (out/path.name).read_bytes():
                 raise ValueError('Unreviewed assembly changes: '+filename)
+    # The polling BSP initializes UART0 itself; omit the native UART startup.
+    low = out/'CAMLF91e.asm'
+    native = low.read_bytes()
+    start = native.index(b'\tSEGMENT TEXT\r\n; UART0 configuration')
+    end = native.index(b'\tSEGMENT CODE', start)
+    native = native[:start] + native[end:]
+    native = native.replace(b'\t.INCLUDE "uart.inc"\r\n', b'')
+    low.write_bytes(native.replace(
+        b'\tld iy,camel_uart0cfg\r\n\tcall init_uart0\r\n', b''))
     # The native project and polling build share the same reviewed kit driver.
     for name in ('kit.inc','kit_font.inc'):
         asset = Path(__file__).parent/name
@@ -71,10 +59,9 @@ def build(args):
         input_names.append(name)
     high = out/'CAMLF91h.asm'
     high.write_bytes(high.read_bytes().replace(
-        b'\tXDEF CAMEL91H_LAST', KIT_INCLUDE+b'\tXDEF CAMEL91H_LAST'))
-    link_name = 'Debug/camel_f91_Debug.linkcmd'
-    original_link = subprocess.check_output(
-        ['git','-C',str(source),'show',COMMIT+':'+link_name])
+        b'ifdef KIT\r\n' + KIT_INCLUDE.rstrip(b'\r\n') + b'\r\nendif ; KIT',
+        KIT_INCLUDE.rstrip(b'\r\n')))
+    original_link = (Path(__file__).parent/'poll.linkcmd').read_bytes()
     for name in ('console.inc','poll_bsp.asm'):
         shutil.copyfile(Path(__file__).parent/name,out/name)
     input_names.extend(('console.inc','poll_bsp.asm'))
@@ -98,7 +85,6 @@ def build(args):
         run('ez80asm.exe','-cpu:eZ80F91','-define:_DEBUG','-define:FLASHED=0',
             '-include:'+inc,'-list',*(['-debug'] if getattr(args,'debug_info',False) else []),module+'.asm')
     link=original_link.decode().replace('\r\n','\n')
-    link=link[:link.index('\n"Z:')]
     if not getattr(args,'debug_info',False):
         link=link.replace('-FORMAT=OMF695,INTEL32','-FORMAT=INTEL32')
     link += '\nDEFINE __cstartup = 1\n"camel" = '+', '.join('"'+m+'.obj"' for m in modules)
@@ -112,7 +98,7 @@ def build(args):
         match = re.search(r'^'+re.escape(name)+r'\s+[CD]:([0-9A-F]+)\b',text,re.MULTILINE)
         if not match: raise ValueError('Missing symbol '+name)
         symbols[name] = int(match[1],16)
-    metadata={'patch_sha256':hashlib.sha256(patch.read_bytes()).hexdigest(),'symbols':symbols,'upstream_commit':COMMIT,'board':'ez80f91-freertos,ram-boot=on',
+    metadata={'symbols':symbols,'upstream_commit':COMMIT,'board':'ez80f91-freertos,ram-boot=on',
               'binary_sha256':hashlib.sha256((out/'camel.bin').read_bytes()).hexdigest(),
               'sources':{name:hashlib.sha256((out/name).read_bytes()).hexdigest()
                          for name in sorted(set(input_names))},

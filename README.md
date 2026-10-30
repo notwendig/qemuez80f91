@@ -1,26 +1,24 @@
 # qemuez80f91
 
-Entwicklungsumgebung für den **Zilog eZ80F91**: QEMU-Systememulation,
-ZDS-II-Debugging, CamelForth und FreeRTOS mit Ethernet, CP/M und
-Development-Kit-Anzeige.
+Development environment for the **Zilog eZ80F91**: QEMU system emulation,
+ZDS II debugging, CamelForth, FreeRTOS, Ethernet, CP/M and the development-kit display.
 
-Der Emulator führt echte eZ80-Firmware in Z80- und ADL-Modi aus. Der
-Schwerpunkt liegt auf funktionalem Verhalten und überprüfbaren Regressionen.
-Er ist keine takt- oder busgenaue Simulation und kein vollständiger
-Kompatibilitätsnachweis für den eZ80F91.
+The emulator runs actual eZ80 firmware in Z80 and ADL modes. It focuses on
+functional behavior and reproducible regression tests. It is not cycle-accurate
+or bus-accurate and does not establish complete eZ80F91 hardware compatibility.
 
-## Projekte
+## Projects
 
-| Bestandteil | Aufgabe | Einstieg |
+| Component | Purpose | Documentation |
 | --- | --- | --- |
-| QEMU/eZ80F91 | CPU, Speicher, Flash, UART, Timer, RTC, Ethernet und Kit | [Architektur](docs/architecture.md), [Build](docs/getting-started.md) |
-| CAMELF91_24 | 24-Bit-Forth mit korrigiertem Kern, Tastern und 5×7-Matrix | [Projekt-README](https://github.com/notwendig/CAMELF91_24), [Forth-Anleitung](docs/camelf91.md) |
-| ez80f91bsp | Assembler-Bibliothek für das native CAMEL-Projekt | [BSP-README](https://github.com/notwendig/ez80f91bsp) |
-| FreeRTOS-eZ80f91 | FreeRTOS, TCP/IP, CP/M 2.2 und Kit-Demo | [Projekt-README](https://github.com/notwendig/FreeRTOS-eZ80f91), [Build](https://github.com/notwendig/FreeRTOS-eZ80f91/blob/master/BUILD.md) |
-| ZTP TCPUDPDemo | Build und Betrieb des installierten Herstellerbeispiels | [TCP/UDP-Anleitung](docs/ztp-tcpudp.md) |
-| Debugger und Tests | Ethernet Smart Cable, Scan Device, Test-ROMs und Regressionen | [ZDS II](docs/zds-ethernet.md), [Tests](docs/testing.md) |
+| QEMU/eZ80F91 | CPU, memory, flash, UART, timers, RTC, Ethernet and kit | [Architecture](docs/architecture.md), [Getting started](docs/getting-started.md) |
+| CAMELF91_24 | Corrected 24-bit Forth, buttons and 5×7 matrix | [Project](https://github.com/notwendig/CAMELF91_24), [Integration](docs/camelf91.md) |
+| ez80f91bsp | Assembly library for native CAMEL builds | [Project](https://github.com/notwendig/ez80f91bsp) |
+| FreeRTOS-eZ80f91 | RTOS, TCP/IP, CP/M 2.2 and kit demonstration | [Project](https://github.com/notwendig/FreeRTOS-eZ80f91), [Build](subprojects/FreeRTOS-eZ80f91/BUILD.md) |
+| ZTP TCPUDPDemo | Build and run the installed vendor example | [TCP/UDP](docs/ztp-tcpudp.md) |
+| Debugger and tests | Ethernet Smart Cable, discovery and regression tests | [ZDS II](docs/zds-ethernet.md), [Tests](docs/testing.md) |
 
-## Schnellstart
+## Quick start
 
 ```sh
 git clone https://github.com/notwendig/qemuez80f91.git
@@ -28,7 +26,7 @@ cd qemuez80f91
 git submodule update --init -- subprojects/CAMELF91_24 subprojects/FreeRTOS-eZ80f91
 ```
 
-QEMU wird aus der festgelegten Basis mit dem mitgelieferten Patch gebaut:
+Build the pinned QEMU release with the supplied eZ80 patch:
 
 ```sh
 git clone --depth 1 --branch v11.1.2 https://gitlab.com/qemu-project/qemu.git qemu
@@ -42,30 +40,29 @@ export QEMU_EZ80="$PWD/build/ez80/qemu-system-ez80"
 python3 tests/test_smoke.py "$QEMU_EZ80"
 ```
 
-[Voraussetzungen und erster Start](docs/getting-started.md) erläutert die
-Werkzeuge, den Betrieb ohne Netzwerk und die optionale ZDS-Installation.
+See [Getting started](docs/getting-started.md) for dependencies, operation
+without networking, local installation and optional ZDS tools.
 
-## Bedienung
+## Operation
 
 ```sh
-./start.sh                 # UART-Terminal; CPU wartet auf ZDS II
-./start.sh --kit           # zusätzlich Kit-Fenster mit Matrix und Tastern
-./start.sh --run --kit     # gespeichertes Flash direkt starten
-./start.sh dbgport 4041    # separate Instanz auf anderem Debugport
+./start.sh                 # UART terminal; CPU waits for ZDS II
+./start.sh --kit           # also open the matrix/button window
+./start.sh --run --kit     # start saved flash immediately
+./start.sh dbgport 4041    # separate instance on another debug port
 ```
 
-Diese Starter verwenden die vorhandene Netzwerkbridge `br0`. Sie richten
-keinen DHCP-Server ein; im vorgesehenen Netz liefert die **nadibox** DHCP.
-Die CPU wird erst nach Freigabe des TAP-Ports gestartet.
-Ein ROM kann alternativ ohne Bridge direkt ausgeführt werden:
+These launchers use the existing `br0` bridge. They do not create a DHCP server;
+**nadibox** supplies DHCP on the development network. The CPU starts only after
+the TAP port enters forwarding state. A ROM can also run without a bridge:
 
 ```sh
 "$QEMU_EZ80" -M ez80f91-minimal -bios examples/hello_uart0.bin \
   -display none -monitor none -serial mon:stdio -nic none
 ```
 
-Strg-A, X beendet den direkten QEMU-Aufruf. Beim Starter beendet Strg-C im
-UART-Terminal die Instanz und speichert deren Flash.
+Press **Ctrl+A, X** to exit the direct QEMU command. In the launcher UART
+terminal, **Ctrl+C** stops the instance and saves its flash contents.
 
 ### CamelForth
 
@@ -73,8 +70,8 @@ UART-Terminal die Instanz und speichert deren Flash.
 python3 tools/zds/f24.py
 ```
 
-Der Starter erzeugt eine eigene Buildkopie und öffnet ZDS II mit
-Quellcode-Debugging. Nach **F5** steht die Forth-Konsole bereit:
+The launcher builds a separate copy and opens ZDS II with source debugging.
+Press **F5** to run, then enter commands in the UART console:
 
 ```forth
 1 2 + .
@@ -83,41 +80,41 @@ CHAR A MATRIX-CHAR
 MATRIX-OFF
 ```
 
-[ZDS-Start](docs/start-f24.md), [Kit-Wörter](docs/camelf91-kit.md),
-[Worttest](docs/camelf91-words.md). Das Wörterbuch umfasst 237 Wörter;
-der vollständige Worttest enthält 201 Ergebnisprüfungen. Zusätzlich prüfen
-89 Regressionsfälle das Image vor und nach Reset.
+See [ZDS launch](docs/start-f24.md), [Kit words](docs/camelf91-kit.md) and
+[Dictionary tests](docs/camelf91-words.md). The dictionary contains 237 words;
+the full test makes 201 result checks. Another 89 cases run before and after reset.
 
-### FreeRTOS und ZTP
+### FreeRTOS and ZTP
 
 ```sh
 python3 subprojects/FreeRTOS-eZ80f91/setup-dependencies.py
 python3 -m tools.demo --prepare-only
 ```
 
-FreeRTOS wird anschließend im ZDS-Projekt `EZ80F910300ZCOG.zdsproj`,
-Konfiguration **Debug**, gebaut. `python3 -m tools.demo` startet das
-installierte ZTP-TCP/UDP-Beispiel. Beide benötigen die passende
-[ZDS-/Netzwerkkonfiguration](docs/getting-started.md).
+Build FreeRTOS in `EZ80F910300ZCOG.zdsproj`, configuration **Debug**.
+Its dependencies are FreeRTOS-Kernel **V11.3.2**, FreeRTOS-Plus-TCP **V4.4.2**
+and uzlib commit **6d60d65**. ZDS compatibility changes are supplied as patches.
+`python3 -m tools.demo` runs the installed ZTP TCP/UDP example instead.
+Both require the appropriate [ZDS and network setup](docs/getting-started.md).
 
-## Daten und Konfiguration
+## Data and configuration
 
-- `QEMU_EZ80`: Pfad zum gebauten Emulator.
-- `ZDS_HOME`: ZDS II, standardmäßig `~/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5`.
-- Debugger: TCP 4040, Scan Device: UDP 3000. Die Debuggeradresse ist die
-  Hostadresse, nicht die vom Gast per DHCP bezogene IP.
-- Laufzeitprotokolle und QMP-Socket: `/tmp/ez80f91-<uid>/<port>.*`.
-- Persistentes Flash: `ez80f91_0.<port>` sowie externe Images im aktuellen
-  Arbeitsverzeichnis. Diese Dateien sind Nutzdaten und werden nicht eingecheckt.
-- `build/`: lokale Buildprodukte und Berichte; `examples/`: bewusst versionierte
-  Quellen und kleine Test-Images mit Metadaten.
+- `QEMU_EZ80`: path to the emulator executable.
+- `ZDS_HOME`: ZDS installation; default `~/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5`.
+- Debugger: host TCP 4040; Scan Device: host UDP 3000. The debugger uses the
+  host address, independently of the guest's DHCP address.
+- Runtime logs and QMP socket: `/tmp/ez80f91-<uid>/<port>.*`.
+- Persistent flash: `ez80f91_0.<port>` and external images in the working
+  directory. These files are user data, not disposable build products.
+- `build/`: generated files and reports. `examples/`: tracked sources and
+  selected test images with metadata.
 
-## Dokumentation und Entwicklungsstand
+## Documentation and development
 
-[Dokumentationsübersicht](docs/README.md) · [Status und Grenzen](docs/status.md) ·
-[Entwicklung und Repositorypflege](docs/development.md) ·
-[Quellen und Lizenzhinweise](docs/licenses.md)
+[Documentation index](docs/README.md) · [Status and limits](docs/status.md) ·
+[Development](docs/development.md) · [Sources and licenses](docs/licenses.md)
 
-Die QEMU-Änderungen werden in `patches/0001-ez80f91-minimal.patch` gepflegt.
-Der lokale QEMU-Checkout und Hersteller-SDKs gehören nicht zum veröffentlichten
-Quellbestand. Die Teilprojekte besitzen eigene Git-Historien und Lizenzhinweise.
+Maintained documentation uses English throughout. The complete QEMU changes
+are stored in `patches/0001-ez80f91-minimal.patch`. The local QEMU checkout
+and vendor SDKs are not distributed. Each subproject retains its own Git
+history and licensing notices.

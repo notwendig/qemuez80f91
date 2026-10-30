@@ -1,114 +1,91 @@
-# eZ80F91 Ethernet-MAC
+# eZ80F91 Ethernet MAC
 
-Der integrierte EMAC ist in beiden Maschinenprofilen als `ez80f91-emac`
-vorhanden. Er verbindet die I/O-Register 0020h–0059h und das gemeinsame
-8-KiB-Ethernet-RAM mit einem QEMU-Netzwerkbackend. Grundlage ist die lokale
-Zilog-Produktspezifikation PS019217-1222, Kapitel Ethernet MAC, Seiten 287–333.
-Die Implementierung enthält keinen übernommenen ZTP-Treibercode.
+Both machines expose `ez80f91-emac`, connecting I/O 0020h–0059h and 8 KiB of
+shared Ethernet RAM to a QEMU backend. The reference is PS019217-1222 pp. 287–333.
+The implementation does not incorporate vendor ZTP driver code.
 
-## Anschließen
-
-Beim nächsten Start mit ZDS II lässt sich ein Backend angeben:
+## Backend connection
 
 ```sh
 python3 tools/zds/f24.py --nic 'socket,connect=127.0.0.1:5555'
 ```
 
-Vorher muss auf Port 5555 ein QEMU-kompatibler Ethernet-Socket-Peer lauschen.
-Alternativ startet QEMU den Listener selbst:
+A QEMU-compatible peer must already listen on port 5555. Alternatively:
 
 ```sh
 python3 tools/zds/f24.py --nic 'socket,listen=127.0.0.1:5555'
 ```
 
-Dasselbe funktioniert beim direkten QEMU-Aufruf, zusätzlich zu den bisherigen
-Maschinen-/Image-/UART-Optionen:
+For a direct QEMU command, append the backend to its machine/image/UART options:
 
 ```sh
 -nic socket,connect=127.0.0.1:5555,model=ez80f91-emac
 ```
 
-Das Streamprotokoll verwendet pro Ethernetframe eine 4-Byte-Längenangabe in
-Netzwerkbytefolge, danach den Frame ohne Präambel und FCS. Ein normaler
-TCP-Echo-Dienst ist dafür kein geeigneter Netzwerkpeer. Andere QEMU-Backends
-sind über `--nic` ebenfalls wählbar, soweit der jeweilige QEMU-Build sie enthält.
-Der aktuelle Minimalbuild enthält kein Slirp; `--nic user` funktioniert dort
-nicht. Der Standardstarter verwendet die vorhandene Bridge `br0` über den
-QEMU-Bridge-Helper; die Voraussetzungen stehen in [Erste Schritte](getting-started.md).
+Frames use a four-byte network-order length followed by Ethernet bytes without
+preamble/FCS. An ordinary TCP echo server is not a compatible peer. Other QEMU
+backends are available if compiled in. This project's minimal build has no
+Slirp, so `-nic user` is unavailable.
 
-Standard des Starters ist `--nic none`: Register und RAM bleiben vorhanden,
-der PHY meldet ohne Peer keinen Link. Der bisherige Ethernet-ZDI-Kanal auf
-4040 und die UART-Konsole auf 4444 arbeiten unabhängig vom Gast-MAC.
-CAMEL24 enthält durch diese Erweiterung noch keinen Ethernettreiber oder
-TCP/IP-Stack. Der originale ZTP-Stack ist inzwischen mit DHCP und TCP/UDP-Echo geprüft:
-[TCPUDPDemo und dessen RAM-Dateisystem-Konfiguration](ztp-tcpudp.md).
+`tools/zds/f24.py` defaults to `--nic none`; registers/RAM remain present but
+PHY link is down. By contrast, `start.sh` uses the existing `br0` bridge through
+the bridge helper; see [Getting started](getting-started.md). Debugger TCP 4040
+and UART TCP 4444 are independent of guest Ethernet. CAMEL does not gain a
+network stack merely by selecting a backend. [ZTP](ztp-tcpudp.md) and the
+[FreeRTOS network test](testing.md) exercise actual guest stacks.
 
-## Gastseitige Verwendung
+## Guest programming
 
-1. EMAC_RST auf 3Fh setzen, Grenzen und Software-RRP programmieren.
-2. TX-Ring `[TLBP, BP)` und RX-Ring `[BP, RHBP)` im Ethernet-RAM aufteilen.
-   RHBP=0 bezeichnet dessen Ende bei Offset 2000h. Pointerregister sind
-   32-Byte-ausgerichtete Offsets; BUFSZ wählt 256/128/64/32-Byte-Blöcke.
-3. STAD0–5 in Netzwerkbytefolge, CFG1, CFG4.RXEN und AFR setzen.
-4. Resetbits freigeben und nach Bedarf IEN setzen.
-5. TX-Deskriptoren und Payload schreiben, Ownership zuletzt setzen; PTMR
-   schreiben. Auch PTMR=0 prüft einmal den aktuellen Deskriptor, ohne weiter
-   periodisch zu pollen. Ein Wert größer null pollt alle `256 * PTMR`
-   Systemtakte nach weiteren freigegebenen Deskriptoren.
-6. RX-Deskriptoren abarbeiten, RRP nachführen und ISTAT-Bits mit Eins quittieren.
+1. Set EMAC_RST=3Fh, boundaries and software RRP.
+2. Partition TX `[TLBP, BP)` and RX `[BP, RHBP)`. RHBP=0 means offset 2000h.
+   Pointer registers hold 32-byte-aligned offsets; BUFSZ selects 256/128/64/32 bytes.
+3. Set STAD0–5 in network byte order, CFG1, CFG4.RXEN and AFR.
+4. Release reset and enable desired IEN bits.
+5. Write TX descriptors/payload, then ownership last; write PTMR. PTMR=0
+   checks once, while positive values poll every `256 * PTMR` system clocks.
+6. Consume RX descriptors, update RRP and acknowledge ISTAT bits with ones.
 
-Ein Deskriptor besteht aus 7 Bytes: 24-Bit-NP, 16-Bit-Paketlänge und
-16-Bit-Status, jeweils Little Endian. NP ist eine vollständige CPU-Adresse,
-kein Offset. Der Frame beginnt unmittelbar bei Offset 7. TX verarbeitet nur
-Deskriptoren mit Statusbit 15; bei Abschluss wird die Ownership gelöscht.
-Die Pointer bleiben innerhalb ihrer Partition; Payload kann am Ringende
-umbrechen. Ungültige TX-Zeiger führen zu TxFSMERR und erfordern TX-Reset.
+Descriptors contain seven little-endian bytes: 24-bit NP, 16-bit packet length
+and 16-bit status. NP is a full CPU address, not an offset; payload begins at
+byte 7. TX requires status bit 15 and clears ownership on completion. Pointers
+stay within their partition and payload may wrap. Invalid TX pointers set
+TxFSMERR and require TX reset.
 
-Mit CFG1.CRCEN wird TX-Pkt_Size als Anzahl der gelieferten Framebytes ohne
-FCS verwendet, entsprechend der Nutzung durch den installierten F91-Treiber.
-Ohne CRCEN muss der Gast eine gültige FCS mitliefern. Ungültige FCS führt zum
-abgebrochenen TX-Deskriptor statt zu einem fehlerhaften Frame am Backend.
-PADEN zusammen mit CRCEN ergänzt kurze TX-Frames auf 60 Bytes ohne FCS.
-RX-Pkt_Size enthält die vier im Ethernet-RAM angehängten FCS-Bytes.
+With CRCEN, TX length excludes FCS; without it, the guest supplies valid FCS.
+Invalid FCS aborts TX instead of forwarding corrupt data. PADEN+CRCEN pads to
+60 bytes excluding FCS. RX length includes four generated FCS bytes in RAM.
 
-RX reserviert einen Block zur Unterscheidung zwischen leerem und vollem Ring.
-Bei Platzmangel erhält der reservierte Block einen abschließenden Deskriptor
-mit RxOVR und ohne RxOK; RXDONE und RX_OVR werden gesetzt. So erkennt auch
-der originale Zilog-Treiber ohne separat aktivierten Überlaufinterrupt den
-Fehler und quittiert RX_OVR beim Abarbeiten dieses Deskriptors. Weitere
-Frames werden bis zur expliziten Quittierung verworfen. ERAM_EN und RAM_ADDR_U gelten auch für den MAC-Zugriff;
-BP_U ist ein schreibgeschützter Spiegel von RAM_ADDR_U.
+RX reserves one block to distinguish full from empty. Overflow writes a final
+RxOVR descriptor without RxOK and sets RXDONE/RX_OVR. This lets the original
+Zilog driver detect overflow without a separately enabled overflow IRQ. Frames
+are dropped until explicit acknowledgment. ERAM_EN/RAM_ADDR_U apply to MAC
+access; BP_U is a read-only mirror of RAM_ADDR_U.
 
-Unterstützt sind Stationsadresse, Broadcast, Promiscuous, alle Multicasts und
-64-Bit-Multicast-Hashfilter. MAC- und PHY-Loopback sind funktional vorhanden.
-Die drei Interruptklassen sind mit den F91-Vektoren 40h (RX), 44h (TX) und
-48h (System) verbunden. ISTAT ist sticky und W1C, IEN maskiert die Leitungen.
+Filters support station address, broadcast, promiscuous, all multicast and a
+64-bit multicast hash. Functional MAC/PHY loopback is implemented. IRQ classes
+use vectors 40h (RX), 44h (TX), 48h (system); ISTAT is sticky/W1C and IEN masks lines.
 
-Der funktionale Clause-22-PHY liegt standardmäßig an Adresse 0 und meldet
-IDs 0022h/561Bh. Unterstützt werden Management-Lese-/Schreibzugriff, BMCR-
-Reset, Powerdown/Isolation, Linkstatus des Backends und MGTDONE. Die
-Konfigurationsproperty `phy-addr` erlaubt Adressen 0–31.
+The Clause-22 PHY defaults to address 0, IDs 0022h/561Bh. It supports management
+reads/writes, BMCR reset, powerdown/isolation, backend link status and MGTDONE.
+`phy-addr` accepts 0–31; the vendor/FreeRTOS board launch uses address 31.
 
-## Geprüft und Grenzen
+## Tests and limits
 
 ```sh
-python3 tests/test_emac.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_emac.py build/ez80/qemu-system-ez80
 ```
 
-Der Test prüft echte Socket-TX/RX-Frames, Deskriptoren und FCS, Padding,
-CRC-Abbruch, Filter einschließlich Multicast-Hash, TX- und RX-Wrap, RX-Overrun
-mit Wiederanlauf, ungültige Zeiger, RAM-Relokation/Enable und PHY-Linkwechsel.
-Laufender eZ80-Gastcode prüft alle drei IM2-Interruptklassen und periodisches
-TX-Polling. Die übrigen CPU-, CAMEL-, PLL-, Timer- und FreeRTOS-Tests bestehen
-mit eingebautem MAC weiter.
+Tests exercise real socket frames, descriptors/FCS, padding/CRC rejection,
+filters, TX/RX wrapping, overflow recovery, invalid pointers, RAM relocation,
+PHY link changes, all three IM2 IRQ classes and periodic TX polling.
+The full FreeRTOS test additionally verifies DHCP, ARP, ICMP and TCP console data.
 
-Dies ist ein funktionales Paketmodell: keine PHY-Wellenformen oder reale
-10/100-Mbit-Übertragungszeit, keine Kollisionen/Backoff, keine Pause-/Jam-
-Flusssteuerung, kein FIFO-Testbetrieb, keine proprietären Header und keine
-vollständige 802.3-Längen-/Fehlerklassifizierung. Fehlerhafte Frames vom
-Backend werden nicht als PHY-Fehler simuliert. VLAN-Tags werden unverändert
-transportiert und beim Empfang markiert; spezielles VLAN-Padding fehlt.
-MII-Einzelzugriffe schließen synchron ab. SCAN aktualisiert beim Lesen von
-PRSD; SCINC, zeitgesteuertes Scanning, Busy-Timing und Link-Latch-Low fehlen.
-Herstellerspezifische PHY-Funktionen und eine vollständige Auto-Negotiation
-werden nicht simuliert. Migration/Snapshots des Gerätezustands fehlen.
+This is a functional packet model: no PHY waveforms, physical 10/100-Mbit timing,
+collisions/backoff, pause/jam flow control, FIFO test mode, proprietary headers
+or complete 802.3 error classification. Backend corrupt frames do not become
+simulated PHY errors. VLAN tags are passed through and marked on RX; special
+VLAN padding is absent.
+
+MII transactions complete synchronously. SCAN refreshes PRSD on read; SCINC,
+timed scanning, busy timing and link-latch-low are not modeled. Vendor PHY
+functions/full autonegotiation and device migration/snapshots remain incomplete.

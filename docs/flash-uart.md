@@ -1,101 +1,83 @@
-# Flash-Informationsseite und UART0
+# Flash, persistence and UART0
 
-Die eZ80F91-Emulation unterstützt jetzt die Flash-Informationsseite und die
-UART0-Interruptpfade, die das originale ZTP-TCPUDPDemo benötigt. Grundlage
-sind die Flash- und UART-Kapitel der lokalen Zilog-Produktspezifikation
-PS019217-1222.
+The models implement the information-page and UART interrupt paths required
+by the original ZTP TCPUDPDemo. Hardware reference: PS019217-1222 flash/UART chapters.
 
-## Flash
+## Flash controller
 
-Die Register F5h–FFh werden vom Speichergerät bereitgestellt. Die separate
-512-Byte-Informationsseite startet bei einer neuen QEMU-Instanz mit FFh und
-bleibt über `system_reset` erhalten. Sie ist ausschließlich über FLASH_DATA
-(F6h) mit INFO_EN in FLASH_PAGE zugänglich, unabhängig vom CPU-Flashmapping.
+Memory-device registers F5h–FFh expose a separate 512-byte information page,
+initially FFh and retained across `system_reset`. Access it through FLASH_DATA
+(F6h) with INFO_EN in FLASH_PAGE, independently of CPU flash mapping.
 
-Unterstützt sind Byteprogrammierung mit NOR-Verhalten (nur 1→0), Lesen,
-Adressfortschaltung über Spalten-/Zeilenende, Page Erase der Informationsseite
-und Row-Program-Abschluss am Zeilenende. Die Erase-Bits löschen sich selbst.
-DONE und Fehlerstatus werden über FLASH_IRQ bereitgestellt; Statuslesen
-quittiert sie. DONE_IEN/ERR_IEN steuern die Interruptquelle mit Vektor 50h.
-Die B6h/49h-Schlüsselfolge entsperrt FLASH_FDIV und FLASH_PROT bis zum nächsten
-Schreiben eines dieser beiden Register.
+Implemented behavior includes NOR byte programming (1→0 only), reads, address
+advancement across column/row boundaries, information-page erase and row-program
+completion. Erase bits clear automatically. FLASH_IRQ reports DONE/errors and
+acknowledges them on read; DONE_IEN/ERR_IEN drive vector 50h. The B6h/49h key
+sequence unlocks FLASH_FDIV and FLASH_PROT until either is written.
 
-Das 256-KiB-Hauptarray unterstützt NOR-Byteprogrammierung über Speicherzugriffe
-und FLASH_DATA, 2-KiB-Page-Erase und Mass-Erase. Die acht FLASH_PROT-Bits
-schützen jeweils 32 KiB; geschützte Schreib-/Löschzugriffe melden
-WR_VIO/PG_VIO/MASS_VIO. Ein erfolgreicher Erase setzt DONE, wodurch der
-originale ZDS-RAM-Loader seine Pollschleife verlassen kann. Mass-Erase löscht
-die Informationsseite nur mit INFO_EN; Page-Erase mit INFO_EN löscht nur diese.
+The 256-KiB main array supports NOR programming through memory or FLASH_DATA,
+2-KiB page erase and mass erase. Eight FLASH_PROT bits protect 32 KiB each;
+violations set WR_VIO/PG_VIO/MASS_VIO. Successful erase sets DONE for the original
+ZDS loader's polling loop. Mass erase includes the information page only with
+INFO_EN; page erase with INFO_EN affects only that page.
 
-Dies ist eine funktionale Teilimplementierung: Erase schließt synchron ab,
-es gibt keine echten Wartezeiten und keine Row-Program-Zeitüberschreitung.
-Die Informationsseite hat noch keine Persistenzdatei über QEMU-Neustarts.
-Die Schlüsselfolge wird innerhalb der Flash-Register geprüft;
-intervenierende I/O-Schreibzugriffe auf andere Geräte werden dafür noch nicht
-erfasst. Der externe WP-Pin wird nicht separat modelliert.
+Erase completes synchronously; real delays and row-program timeouts are not
+modeled. The key sequence does not track intervening I/O writes to other devices.
+The WP pin is not modeled separately, and the information page has no cross-process
+persistence file.
 
 ## UART0
 
-UART0 besitzt einen 16-Byte-Empfangspuffer im FIFO-Modus, RX-Triggerlevel
-1/4/8/14 und einen Empfangs-Timeout nach vier Zeichenzeiten. Dieser verwendet
-die aktuelle SCLK-Quelle und den Baudteiler; das 1,5-Stopbit-Format wird dabei
-mit zwei Stopbits angenähert. Ohne FIFO steht ein Empfangsbyte bereit.
+FIFO mode has a 16-byte RX buffer, trigger levels 1/4/8/14 and timeout after four
+character times, based on SCLK and the baud divisor. A 1.5-stop-bit setting is
+approximated as two. Non-FIFO mode holds one received byte.
 
-RX, Empfangs-Timeout, Overrun/Line-Status, THRE und Transmission Complete
-werden über IIR/IER und die Interruptquelle mit Vektor 70h bedient. RX hat
-Vorrang vor TX; Overrun wird durch Lesen von LSR quittiert. IIR-Lesen quittiert
-den THRE-Latch. FIFO-Reset, DLAB, Scratchpad und die bestehende GPIO-/PPD-
-Freigabe bleiben wirksam. Interner Loopback ist für RX/TX vorhanden.
+RX, timeout, overrun/line status, THRE and transmit-complete use IIR/IER and
+vector 70h. RX precedes TX. LSR read acknowledges overrun; IIR read acknowledges
+the THRE latch. FIFO reset, DLAB, scratch register, pin multiplexing and PPD gating
+remain effective. Internal RX/TX loopback is implemented.
 
-TX wird weiterhin unmittelbar an das Zeichenbackend übergeben: Es gibt keinen
-zeitlich gefüllten TX-FIFO oder realen Schieberegisterablauf. Ein verbundenes
-Streambackend gilt als bereit (CTS/DSR/DCD); Modemflanken und ihre Interrupts
-werden nicht simuliert. Paritäts-/Framing-/Breakfehler und Multidrop fehlen.
-Clock-/Formatwechsel während eines laufenden Timeouts sind nicht zyklusgenau.
+TX reaches the character backend immediately: there is no timed TX FIFO or
+shift register. Connected streams present CTS/DSR/DCD; modem edges/IRQs,
+parity/framing/break errors and multidrop are not implemented. Mid-timeout format
+or clock changes are not cycle-accurate.
 
-## Prüfung
+## Tests
 
 ```sh
-python3 tests/test_flash_uart.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_flash_uart.py build/ez80/qemu-system-ez80
 ```
 
-Acht Gasttests prüfen NOR-Programmierung und Reset-Erhalt, Adress-Wrap und
-Erase, Row-DONE, Register-Unlock/Relock, explizite Hauptarray-Ablehnung,
-Flash-IM2-Interrupt, UART-Puffer/Loopback/Quittierung, Empfangs-Timeout und
-Overrun sowie RX-/TX-IM2-Interrupts. Zusätzlich laufen die originalen ZTP-
-Treiber im [TCP/UDP-Demo](ztp-tcpudp.md).
+Guest tests cover programming/reset retention, address wrapping, erase,
+row completion, unlock/relock, flash IRQs, UART buffering/loopback/acknowledgment,
+timeout/overrun and RX/TX IM2 paths. Original vendor drivers additionally run in
+[ZTP TCP/UDP](ztp-tcpudp.md).
 
-## Flash-Dateien
+## Persistent flash files
 
-QEMU lädt beim Start ausschließlich das interne Flash (256 KiB). Externe
-Flashs (je 1 MiB) bleiben zunächst mit `FF` gefüllt und ohne Dateianbindung.
-Erst wenn die Firmware nach dem Setzen der Grenzen das CS-Steuerregister
-mit einem gültigen, aktivierten Speicherfenster schreibt, wird die Datei für
-die tatsächliche untere Basisadresse geladen. Reset allein lädt keine externe
-Datei. Erneutes Aktivieren derselben Adresse erhält den aktuellen Inhalt;
-Aktivieren mit einer neuen Basis speichert die bisherige Datei und lädt die neue.
+At process startup QEMU loads only internal flash (256 KiB). External 1-MiB
+flash chips start filled with FFh. After firmware writes a valid enabled CS
+memory window, QEMU attaches the file for its actual lower address. Reset alone
+does not load an external file. Reactivating the same base preserves contents;
+changing the base saves the old file and loads the new one.
 
-Die Rohdateien liegen im aktuellen Arbeitsverzeichnis:
-`ez80f91_<BASISADDR>.<DEBUGPORT>`, hexadezimale Adresse in Großbuchstaben ohne
-führende Nullen. Internes Flash verwendet `0`; ohne `--dbgport` ist die
-Endung `.0`. Es gibt keine fest vorgegebenen externen Dateiadressen.
-Beim regulären Beenden (auch SIGINT/SIGTERM) werden das interne und alle
-bereits angebundenen externen Flashs gespeichert. Gleiche Dateiadressen
-mehrerer Flashs werden abgewiesen.
+Raw files reside in the current working directory:
+`ez80f91_<BASEADDR>.<DEBUGPORT>`, uppercase hexadecimal without leading zeros.
+Internal flash uses base `0`; without `--dbgport`, the suffix is `.0`.
+There are no fixed external file addresses. Orderly exit, SIGINT and SIGTERM
+save internal and attached external flash. Duplicate file addresses are rejected.
 
-Fehlende Dateien und das Ende kürzerer Dateien werden mit `FF` gefüllt.
-Zu große oder nicht lesbare Dateien führen zu einem Startfehler. `-bios`
-überschreibt den entsprechenden Anfang des geladenen internen Flashs;
-ohne `-bios` startet QEMU mit dem gespeicherten Inhalt. `-kernel` für
-RAM-Boot bleibt verfügbar. Die Information-Page bleibt hiervon unabhängig;
-Programmieren und Löschen des Hauptarrays sind funktional implementiert. SIGKILL oder ein Prozessabsturz können nicht mehr gespeichert werden.
+Missing files and short tails are filled with FFh. Oversized/unreadable files
+cause an error. `-bios` overwrites the beginning of loaded internal flash;
+without it, execution starts from saved contents. RAM `-kernel` loading remains
+available. Information-page storage is separate. SIGKILL/crashes cannot save state.
 
 ```sh
-python3 tests/test_flash_persistence.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_flash_persistence.py build/ez80/qemu-system-ez80
 ```
 
-Der ZDS-Erase-Wartecode und RAM-basiertes Programmieren werden zusätzlich geprüft:
+The original ZDS erase wait and RAM programming path are also tested:
 
 ```sh
-python3 tests/test_internal_flash.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_internal_flash.py build/ez80/qemu-system-ez80
 ```

@@ -60,8 +60,7 @@ def main():
         batch='@echo off\n'+'\n'.join(subprocess.list2cmdline(cmd)+'\nif errorlevel 1 exit /b 1' for cmd in compile_commands)+'\n'
         (out/'compile.bat').write_text(batch.replace('\n','\r\n'))
         run('cmd.exe','/c',win(out/'compile.bat'))
-    template=(sdk/'ZTP/SamplePrograms/ZTPDemo/RAM/ZTPDemo_eZ80F91_99C0879-AMD_RAM.linkcmd').read_text()
-    ctl=template[template.index('-FORMAT='):template.index('"Z:')]
+    ctl=(Path(__file__).parent/'ram.linkcmd').read_text()
     # Keep the vendor RAM startup values and original project libraries.
     if a.memory_profile=='qemu':
         params={'__FLASH_CTL_INIT_PARAM':'60','__CS1_LBR_INIT_PARAM':'00','__CS1_UBR_INIT_PARAM':'07',

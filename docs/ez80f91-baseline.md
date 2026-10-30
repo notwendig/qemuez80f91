@@ -1,112 +1,86 @@
-# eZ80-Kern und eZ80F91: Implementierungsgrundlage
+# eZ80 core and eZ80F91 implementation baseline
 
-## Verbindliche Quellen
+## References and scope
 
-Lokale Herstellerdokumente in `../doc/`:
+Local vendor references are `../doc/um0077.pdf` (UM007715-0415) and
+`../doc/ps0192.pdf` (PS019217-1222). Page numbers below are printed pages;
+PDF positions are nine pages higher in these revisions. The target is the
+F91 MCU from PS0192, not the F91 ASSP described by PS0270.
 
-- `um0077.pdf`: eZ80 CPU User Manual, UM007715-0415.
-- `ps0192.pdf`: eZ80F91 MCU Product Specification, PS019217-1222.
+The eZ80 is a CPU core; eZ80F91 is a specific MCU containing it. F91 is not a CPU
+mode, and an ordinary Z80 interpreter is insufficient.
 
-Seitenangaben unten bezeichnen gedruckte Seiten, nicht PDF-Seitenzahlen.
-Die PDF-Seitenzahl ist in diesen beiden Revisionen jeweils um 9 höher.
-Das Ziel ist der F91 MCU nach PS0192. Das ebenfalls vorhandene PS0270
-beschreibt den F91 ASSP und wird nicht stillschweigend als Ersatz verwendet.
-
-## Abgrenzung
-
-Der eZ80 ist der CPU-Kern, der eZ80F91 ein konkreter Mikrocontroller mit
-integriertem eZ80-Kern. F91 ist keine alternative Betriebsart des Kerns.
-Ein gewöhnlicher Z80-Interpreter genügt nicht.
-
-| Bereich | CPU-Kern | F91-SoC / virtuelle Platine |
+| Area | CPU core | F91 SoC / virtual board |
 | --- | --- | --- |
-| Ausführung | Register, ALU, Decoder, Flags, Präfixe | CPU-Variante und Taktkonfiguration |
-| Adressierung | Z80-Modus, ADL, MBASE, SPS/SPL | Speicherdekodierung und Remapping |
-| Interrupts | Annahme, Stack, Moduswechsel, Rückkehr | Quellen, Prioritäten, Vektorbereitstellung |
-| Speicher | Speicher- und I/O-Zugriffe ausführen | Flash, RAM, Chip Selects, Wait States |
-| Geräte | Keine UART-Register im CPU-Decoder | UART, GPIO, Timer, EMAC, weitere Geräte |
+| Execution | Registers, ALU, decoder, flags, prefixes | Variant and clock settings |
+| Addressing | Z80/ADL, MBASE, SPS/SPL | Decoding and remapping |
+| Interrupts | Acceptance, frames, mode changes, return | Sources, priorities and vectors |
+| Memory | Memory and I/O access instructions | Flash, RAM, chip selects, wait states |
+| Devices | No UART registers in the decoder | UART, GPIO, timers, EMAC and other devices |
 
-UM0077 S. 6–18 beschreibt Z80-/ADL-Modus, Register und Moduswechsel.
-Z80-Modus ist der Resetmodus; 16-Bit-Speicheradressen erhalten MBASE als
-oberes Byte. ADL erlaubt 24-Bit-Adressen und Register. SPS und SPL sowie
-die Präfixe .SIS/.SIL/.LIS/.LIL müssen explizit modelliert werden.
-Assemblerdirektiven wie `.ASSUME ADL=1` ändern keinen Hardwarezustand.
+UM0077 pp. 6–18 defines modes and registers. Reset enters Z80 mode; MBASE is
+the upper byte of short addresses. ADL permits 24-bit addresses/registers.
+SPS/SPL and .SIS/.SIL/.LIS/.LIL require explicit modeling. `.ASSUME ADL=1`
+is an assembler directive, not a hardware mode switch.
 
-### F91-Eigenschaften des CPU-Modells
+PS0192 p.39 specifies a 16-bit interrupt state and `LD I,HL` (ED C7) /
+`LD HL,I` (ED D7). UM0077 pp.195/200 excludes these from certain other eZ80
+variants. The F91 therefore requires a 16-bit I register rather than blindly
+copying another variant. LD HL,I is now implemented using its detailed flag
+description; the conflicting summary remains documented in
+[Extended instructions](extended-opcodes.md).
 
-PS0192 S. 39 nennt einen 16-Bit-Interruptvektor und die Befehle
-`LD I,HL` (ED C7) sowie `LD HL,I` (ED D7). UM0077 S. 195 und 200
-bestätigt, dass diese Befehle bei eZ80190, eZ80L92 und eZ80F92/F93
-nicht unterstützt werden. Das F91-Modell benötigt daher einen 16-Bit-I-Zustand;
-eine pauschale Übernahme beliebiger eZ80-Varianten ist ungeeignet.
+## Reset and memory
 
-Offener Dokumentwiderspruch: Die Übersicht UM0077 S. 66 kennzeichnet
-`LD HL,I` ohne Flagänderungen, die Einzelbeschreibung S. 195 nennt
-S/Z/H/PV/N-Änderungen bei unverändertem C. Vor Implementierung dieses
-Befehls sind unabhängige Referenz oder Hardwaretest erforderlich.
-Für den ersten UART-Test wird dieser Befehl nicht benötigt.
+PS0192 p.41 sets reset PC to zero and GPIO to inputs. Hardware reset sources
+include power-on, brownout, RESET pin, configured watchdog, RTC sleep wakeup and
+debug reset. The hardware controller's 1025-SCLK sequence is not electrically
+or cycle-accurately modeled. Do not assume all other registers reset to zero.
 
-## Reset und Speicher
-
-PS0192 S. 41: Systemreset setzt PC auf 0x000000 und GPIO auf Eingänge.
-Resetquellen umfassen POR, Brownout, externes RESET, entsprechend
-konfigurierten Watchdog, RTC-Weckreset aus SLEEP und Debug-Reset.
-Der Resetcontroller beschreibt 1025 SCLK-Zyklen; elektrische und
-zeitliche Genauigkeit gehört noch nicht zur ersten funktionalen Ausbaustufe.
-Andere CPU-Register werden nicht ohne Beleg als null initialisiert.
-
-| Ressource | Resetabbild / Wert | Quelle PS0192 |
+| Resource | Reset mapping/value | PS0192 reference |
 | --- | --- | --- |
-| Programm-Flash, 256 KiB | 0x000000–0x03FFFF, aktiviert | S. 104–105, Tabellen 37–38 |
-| Allgemeines RAM, 8 KiB | 0xFFE000–0xFFFFFF, aktiviert | S. 94–95, Tabellen 32–33 |
-| EMAC-RAM, 8 KiB | 0xFFC000–0xFFDFFF, aktiviert | S. 94–95, Tabellen 32–33 |
-| RAM_CTL, I/O 0x00B4 | 0xC0 | Tabelle 32 |
-| RAM_ADDR_U, I/O 0x00B5 | 0xFF | Tabelle 33 |
-| FLASH_ADDR_U, I/O 0x00F7 | 0x00, Bits 1:0 reserviert | Tabelle 37 |
-| FLASH_CTRL, I/O 0x00F8 | 0x88: aktiviert, vier Wait States | Tabelle 38 |
+| Program flash, 256 KiB | 000000h–03FFFFh, enabled | pp.104–105, tables 37–38 |
+| General RAM, 8 KiB | FFE000h–FFFFFFh, enabled | pp.94–95, tables 32–33 |
+| EMAC RAM, 8 KiB | FFC000h–FFDFFFh, enabled | pp.94–95, tables 32–33 |
+| RAM_CTL, B4h | C0h | table 32 |
+| RAM_ADDR_U, B5h | FFh | table 33 |
+| FLASH_ADDR_U, F7h | 00h, bits 1:0 reserved | table 37 |
+| FLASH_CTRL, F8h | 88h, enabled with four wait states | table 38 |
 
-RAM ist über RAM_ADDR_U verschiebbar: EMAC-RAM bei Offset 0xC000,
-allgemeines RAM bei Offset 0xE000. Flash ist auf 256-KiB-Grenzen verschiebbar.
-Dekodierungspriorität bei Überlappung: internes RAM vor internem Flash
-vor externen Chip Selects (PS0192 S. 95, 104).
-Die virtuelle Minimalplatine erhält zunächst keinen externen Speicher.
-Konfigurationsflash und Programmier-/Löschverfahren bleiben separate Aufgaben.
+RAM_ADDR_U relocates EMAC RAM at offset C000h and general RAM at E000h.
+Flash relocates on 256-KiB boundaries. Priority is internal RAM, internal flash,
+then external chip selects. Current [memory](chip-selects.md) and
+[flash](flash-uart.md) models extend the initial baseline.
 
-## UART0 als erste Konsole
+## UART0 baseline
 
-Dies sind I/O-Adressen, keine Speicheradressen. Quellen: PS0192 S. 35–36,
-182–194, insbesondere Tabellen 102 und 106.
+These are I/O addresses, not memory addresses. References: PS0192 pp.35–36,
+182–194, particularly tables 102/106.
 
-| I/O-Adresse | Register | Reset / Bedeutung |
+| Port | Register | Reset/meaning |
 | --- | --- | --- |
-| 0x00C0 | RBR lesen / THR schreiben | Empfang / Senden bei DLAB=0 |
-| 0x00C0 | BRG_L | 0x02 bei DLAB=1 |
-| 0x00C1 | IER / BRG_H | 0x00; Auswahl durch DLAB |
-| 0x00C2 | IIR lesen / FCTL schreiben | 0x01 / 0x00 |
-| 0x00C3 | LCTL | 0x00; Bit 7 ist DLAB |
-| 0x00C4 | MCTL | 0x00 |
-| 0x00C5 | LSR | 0x60; THRE Bit 5, TEMT Bit 6 |
-| 0x00C6 | MSR | Reset nicht festgelegt (XX) |
-| 0x00C7 | SPR | 0x00 |
+| C0h | RBR read / THR write | Receive/transmit with DLAB=0 |
+| C0h | BRG_L | 02h with DLAB=1 |
+| C1h | IER / BRG_H | 00h, selected by DLAB |
+| C2h | IIR read / FCTL write | 01h / 00h |
+| C3h | LCTL | 00h; bit 7 is DLAB |
+| C4h | MCTL | 00h |
+| C5h | LSR | 60h; THRE bit 5, TEMT bit 6 |
+| C6h | MSR | Unspecified reset value (XX) |
+| C7h | SPR | 00h |
 
-DLAB=1 schaltet C0/C1 auf die Baudratenteiler um. Ein Schreibzugriff auf
-C0 darf dann kein Konsolenzeichen erzeugen. LCTL=0x03 wählt 8 Datenbits,
-ein Stopbit und keine Parität. Die spätere Geräteimplementierung muss
-FIFO-, Status- und Interruptverhalten ergänzen; permanente Sendebereitschaft
-wäre nur ein ausdrücklich gekennzeichnetes vorläufiges Modell.
-GPIO-Pinmultiplexing und Taktversorgung sind vor dem UART-Modell zu prüfen.
+DLAB redirects C0/C1 to baud divisors; divisor writes must not emit characters.
+LCTL=03h selects 8N1. Pin multiplexing and clocks gate UART access.
+FIFO, interrupts and loopback have since been added; [Flash/UART](flash-uart.md)
+is the current behavior reference.
 
-## Erster ausführbarer Meilenstein
+## Initial acceptance milestone
 
-1. QEMU-Version/Commit und Buildweg festhalten; CPU-/TCG-Anbindung prüfen.
-2. F91-CPU-Zustand und minimale Z80-/ADL-Ausführung einbinden.
-3. Resetabbild von Flash/RAM samt Remapping modellieren.
-4. UART0 an QEMU-Zeichengerät anschließen.
-5. Eigenes ROM ab Reset ausführen: ADL aktivieren, SPL im allgemeinen RAM
-   setzen, UART initialisieren, LSR pollen und `Hello eZ80F91` ausgeben.
+The first milestone pinned QEMU/tooling, implemented minimum Z80/ADL execution,
+reset memory and UART, and ran a ROM that enabled ADL, set SPL, initialized UART,
+polled LSR and printed `Hello eZ80F91`.
 
-Abnahmekriterien: reproduzierbarer Build, erwartete Konsolenausgabe,
-getesteter Z80-zu-ADL-Wechsel, korrekte DLAB-Umschaltung und klare
-Diagnose bei nicht implementierten Befehlen/Geräten. Kleine unabhängige
-CPU-Tests prüfen zusätzlich 16-/24-Bit-Grenzen und Stackzugriffe.
-Ein erfolgreicher UART-Test belegt noch keine vollständige F91-Kompatibilität.
+Acceptance required repeatable builds, exact output, tested mode transition,
+DLAB switching and explicit diagnostics for unsupported behavior. Independent
+CPU tests checked width boundaries and stacks. A successful UART demonstration
+alone never established complete F91 compatibility.

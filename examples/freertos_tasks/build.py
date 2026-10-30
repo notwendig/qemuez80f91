@@ -28,8 +28,8 @@ def build(args):
     args.kernel = args.kernel.resolve()
     kernel_commit = subprocess.check_output(
         ['git', '-C', str(args.kernel), 'rev-parse', 'HEAD'], text=True).strip()
-    if kernel_commit != '0264280230aa6a828247b5f05bf57e33f1994581':
-        raise ValueError('Kernel checkout must be V10.6.1')
+    if kernel_commit != '8a59a4b19bf72977819feddef87d41163ced7004':
+        raise ValueError('Kernel checkout must be V11.3.2')
     startup = args.freertos.resolve() / 'EZ80F910300ZCOG/src/cstartup.asm'
     for filename in ('main.c', 'boot.asm', 'FreeRTOSConfig.h'):
         shutil.copyfile(variant / filename, out / filename)
@@ -49,7 +49,7 @@ def build(args):
     for name in ('tasks.c', 'list.c'):
         (out / name).write_bytes(subprocess.check_output(
             ['git', '-C', str(args.kernel), 'show', 'HEAD:' + name]))
-    patch = args.freertos.resolve() / 'patches/kernel-V10.6.1.patch'
+    patch = args.freertos.resolve() / 'patches/kernel-V11.3.2.patch'
     with tempfile.TemporaryDirectory(prefix='ez80-kernel-patch-') as td:
         staging = Path(td)
         shutil.copyfile(out / 'tasks.c', staging / 'tasks.c')
@@ -103,13 +103,10 @@ DEFINE __len_code = length of CODE
 DEFINE __copy_code_to_ram = 0
 "probe" = "boot.obj", "cstartup.obj", "main.obj", "tasks.obj", "list.obj", "vectors24.obj", "llport.obj", "''' + lib + '", "' + wine_path(zds / 'lib/std/crtD.lib') + '"\n'
     if board:
-        # Memory/clock parameters from the original project's published map.
-        values = {}
-        published = (args.freertos / 'bin/EZ80F910300ZCOGd.map').read_text()
-        for name, value in re.findall(
-                r'^define\s+((?:__CS[0-3]_\w+|__RAM_\w+|__FLASH_\w+|__PLL_CTL0)_INIT_PARAM|_SYS_CLK_FREQ|_OSC_FREQ|_SYS_CLK_SRC|_OSC_FREQ_MULT)\s*=\s*(\$?[0-9a-f]+)\s*$',
-                published, re.MULTILINE | re.IGNORECASE):
-            values[name] = value
+        # The checked-in board fixture records the reviewed startup profile.
+        # A clean checkout has no IDE-generated application map.
+        values = dict(json.loads((sources / 'board/probe.json').read_text())[
+            'startup_parameters'])
         if len(values) != 25:
             raise ValueError(f'Expected 25 published startup parameters, got {len(values)}')
         if scenario == 'pll':
@@ -162,7 +159,7 @@ DEFINE __copy_code_to_ram = 0
         'tcb_size': int(re.search(r'_tcbs:\s+DS\s+(\d+)',
                                   (out / 'main.src').read_text()).group(1)) // 3,
         'stack_words': 512,
-        'note': 'FreeRTOS V10.6.1 with project patch; original vectors and llport, minimal application port.',
+        'note': 'FreeRTOS V11.3.2 with project patch; original vectors and llport, minimal application port.',
     }
     if board:
         metadata['source_sha256']['init_params_f91.asm'] = hashlib.sha256(

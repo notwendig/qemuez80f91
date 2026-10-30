@@ -1,23 +1,22 @@
-# QEMU-Basis
+# QEMU base
 
-## Festgelegter Quellstand
+## Pinned source
 
-| Eigenschaft | Wert |
+| Property | Value |
 | --- | --- |
 | Upstream | `https://gitlab.com/qemu-project/qemu.git` |
 | Release | `v11.1.2` |
-| Basiscommit | `4fc49f46dc95d4a27de2509e7fceb2931e91faeb` |
-| Systemziel | `ez80-softmmu` |
+| Base commit | `4fc49f46dc95d4a27de2509e7fceb2931e91faeb` |
+| System target | `ez80-softmmu` |
 | CPU | `ez80f91` |
-| Maschinen | `ez80f91-minimal`, `ez80f91-freertos` |
-| Entwicklungsstand | `patches/0001-ez80f91-minimal.patch` im Workspace |
+| Machines | `ez80f91-minimal`, `ez80f91-freertos` |
+| Complete local changes | `patches/0001-ez80f91-minimal.patch` |
 
-Der lokale Checkout `qemu/` ist ein ignoriertes, separates Git-Repository.
-Er darf auf einem Entwicklungsbranch stehen; sein Upstream-Remote ist kein
-Push-Ziel der Workspace-Veröffentlichung. Der vollständige eZ80-Stand wird
-als Patch dieses Projekts verteilt.
+`qemu/` is an ignored, independent repository. It may contain a development
+branch; its upstream remote is not this project's publication destination.
+The full eZ80 implementation is distributed as the workspace patch.
 
-## Reproduzieren
+## Reproduction
 
 ```sh
 git clone --depth 1 --branch v11.1.2 https://gitlab.com/qemu-project/qemu.git qemu
@@ -29,37 +28,25 @@ ninja -j8 qemu-system-ez80
 ./qemu-system-ez80 --version
 ```
 
-Beim ersten Konfigurieren kann QEMU seine festgelegten Build-Unterprojekte
-und Python-Abhängigkeiten laden. `--disable-download` funktioniert erst,
-wenn diese vorhanden sind. Ein Configure-Fehler ist vor dem Kompilieren zu
-beheben; keine fremden Dateien aus einer anderen QEMU-Version übernehmen.
+Initial configuration may download pinned build subprojects and Python packages.
+`--disable-download` works only after they are available. Resolve configure
+errors before compilation; do not import arbitrary files from other QEMU releases.
 
-`apply-qemu-patches.sh` prüft die Basis und akzeptiert einen bereits
-angewendeten identischen Patch. Für eine bestehende Entwicklungskopie siehe
-[Repositorypflege](development.md). Buildverzeichnisse werden außerhalb des
-Quellbaums geführt.
+The patch script verifies the base and accepts an identical applied patch.
+See [Development](development.md) for existing development copies. Keep build
+directories outside the source tree.
 
-## Integration
+## Integration and limits
 
-`target/ez80/` enthält Registerzustand, Decoder, TCG und GDB-Schnittstelle;
-`hw/ez80/` CPU-Anbindung, Maschinenprofile und F91-Geräte. Die Architektur
-ist in den QEMU-Kconfig-/Meson-Listen registriert. Ein 32-Bit-Hostwert macht
-die Gastregister nicht zu 32-Bit-Registern: die architektonischen Breiten
-bleiben 8, 16 oder 24 Bit.
+`target/ez80/` contains registers, decoding, TCG and GDB support; `hw/ez80/`
+contains the machines and F91 devices. Kconfig/Meson register the target.
+Host-side 32-bit storage does not change architectural 8/16/24-bit widths.
 
-Der TCG-Pfad verwendet einen dekodierten Gastbefehl pro Block. Er ersetzt
-keine hardwaregetreuen Befehlslaufzeiten oder elektrische Bussimulation.
-Das ursprüngliche AVR-Basisbuild war nur eine Werkzeugprüfung;
-die heutigen F91-Nachweise stehen im [Testkatalog](testing.md).
+A translation block currently executes one decoded guest instruction. This
+is a functional implementation, not a model of instruction-cycle timings or
+electrical buses. The original AVR build was only a toolchain check.
 
-## Lokale Werkzeuge und Grenzen
-
-Der Entwicklungsbuild wurde mit GCC, Python 3, Ninja, pkg-config und GLib
-geprüft. Die Configure-Ausgabe benennt die für den jeweiligen Host tatsächlich
-verwendeten Versionen. Auf dem Entwicklungsrechner liegt zusätzlich ein
-Build unter `/tmp/qemuez80f91-build-baseline`; andere Rechner sollten
-`QEMU_EZ80` explizit auf ihren eigenen Build setzen.
-
-Die vollständige [Architektur](architecture.md) beschreibt Geräte und
-Debugger. [Status](status.md) benennt die funktionalen Grenzen; ein
-bestehender Build ist kein vollständiger eZ80F91-Kompatibilitätsnachweis.
+The development build uses GCC, Python, Ninja, pkg-config and GLib; configure
+reports actual host versions. `/tmp/qemuez80f91-build-baseline` is a historical
+local path, not a prerequisite. Set `QEMU_EZ80` to your own build.
+See [Architecture](architecture.md), [Status](status.md) and [Testing](testing.md).

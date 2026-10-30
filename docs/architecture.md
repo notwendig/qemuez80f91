@@ -1,83 +1,78 @@
-# Architektur
+# Architecture
 
-## Komponenten
+## Components
 
 ```mermaid
 flowchart LR
   ZDS[ZDS II / Nexus DLL] --> Cable[Ethernet Smart Cable / DTL]
-  Cable --> ZDI[ZDI-Registermodell]
-  ZDI --> GDB[Privater QEMU-GDB-Socket]
-  GDB --> CPU[eZ80-TCG-Ziel]
-  CPU --> SoC[F91-Geräte und Speicherdekodierung]
-  SoC --> UART[UART0-Konsole]
-  SoC --> NIC[QEMU-Netzwerkbackend]
-  SoC --> Kit[Matrix-/Tastermodell]
-  Kit --> JSON[Kit-Zustandsdatei]
-  JSON --> GUI[Tkinter-Kit-Fenster]
+  Cable --> ZDI[ZDI register model]
+  ZDI --> GDB[Private QEMU GDB socket]
+  GDB --> CPU[eZ80 TCG target]
+  CPU --> SoC[F91 devices and memory decoding]
+  SoC --> UART[UART0 console]
+  SoC --> NIC[QEMU network backend]
+  SoC --> Kit[Matrix/button model]
+  Kit --> JSON[Kit state file]
+  JSON --> GUI[Tkinter kit window]
 ```
 
-Der kanonische Emulatorstand ist der Patch
-`patches/0001-ez80f91-minimal.patch`. Er ergänzt einen separaten CPU-Kern und
-ein F91-Gerätemodell auf der festgelegten QEMU-Basis. Der ignorierte Checkout
-`qemu/` ist die lokale Entwicklungs-/Buildkopie, kein weiteres Root-Submodul.
+The authoritative emulator changes are in `patches/0001-ez80f91-minimal.patch`,
+which adds an independent CPU target and F91 devices to the pinned QEMU base.
+The ignored `qemu/` directory is the local development/build copy, not another
+root submodule.
 
 ## CPU
 
-`target/ez80/` enthält CPU-Zustand, gemeinsamen Decoder, TCG-Anbindung,
-Befehlshilfen und GDB-Registerabbildung. Ein Translation Block führt derzeit
-einen dekodierten Gastbefehl aus. Die Befehlshelfer haben keine separate
-CPU-Ausführungsschleife; Scheduling und virtuelle Zeit bleiben bei QEMU.
+`target/ez80/` contains CPU state, shared decoding, TCG integration, instruction
+helpers and GDB register mapping. Each translation block currently executes
+one guest instruction. Helpers implement side effects without their own CPU
+loop; QEMU retains scheduling and virtual-time control.
 
-ADL, Präfixe und MBASE steuern 16-/24-Bit-Register-, Stack- und Adressbreiten.
-Architektonische Werte bleiben trotz 32-Bit-Hostrepräsentation auf ihre
-jeweiligen Breiten begrenzt. Der Decoder berücksichtigt Adress-Wrapping und
-Moduswechsel. Nicht unterstützte Befehle werden diagnostiziert bzw. lösen
-für die implementierten Fälle den F91-TRAP aus.
+ADL, prefixes and MBASE select register, stack and address widths. Values
+remain bounded to architectural widths despite 32-bit host storage. Decoding
+handles address wrapping and mode changes. Unsupported encodings are diagnosed
+or raise the implemented F91 TRAP.
 
-## SoC und Board
+## SoC and board
 
-`hw/ez80/` enthält getrennte Modelle für Speicher/Flash, UART, Interrupts,
-Timer, Takt/PLL, RTC und EMAC. Die Maschinen `ez80f91-minimal` und
-`ez80f91-freertos` verwenden unterschiedliche Startprofile derselben Geräte.
-Das RAM-Bootprofil erlaubt den Original-Boardstart aus SRAM.
+`hw/ez80/` separates memory/flash, UART, interrupts, timers, clock/PLL, RTC and
+EMAC. `ez80f91-minimal` and `ez80f91-freertos` use different startup profiles
+of these devices. RAM boot permits original board startup from SRAM.
 
-CS0–CS3 schalten externe RAM-/AMD-Flash-Bänke dynamisch. Interner Speicher
-und höher priorisierte Chip Selects behalten Vorrang. Das Kit wird nur mit
-aktivierter Zustandsdatei und passendem CS2-Fenster bei 800000h eingeblendet.
-[Speicher](chip-selects.md) und [Kit](kit.md) enthalten die Registerdetails.
+CS0–CS3 dynamically map external RAM/AMD flash. Internal memory and higher
+priority selects retain precedence. Kit latches appear at 800000h only with
+an enabled state file and suitable CS2 window. See [Memory](chip-selects.md)
+and [Kit](kit.md).
 
-Flash-Persistenz speichert den Inhalt pro Debugport im Arbeitsverzeichnis.
-Das sind Nutzdaten, keine Buildprodukte. Tests verwenden dafür eigene
-Temporärverzeichnisse.
+Flash persistence is per debug port and working directory. These files are
+user data; tests use temporary directories.
 
-## Debugging und Netzwerk
+## Debugging and networking
 
-`--dbgport` startet die Python-Brücke mit einem privaten GDB-Unixsocket.
-Die originalen ZDS-EthernetSC-Kommandos werden über DTL/ZDI auf QEMU-Zustand
-abgebildet. Die Helperdateien unter `tools/zds/` und ihre Bundlekopien in
-QEMU müssen identisch sein; `test_dbgport.py` prüft diese Voraussetzung.
+`--dbgport` launches the Python bridge using a private GDB Unix socket.
+Original ZDS EthernetSC commands map through DTL/ZDI to QEMU state.
+`tools/zds/` helpers and their QEMU bundle copies must match; `test_dbgport.py`
+checks this.
 
-Der Debuggerkanal ist unabhängig vom Gast-MAC. DHCP/TCP/IP laufen in der
-Gastfirmware über das gewählte QEMU-Netzwerkbackend, beim Standardstarter
-über `br0`. Die Verbindung zum Debugger verwendet die Host-IP.
+The debugger channel is independent of guest Ethernet. Firmware runs DHCP/TCP/IP
+over the selected backend, normally `br0` with the standard launcher.
+The debugger uses the host's IP address; application services use the guest's.
 
-## Anzeige und Zeitmodell
+## Display and time
 
-Die Matrix wird aus echten Gastzugriffen auf die beiden Board-Latches
-rekonstruiert. Die Anzeigelogik sammelt alle sieben Zeilen und veröffentlicht
-vollständige Scans. Sie verlangt keine identischen Folgeframes, damit
-Laufschrift in jedem Durchlauf weiterlaufen kann. Das Tkinter-Fenster liest
-abgeschlossene Pixelmasken und die unabhängig aktualisierten Taster-/Registerwerte.
+The matrix is reconstructed from actual guest writes to board latches. Seven
+completed rows form a published scan. Identical consecutive frames are not
+required, allowing scrolling text to advance every scan. Tkinter reads complete
+pixel masks while button/register state updates independently.
 
-CPU-Ausführung, Gerätetimer und Matrix-Leuchtzeiten verwenden Gastzeit;
-das Fenster wird in Hostzeit abgefragt. `-icount` unterstützt reproduzierbare
-Tests, ersetzt aber keine korrekten eZ80-Befehlslaufzeiten. Elektrische
-Signalverläufe, analoge PLL-Effekte und exaktes Baudtiming sind nicht modelliert.
+CPU execution, device timers and LED integration use guest time; the window
+polls in host time. `-icount` supports repeatability, not accurate eZ80 cycle
+timing. Electrical signals, analog PLL behavior and exact transmit baud timing
+are not modeled.
 
-## Firmware und Nachweise
+## Firmware and evidence
 
-Test-ROMs, gespeicherte Firmware-Images und Metadaten befinden sich unter
-`examples/`. Die Tests prüfen UART, Speicher, Register, IRQs und Reset über
-QMP/GDB. SDK- und Live-Netzwerkprüfungen sind getrennt gekennzeichnet.
-[Status](status.md), [Testkatalog](testing.md) und [Quellen](sources.md)
-benennen den geprüften Umfang und die verbleibenden Grenzen.
+`examples/` stores ROM sources, selected images and metadata. Tests inspect
+UART, memory, registers, IRQs and reset through QMP/GDB. SDK-dependent and live
+network checks are labeled separately. [Status](status.md), [Testing](testing.md)
+and [Sources](sources.md) document coverage and remaining limits.

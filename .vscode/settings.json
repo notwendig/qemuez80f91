@@ -1,0 +1,3 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/subprojects/FreeRTOS-eZ80f91/kernel"
+}

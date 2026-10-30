@@ -1,26 +1,25 @@
-# Erste Schritte
+# Getting started
 
-## Voraussetzungen
+## Requirements
 
-Für den Emulator: Linux, Git, C-Compiler, Python 3, Ninja, pkg-config und die
-von QEMUs Configure-Prüfung angeforderten Entwicklungsbibliotheken, insbesondere
-GLib. QEMU richtet Meson und seine Python-Buildumgebung beim Konfigurieren ein.
-Der genaue geprüfte Quellstand steht in [QEMU-Basis](qemu-base.md).
+The emulator requires Linux, Git, a C compiler, Python 3, Ninja, pkg-config and
+the development libraries requested by QEMU configure, particularly GLib.
+QEMU prepares Meson and its Python build environment during configuration.
+See [QEMU base](qemu-base.md) for the pinned source revision.
 
-Die lokalen Test-ROMs benötigen überwiegend nur Python und den Emulator.
-Einige Decoder-/Dekompressionstests übersetzen zusätzlich kleine Hostprogramme
-mit `cc`. Die Skripte sind direkt aufzurufen; sie sind keine pytest-Suite.
+Most ROM tests need only Python and QEMU. Some decoder/decompression tests
+also compile host programs with `cc`. Run scripts directly; they are not a pytest suite.
 
-Zusätzlich für die Hersteller-Firmware und ZDS-Integration:
+Vendor firmware and debugger integration additionally require:
 
-- installierte **ZDS II eZ80Acclaim! 5.3.5** samt ZTP 2.5.1;
-- Wine mit Zugriff auf diese Installation;
-- Nexus SDK 1.1 und `i686-w64-mingw32-gcc` für die originalen DLL-Integrationstests;
-- Tkinter für das Kit-Fenster; `gnome-terminal` oder `xterm` für `start.sh`.
+- **ZDS II eZ80Acclaim! 5.3.5**, including ZTP 2.5.1;
+- Wine with access to that installation;
+- Nexus SDK 1.1 and `i686-w64-mingw32-gcc` for original-DLL tests;
+- Tkinter for the kit window, and `gnome-terminal` or `xterm` for `start.sh`.
 
-SDKs werden vom jeweiligen Hersteller bezogen und nicht im Repository verteilt.
+Obtain SDKs from their vendors. They are not included in this repository.
 
-## Checkout und QEMU-Build
+## Checkout and QEMU build
 
 ```sh
 git clone https://github.com/notwendig/qemuez80f91.git
@@ -36,12 +35,24 @@ cd ../..
 export QEMU_EZ80="$PWD/build/ez80/qemu-system-ez80"
 ```
 
-`apply-qemu-patches.sh` verlangt den festgelegten Upstream-Basiscommit und
-akzeptiert einen bereits angewendeten identischen Patch. Ein vorhandener
-Entwicklungsbranch mit eigenen Commits wird nicht automatisch zurückgesetzt.
-Für solche Checkouts gilt der [Entwicklungsablauf](development.md).
+`apply-qemu-patches.sh` checks the upstream base and accepts an identical patch
+that is already applied. It does not reset an existing development branch.
+See [Development](development.md) for maintaining such a checkout.
 
-## Erster Test ohne Netzwerk
+## Installation and first test
+
+```sh
+python3 scripts/install.py
+export PATH="$PWD/install/bin:$PATH"
+qemuez80f91 --help
+```
+
+`qemu-system-ez80` is the emulator; `qemuez80f91` opens this checkout's UART
+launcher. The launcher preserves the caller's working directory for flash
+files and requires the checkout to remain available. Use `--prefix "$HOME/.local"`
+to install into the user profile. `QEMU_EZ80` overrides automatic selection;
+otherwise `start.sh` tries `install/bin/`, then `build/ez80/`, then the
+historical `/tmp/qemuez80f91-build-baseline/qemu-system-ez80` fallback.
 
 ```sh
 python3 tests/test_smoke.py "$QEMU_EZ80"
@@ -50,10 +61,10 @@ python3 tests/test_cpu_uart.py "$QEMU_EZ80"
   -display none -monitor none -serial mon:stdio -nic none
 ```
 
-Erwartete Ausgabe: `Hello eZ80F91`. Danach hält die Gast-CPU an; QEMU bleibt
-geöffnet. Strg-A, X beendet den Prozess. Die Tests benötigen lokale Sockets.
+Expected output: `Hello eZ80F91`, followed by guest HALT. QEMU remains open;
+**Ctrl+A, X** exits. Tests require local sockets.
 
-## ZDS und Firmware bauen
+## ZDS and firmware
 
 ```sh
 export ZDS_HOME="$HOME/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5"
@@ -62,44 +73,41 @@ python3 examples/camelf91/build.py --zds "$ZDS_HOME"
 python3 tools/zds/f24.py --prepare-only
 ```
 
-Der Polling-Build kopiert die festgelegten Kernquellen und wendet die
-mitgelieferten Korrekturen an. Die gemeinsamen Kit-Includes werden in das
-Image eingebunden. Für das native CAMEL-Projekt zuerst `libbsp.zdsproj`
-im Unterordner `libbsp/` in ZDS bauen, danach `camel_f91.zdsproj`.
-Details: [CamelForth](camelf91.md).
+The CAMEL polling build reads corrected sources directly from pinned commit
+`af47e6520adc220cef5ee7e9ab96f0c336f7e299`; no separate CAMEL patches are applied.
+It enables the shared kit includes and uses its own polling UART startup.
+For the native project, build `libbsp/libbsp.zdsproj` first, then
+`camel_f91.zdsproj`. See [CamelForth](camelf91.md).
 
-FreeRTOS besitzt einen eigenen [Setup-/Buildablauf](https://github.com/notwendig/FreeRTOS-eZ80f91/blob/master/BUILD.md).
-Das ZTP-Demo verwendet das installierte Herstellerbeispiel und baut eine
-getrennte Kopie: [TCP/UDP](ztp-tcpudp.md).
+FreeRTOS has a separate [dependency and build procedure](../subprojects/FreeRTOS-eZ80f91/BUILD.md).
+The pinned versions are kernel V11.3.2, TCP/IP V4.4.2 and uzlib `6d60d65`.
+The [ZTP demonstration](ztp-tcpudp.md) builds a separate copy of the locally
+installed vendor example.
 
-## UART, Netzwerk und Kit
+## UART, networking and kit
 
-`./start.sh --kit` öffnet UART und Development-Kit-Fenster; die CPU wartet
-auf ZDS. `--run` startet direkt aus persistentem Flash. `QEMU_EZ80` muss auf
-den gerade gebauten Emulator zeigen. Historischer Fallbackpfad des Starters
-ist `/tmp/qemuez80f91-build-baseline/qemu-system-ez80`.
+`./start.sh --kit` opens UART and kit windows with the CPU waiting for ZDS.
+`--run` starts the saved flash immediately. **Ctrl+C** in the UART terminal
+stops the instance and saves its flash.
 
-Der Starter erwartet eine existierende Bridge `br0` und einen dafür
-konfigurierten QEMU-Bridge-Helper. Er verändert weder die Host-Bridge noch
-deren DHCP-Konfiguration. Im vorgesehenen Netz liefert nadibox
-`192.168.77.1` die Leases. Für andere Umgebungen unterstützen die
-[Demo-Werkzeuge](ztp-tcpudp.md) explizite Bridge-/Serverparameter.
+The launcher requires an existing `br0` and a configured QEMU bridge helper.
+It changes neither the host bridge nor DHCP settings. On the development
+network, nadibox at `192.168.77.1` supplies leases. The [demo tools](ztp-tcpudp.md)
+accept explicit bridge/server settings for other environments.
 
-Debugger TCP 4040 und Discovery UDP 3000 sind vom Gast-Ethernet unabhängig.
-Ein zweiter Debugger auf demselben Port wird abgewiesen. Weitere Instanzen
-verwenden beispielsweise `./start.sh dbgport 4041`.
+Debugger TCP 4040 and discovery UDP 3000 are independent of guest Ethernet.
+A second instance must use another debug port, for example `./start.sh dbgport 4041`.
 
-## Häufige Ursachen
+## Troubleshooting
 
-| Symptom | Prüfung |
+| Symptom | Check |
 | --- | --- |
-| Starter findet QEMU nicht | `QEMU_EZ80` auf das gebaute Binary setzen. |
-| Kein UART-Banner | Gast in ZDS mit F5 fortsetzen; passendes RAM-/Flash-Target laden. |
-| DTL-Schreibfehler ab 100000h beim CAMEL-Debugstart | Debug-Target mit abgeschalteter externer Flash-Erkennung verwenden. |
-| Kit bleibt dunkel | Mit `--kit` starten; CS2 muss 800000h abdecken; Firmware muss die Matrix ansteuern. |
-| Kein DHCP | TAP-Port muss forwarding sein; Bridge, nadibox und Gast-PHY-Adresse prüfen. |
-| Eine Korrektur ist noch nicht sichtbar | QEMU und ggf. Kit-Fenster neu starten; laufende Prozesse laden neue Dateien nicht automatisch. |
+| QEMU executable not found | Set `QEMU_EZ80` to the executable you built. |
+| No UART banner | Resume with F5 in ZDS; load the matching RAM/flash target. |
+| CAMEL DTL write failure at 100000h | Disable external flash autodetection in the RAM debug target. |
+| Dark kit display | Use `--kit`, enable CS2 over 800000h and run display firmware. |
+| No DHCP | Check TAP forwarding, bridge, DHCP server and guest PHY address. |
+| Old behavior after rebuilding | Restart QEMU/kit and reload firmware; running processes do not reload files. |
+| IPv4 logs start with 255 instead of 192 | Rebuild and reload the updated TCP/IP compatibility sources; see [Build](../subprojects/FreeRTOS-eZ80f91/BUILD.md). |
 
-Flash-Dateien im Arbeitsverzeichnis enthalten den gespeicherten Gastzustand.
-Sie gehören nicht zu einem Cache und dürfen beim Aufräumen nicht pauschal
-gelöscht werden.
+Flash files contain saved guest data. Do not delete them as if they were caches.

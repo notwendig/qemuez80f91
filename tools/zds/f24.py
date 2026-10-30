@@ -91,7 +91,7 @@ def main():
             metadata=json.loads((out/'camel.json').read_text())
             digest=lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
             valid=(out/'camel.lod').exists() and digest(out/'camel.bin') == metadata['binary_sha256']
-            valid=valid and digest(ROOT/'patches/camelf91/0001-fix-24bit-core.patch') == metadata['patch_sha256']
+            valid=valid and metadata['upstream_commit'] == 'af47e6520adc220cef5ee7e9ab96f0c336f7e299'
             valid=valid and all(digest(out/name)==value for name,value in metadata['sources'].items())
             valid=valid and all(metadata['sources'].get(name)==digest(ROOT/'examples/camelf91'/name)
                                 for name in ('kit.inc','kit_font.inc'))

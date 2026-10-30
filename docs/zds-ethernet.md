@@ -1,166 +1,129 @@
-# ZDS II über Ethernet Smart Cable / ZDI
+# ZDS II over Ethernet Smart Cable / ZDI
 
-QEMU kann über die installierte `nxEz80EthernetSC.dll` angesprochen werden.
-Die DLL bleibt unverändert. Grundlage sind `../NexusSDK_1.1`, die installierte
-`config/eZ80F91algo.ini` und ein Integrationstest mit der echten PE32-DLL
-unter Wine.
+QEMU communicates with the installed, unmodified `nxEz80EthernetSC.dll`.
+References are Nexus SDK 1.1, installed `config/eZ80F91algo.ini` and integration
+tests running the actual PE32 DLL under Wine.
 
-## Start
+## Start and connect
 
-Für den vollständigen CAMEL24-Start einschließlich ZDS II und Debugsymbolen:
-`python3 tools/zds/f24.py` — [Anleitung](start-f24.md).
-
-Nach dem QEMU-Build aus [first-execution.md](first-execution.md):
+For CAMEL source debugging, use `python3 tools/zds/f24.py` as described in
+[CAMEL launch](start-f24.md). For a direct launch after [building QEMU](getting-started.md):
 
 ```sh
-/tmp/qemuez80f91-build-baseline/qemu-system-ez80 \
+build/ez80/qemu-system-ez80 \
   -M ez80f91-freertos,ram-boot=on -kernel examples/camelf91/camel.bin \
   --dbgport=4040 --scan-dev -S -display none -monitor none -serial stdio -nic none
 ```
 
-`--dbgport=4040` startet den TCP-Debugdienst und aktiviert automatisch
-**Scan Device** auf UDP-Port 3000. `--scan-dev` kann zusätzlich angegeben werden.
-`-S` hält die CPU bis zum Debugger-Run an; ohne `-S` startet QEMU normal.
-Der Dienst bindet an alle IPv4-Schnittstellen. Lokal ist die Debugger-IP
-`127.0.0.1`, im LAN die Hostadresse, hier `192.168.77.3`.
-Die vom Gast über nadibox bezogene IP gehört zum Gastnetzwerk und ist davon unabhängig.
+`--dbgport=4040` starts TCP debugging and automatically enables Scan Device on
+UDP 3000; explicit `--scan-dev` is optional. `-S` pauses until debugger Run.
+The service binds all IPv4 interfaces. Use `127.0.0.1` locally or the host's
+LAN address (192.168.77.3 on the development network), not the guest's DHCP address.
 
-QEMU startet einen mitgelieferten Python-3-Hilfsprozess mit privatem GDB-Unixsocket
-und beendet ihn beim eigenen Ende. Python 3 muss im Suchpfad liegen.
-Ein zusätzlicher `-gdb`-/`-s`-Endpunkt ist mit `--dbgport` nicht kombinierbar.
-Der Linux-Pfad ist getestet; Windows-Hosts werden für diese Option abgewiesen.
+QEMU manages a bundled Python 3 helper and private GDB Unix socket. Python must
+be on PATH. Do not combine `--dbgport` with another `-gdb`/`-s` endpoint.
+This integration is tested on Linux; the option rejects Windows hosts.
 
-In ZDS II im Projekt unter **Debugger / Debug Tool** das **Ethernet Smart Cable**
-wählen und dessen Einstellungen auf IP **127.0.0.1**, Port **4040** setzen.
-Die Installation bezeichnet den Tool-Typ als `EthernetSmartCable`, den
-Kommunikationstyp als `ethernetSmartCable`; die Standardwerte stehen in
-`config/DefaultDebugTools.xml`. Die bestehende USB-Auswahl im unveränderten
-CAMEL-Upstreamprojekt muss entsprechend umgestellt werden.
-Alternativ **Scan Device** wählen: Der Adapter erscheint als `QEMU-eZ80F91`.
-Das originale SDK sendet `scan` an UDP 3000. Die Antwort lautet
-`100,QEMU-eZ80F91,02:5A:44:49:HH:LL,PORT`; HH/LL ergeben sich aus dem
-Debugport. Diese synthetische Adapterkennung ist unabhängig vom Gast-MAC.
+In ZDS **Debugger / Debug Tool**, select **Ethernet Smart Cable**, IP
+`127.0.0.1`, port `4040`. Installed identifiers are `EthernetSmartCable` for
+the tool and `ethernetSmartCable` for communications; defaults are in
+`config/DefaultDebugTools.xml`. The maintained native CAMEL Debug project already
+selects Ethernet Smart Cable; other targets may need adjustment.
 
-Für das vorab geladene CAMEL-Image die Debugverbindung zum laufenden Ziel
-verwenden. Ein ZDS-Flash-Download/Erase ist bisher nicht unterstützt.
-ZDS darf Register und RAM ändern und die CPU starten, anhalten oder schrittweise
-fortsetzen. Eine ZDS-Resetsequenz kann Speicher-Mapping und CPU-Startwerte
-entsprechend den Projekteinstellungen ändern.
+Discovery lists `QEMU-eZ80F91`. The SDK broadcasts `scan` to UDP 3000 and receives
+`100,QEMU-eZ80F91,02:5A:44:49:HH:LL,PORT`; HH/LL encode the debug port.
+This synthetic adapter identity is independent of the guest MAC.
 
-Der GUI-Ablauf für CAMEL24 wurde mit `python3 tools/zds/f24.py` automatisiert geprüft:
-Projekt öffnen, Ethernet-Verbindung, OMF695-Download und Halt mit Quellcodeanzeige.
-Der untenstehende Test prüft zusätzlich dieselbe installierte Debug-DLL direkt
-über die Nexus-API.
+Registers/RAM, run/stop/step and supported flash downloads work through the
+bridge. A ZDS reset sequence can change mapping and CPU settings according to
+the selected target. The CAMEL GUI workflow has been checked for project opening,
+Ethernet connection, OMF695 download and source-level entry halt.
 
-## Nachgewiesene Funktionen
+## Original-DLL tests
 
 ```sh
 python3 tests/test_zds_ethernet.py --native --sdk-scan
-python3 tests/test_dbgport.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_dbgport.py build/ez80/qemu-system-ez80
 ```
 
-Voraussetzungen: `wine`, `i686-w64-mingw32-gcc`, SDK 1.1 sowie ZDS II 5.3.5.
-Mit `--sdk`, `--zds`, `--qemu`, `--wine-prefix` sind andere Pfade möglich.
-Der Test schreibt ausschließlich temporäre Dateien und verwendet standardmäßig
-das separate Wine-Präfix `/tmp/qemuez80f91-zds-wine`.
+Requirements: Wine, `i686-w64-mingw32-gcc`, Nexus SDK 1.1 and ZDS II 5.3.5.
+`--sdk`, `--zds`, `--qemu` and `--wine-prefix` select other installations.
+Tests use temporary files and normally `/tmp/qemuez80f91-zds-wine`.
 
-Geprüft werden Verbindungsaufbau, DLL-Register-Selbsttest, vollständiger
-Register-Snapshot für die IDE-Ansichten einschließlich Erhalt von BC, Initialisierung,
-Resetsequenz mit Portzugriffen, BC schreiben/lesen, binärer RAM-Transfer an der
-RAM-Untergrenze, PC setzen/lesen, Einzelschritt samt Ereignis, Ausführung von
-`LD A,42h`, Hardware-Breakpoint samt asynchronem Ereignis, Breakpoint löschen,
-freier Lauf, Statusabfrage und Anhalten. Abschließend werden CPU und RAM
-unabhängig von der Nexus-DLL direkt in QEMU geprüft. Jeder Fehler ergibt einen
-fehlschlagenden Prozessstatus.
+Checks include connection, DLL register self-test, complete IDE register snapshots
+without corrupting BC, target initialization, reset port writes, BC/PC readback,
+binary RAM transfers at the lower bound, stepping/events, `LD A,42h`, hardware
+breakpoints and asynchronous events, clear/run/status/stop. QMP independently
+checks final CPU and RAM. Failures return a nonzero status.
 
-## Aufbau und Protokoll
+## Protocol and ABI
 
 ```text
-ZDS II / Nexus-API
+ZDS II / Nexus API
   → nxEz80EthernetSC.dll
-  → TCP 127.0.0.1:4040 (DTL-Algorithmen)
+  → TCP 127.0.0.1:4040 (DTL algorithms)
   → tools/zds/ethernet.py + dtl.py + zdi.py
-  → privater Unixsocket (GDB Remote)
-  → echter QEMU-CPU-/Speicherzustand
+  → private Unix socket (GDB Remote)
+  → actual QEMU CPU/memory state
 ```
 
-Anfragen haben einen 3-Byte-Kopf: Gesamtlänge als uint16 LE und Typ 0.
-Es folgt ein DTL-Algorithmus mit abschließendem NUL. Binärblöcke stehen als
-`[]=<hex-Länge>:` plus Rohbytes im Algorithmus; sie können selbst NUL enthalten.
-Antworten verwenden Typ 0, Status `00`, vier hexadezimale Längenzeichen,
-hexadezimale Daten und NUL. Der Treiber akzeptiert dieses durch seinen Parser
-ermittelte Format. Ein Breakpoint wird durch ein separates Typ-1-Paket mit
-Ereignisnummer 0 gemeldet.
+Requests have a three-byte header: uint16 little-endian total length and type 0,
+followed by a NUL-terminated DTL algorithm. `[]=<hex-length>:` embeds raw blocks,
+which may themselves contain NUL. Replies contain type 0, status `00`, four hex
+length digits, hex data and NUL. Separate type-1/event-0 packets report breakpoints.
 
-DTL enthält Variablen, Register, Rechenausdrücke, Puffer und Schleifen.
-Die Brücke interpretiert die für die geprüften eZ80-Abläufe benötigte Teilmenge.
-Unbekannte Befehle werden als Fehler zurückgegeben. Firmware-Update, Trace und HALT/SLEEP-Ereignisse
-sind nicht implementiert. Die originalen ZDS-Flash-Algorithmen für internes
-F91-Flash und externes AMD AM29LV008BB sind geprüft. Injizierte ZDI-Befehle unterstützen die in den
-Register- und Portalgorithmen benötigten Opcodes; keine beliebige
-Instruction-Store-Ausführung. Die allgemeinen CPU-/Peripheriegrenzen des
-Emulators gelten weiterhin. Das ist die Ethernet-Verbindung zum Debugadapter;
-der Gast-EMAC verwendet sein eigenes Netzwerkbackend.
+DTL supports variables, registers, expressions, buffers and loops. The bridge
+implements the subset required by tested eZ80 algorithms; unknown commands fail.
+Firmware update, trace and HALT/SLEEP events are not implemented. Original
+internal-F91 and external-AM29LV008BB flash algorithms are tested. Injected ZDI
+instructions cover register/port algorithms, not arbitrary Instruction Store
+execution. Guest Ethernet uses its own backend, not this debugger channel.
 
-Die Header aus SDK 1.1 stimmen nicht vollständig mit der installierten DLL
-überein. Der Test verwendet PE32 mit Packung 4; `nx_Control` erwartet den
-Vendor-Bereich ab Byte 100. Die DLL 5.3.5 prüft für `initializeTarget` ein
-führendes Größenfeld `0x470`, das in den alten Headern auskommentiert ist.
-Diese Anpassung ist auf den Testaufruf beschränkt. ZDS II verwendet selbst
-seine passende ABI.
+SDK 1.1 headers differ from the installed DLL ABI. The PE32 test uses packing 4,
+`nx_Control` vendor fields at byte 100 and the leading `0x470` size expected by
+5.3.5 `initializeTarget`. These compatibility adjustments affect only the test
+caller; ZDS uses its own matching ABI.
 
-## Interner QEMU-Debugzugriff
+## Private QEMU debugging
 
-24 Registerslots mit jeweils 32 Bit Little Endian, in dieser Reihenfolge:
+Twenty-four little-endian 32-bit slots are exposed in this order:
 
 ```text
 pc bc de hl ix iy bc_shadow de_shadow hl_shadow spl sps i
  a f a_shadow f_shadow r mbase adl madl iff1 iff2 im ei_delay
 ```
 
-Die Portadressen 0000h–FFFFh sind im privaten Debugfenster
-`0x1000000 + Port` les-/schreibbar. Dieser Bereich ist nur im Debugzugriff
-vorhanden, nicht im 24-Bit-Adressraum des Gasts. CPU-Einzelschritt und
-Breakpoints werden durch QEMUs vorhandenen GDB-/TCG-Pfad ausgeführt.
-
-Alternativer manueller Start zum Diagnostizieren (separate Brücke):
+Private debug addresses `0x1000000 + port` access ports 0000h–FFFFh. They are
+outside the guest's 24-bit memory space. QEMU GDB/TCG implements stepping and
+breakpoints. A separate manual bridge can be used for diagnosis:
 
 ```sh
-/tmp/qemuez80f91-build-baseline/qemu-system-ez80 \
+build/ez80/qemu-system-ez80 \
   -M ez80f91-freertos,ram-boot=on -kernel examples/camelf91/camel.bin \
   -S -gdb tcp:127.0.0.1:1234 -display none -serial stdio -monitor none
-# In einem zweiten Terminal:
+# In a second terminal:
 python3 tools/zds/ethernet.py --verbose
 ```
 
-## Flashen mit ZDS II
+## Flash programming
 
-`./start.sh` startet den Debugdienst mit dem gespeicherten Flash; ZDS II kann
-über Ethernet Smart Cable auf `127.0.0.1:4040` verbinden. Der originale Treiber
-löscht, programmiert und verifiziert internes F91-Flash und externes AMD
-AM29LV008BB über seine unveränderten RAM-Loader. Die Speicher-/Chip-Select-
-Einstellungen des ZDS-Targets müssen zur gewünschten Bestückung passen.
+`./start.sh` loads persistent flash and exposes the debugger at
+`127.0.0.1:4040`. Original ZDS RAM loaders erase, program and verify internal
+flash and external AMD AM29LV008BB. Target chip-select/memory settings must match
+the desired board configuration.
 
-Die Brücke meldet bei `GET_EMUL_CONFIG` (`.#$`) die Firmwarekennung und
-8192 Byte Transportpuffer. Daraus berechnet die ZDS-DLL sichere Blockgrößen
-für ihren auf 8448 Byte begrenzten Empfangspuffer. Eine leere Konfiguration
-führte zuvor zu übergroßen Antworten und fehlerhaften RAM-Prüfungen.
-ZDI-Blocklesen berücksichtigt den Dummy-Read und den zwei Byte vorauseilenden
-PC der Prefetch-Pipeline; dadurch bleiben geteilte Übertragungen lückenlos.
-GDB-Schreibzugriffe werden in höchstens 1024 Byte große Blöcke aufgeteilt.
-
-Vollständiger Integrationstest mit der installierten Original-DLL:
+`GET_EMUL_CONFIG` (`.#$`) reports firmware identity and 8192 bytes of transport
+buffer. This lets the DLL choose blocks within its 8448-byte receive limit.
+Previously empty configuration caused oversized responses and failed RAM checks.
+ZDI block reads account for dummy reads and the two-byte-ahead prefetch PC;
+GDB writes are split into blocks no larger than 1024 bytes.
 
 ```sh
 python3 tests/test_zds_flash.py
 ```
 
-Der Test verwendet eine eigene QEMU-Instanz und einen freien Debugport.
-Er prüft Mass-Erase, Programmieren von 10 KiB über mehrere RAM-Blöcke,
-mehrteilige Verifikation, Page-Erase mit erhaltenen Nachbarseiten sowie
-Löschen/Programmieren/Verifikation des externen AMD-Flashs. Danach werden
-die gespeicherten internen und externen Flash-Dateien bytegenau verglichen.
-Der 8-KiB-RAM-Arbeitsbereich wird ohne Rückfallwarnung geprüft.
-Mit `--qemu`, `--zds`, `--sdk` und `--wine-prefix` sind andere Installationen
-wählbar. Ein bereits laufendes QEMU muss nach Änderungen an der Debugbrücke
-neu gestartet werden.
+The flash test uses an isolated instance/free port and checks mass erase,
+10-KiB programming across RAM blocks, multipart verification, page erase with
+neighbors preserved and external AMD erase/program/verify. Saved flash files
+are compared byte-for-byte. The 8-KiB RAM workspace is checked without fallback.
+Installation paths can be overridden. Restart QEMU after debugger-bridge changes.

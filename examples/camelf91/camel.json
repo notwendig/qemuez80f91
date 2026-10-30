@@ -1,5 +1,4 @@
 {
-  "patch_sha256": "8753b4995e5e3abdb554e8f6b22df9497f148a80666bb290b2aa4673f9061d5f",
   "symbols": {
     "ENTRY": 927,
     "BYE": 1311,
@@ -8,7 +7,7 @@
     "__init": 185,
     "COLD": 8763
   },
-  "upstream_commit": "b975f3acac08c70c05d951aad22e5c1824446206",
+  "upstream_commit": "af47e6520adc220cef5ee7e9ab96f0c336f7e299",
   "board": "ez80f91-freertos,ram-boot=on",
   "binary_sha256": "77dd8cb459b3e3e83ae551c4e956733aee618b088f5d5b426442be1901c40617",
   "sources": {

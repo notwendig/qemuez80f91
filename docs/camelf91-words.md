@@ -1,72 +1,57 @@
-# CAMELF91: Test aller Wörterbuch-Einträge
+# CAMELF91 complete dictionary test
 
-Der native Debug-Build enthält 237 Wörter. Der vollständige Testlauf am
-29.10.2026 bestand mit 201 Stack-/Ergebnisprüfungen und ohne Fehler.
-Alle 237 ROM-Wörter wurden tatsächlich ausgeführt. Das wird anhand ihrer
-Einsprungadressen im QEMU-Ausführungstrace gemessen, einschließlich indirekter
-Aufrufe durch Compiler und Interpreter. Es ist kein Nachweis aller möglichen
-Eingaben oder Ausführungspfade eines Wortes.
+The native Debug dictionary contains 237 words. The full run on 29 October
+2026 executed every ROM entry and passed 201 stack/result checks. Entry-point
+tracing includes indirect compiler/interpreter calls; it does not prove every
+possible input or execution path.
 
-## Ausführen
+## Run
 
 ```sh
 make -C subprojects/CAMELF91_24
-python3 tests/test_camelf91_words.py /tmp/qemuez80f91-build-baseline/qemu-system-ez80
+python3 tests/test_camelf91_words.py build/ez80/qemu-system-ez80
 ```
 
-Der Runner startet ein eigenes QEMU mit dem nativen `Debug/camel_f91.hex` und
-der passenden Mapdatei. Eine laufende ZDS-Sitzung auf Port 4040 wird dabei nicht
-benutzt. `--hex`, `--map` und `--out` wählen andere Buildprodukte bzw. das
-Berichtsverzeichnis.
+The runner launches its own QEMU with native `Debug/camel_f91.hex` and its
+matching map. It does not use an existing ZDS session on port 4040. `--hex`,
+`--map` and `--out` select other artifacts/report directories.
 
-Unter `build/camelf91-words/` entstehen:
+Files under `build/camelf91-words/`:
 
-- `report.md`: Ergebnis und Trefferzahl für jedes einzelne Wort.
-- `report.json`: dasselbe maschinenlesbar, einschließlich Image-SHA256,
-  Wortadressen, Fehlern und nicht ausgeführten Wörtern.
-- `uart.log`: vollständiges Konsolenprotokoll.
-- `entry-trace.log`: ein Ausführungsbeleg pro erreichtem Einsprungpunkt.
+- `report.md`: per-word results and entry counts.
+- `report.json`: machine-readable results, binary SHA-256, addresses and failures.
+- `uart.log`: complete console output.
+- `entry-trace.log`: evidence for reached entry points.
 
-Der Prozess liefert einen Fehlerstatus, sobald ein Ergebnis falsch ist,
-die UART hängen bleibt oder mindestens ein Wörterbuch-Eintrag nicht erreicht
-wird. Das Wörterbuch wird aus der Linkkette des tatsächlich getesteten Images
-gelesen; eine neue Definition kann somit nicht unbemerkt aus der Abdeckung fallen.
+Wrong results, stalled UART or an unreached entry cause a nonzero exit status.
+The dictionary is read from the tested image's linked entries, so newly added
+words cannot silently escape coverage.
 
-## Forth-Datei für die Konsole
+## Console test file
 
-`examples/camelf91/all-words.fth` enthält den selbstprüfenden Teil als Forth-
-Quelltext. Zeilen einzeln übertragen und jeweils auf `OK` warten. Jede Zeile
-passt in den 124 Zeichen langen Eingabepuffer. Ein bloßes Einfügen der ganzen
-Datei kann den UART-Empfangspuffer überlaufen.
-
-Die Datei endet mit `TEST-REPORT`. Erwartet wird:
+`examples/camelf91/all-words.fth` contains self-checking Forth code. Send one
+line at a time and wait for `OK`; each fits the 124-character input buffer.
+Pasting the whole file can overflow the UART receive buffer. `TEST-REPORT` ends with:
 
 ```text
 TESTS 198 FAILURES 0
 ```
 
-`examples/camelf91/word_tests.py` ist die gemeinsame Quelle für diese Datei
-und die automatisierten Fälle. `python3 examples/camelf91/word_tests.py`
-erzeugt die Forth-Datei erneut.
+`examples/camelf91/word_tests.py` supplies both generated Forth and automated
+cases. Run it to regenerate the file.
 
-Der vollständige Python-Lauf ergänzt drei interaktive Prüfungen für `KEY`,
-`KEY?` und `ACCEPT`, kontrolliert `WORDS`, `MEMCFG` und `DUMP`, prüft
-`QUIT`, `ABORT` und `ABORT"` sowie den Dictionary-Neustart durch `COLD`.
-Am Ende wird `bye` ausgeführt und die HALT-Adresse kontrolliert.
-`RESET` wird als interner Bestandteil von `COLD` erreicht; ein isolierter
-Aufruf ist kein allgemeiner Neustart der Interpreter-Sitzung.
+The Python runner adds three interactive KEY/KEY?/ACCEPT checks, checks WORDS,
+MEMCFG and DUMP, exercises QUIT/ABORT/ABORT", and checks COLD dictionary restart.
+It finally executes `bye` and checks HALT. RESET is reached within COLD; calling
+it alone is not a general interpreter restart.
 
-Die Portwörter verwenden ausschließlich das UART0-Scratchregister C7h und
-stellen seinen alten Wert wieder her. Compilerhilfen werden durch reguläre
-Definitionen und gezielt erzeugte Codefelder geprüft.
+Port words use UART0 scratch register C7h and restore its original value.
+Compiler helpers are covered by ordinary definitions and deliberate code fields.
 
-## Gefundener Fehler und zusätzliche Regression
+## Formatting regression
 
-`.R` und `D.R` gaben negative Zahlen ohne Minuszeichen aus. In `D.R` fehlte
-das `ROT` vor `SIGN`: Nach `#S` liegt das aufbewahrte Vorzeichen unter der
-Doppelzelle und muss zuerst nach oben gebracht werden. Die gemeinsame
-Implementierung ist im nativen Quelltext und im Core-Patch korrigiert.
-
-Die bestehende Regression `tests/test_camelf91.py` enthält jetzt 89 Fälle,
-darunter sechs zusätzliche Formatierungsfälle mit negativen, positiven und
-48-Bit-Grenzwerten. Alle 89 Fälle bestanden vor und nach Systemreset.
+`.R` and `D.R` originally omitted negative signs because `D.R` lacked `ROT`
+before `SIGN`. The correction is now in the pinned native sources used directly
+by both build paths. The separate `test_camelf91.py` suite has 89 cases,
+including six added formatting cases with signed and 48-bit boundary values,
+all checked before and after reset.

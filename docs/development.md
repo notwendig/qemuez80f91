@@ -1,24 +1,23 @@
-# Entwicklung und Repositorypflege
+# Development and repository maintenance
 
-## Repositorystruktur
+## Repository layout
 
-| Pfad | Inhalt und Versionsführung |
+| Path | Ownership and purpose |
 | --- | --- |
-| `docs/` | Aktuelle Betriebsanleitungen, Architektur und Implementierungsnachweise |
-| `patches/0001-ez80f91-minimal.patch` | Vollständiger QEMU-Entwicklungsstand gegenüber der Basis |
-| `qemu/` | Ignorierter lokaler QEMU-Checkout; Änderungen in den Patch übernehmen |
-| `subprojects/CAMELF91_24/` | Eigenes Git-Submodul; darin `libbsp/` als verschachteltes Submodul |
-| `subprojects/FreeRTOS-eZ80f91/` | Eigenes Git-Submodul mit Kernel-, Netzwerk- und uzlib-Abhängigkeiten |
-| `examples/` | Reproduktionsquellen und bewusst gespeicherte kleine Test-Images |
-| `tests/` | Direkt ausführbare Prüfskripte; Sonderanforderungen im Testkatalog |
-| `tools/`, `scripts/` | Starter, Debuggerbrücke, Build-/Setup-Helfer |
-| `build/` | Ignorierte Buildprodukte und Berichte |
+| `docs/` | Maintained English guides, architecture and implementation evidence |
+| `patches/0001-ez80f91-minimal.patch` | Complete QEMU changes relative to the pinned base |
+| `qemu/` | Ignored local QEMU repository; export its changes into the patch |
+| `subprojects/CAMELF91_24/` | Independent submodule with nested `libbsp/` |
+| `subprojects/FreeRTOS-eZ80f91/` | Independent submodule with kernel, TCP/IP and uzlib dependencies |
+| `examples/` | Reproduction sources and deliberately tracked test images |
+| `tests/` | Directly executable scripts; requirements in the test catalog |
+| `tools/`, `scripts/` | Launchers, debugger bridge and build/setup tools |
+| `build/` | Ignored generated files and reports |
 
-## QEMU ändern
+## Updating QEMU
 
-Die Basis ist Commit `4fc49f46dc95d4a27de2509e7fceb2931e91faeb`.
-Entwicklungscommits im lokalen QEMU-Checkout sind möglich. Nach Änderungen
-muss der Gesamtpatch auch den Arbeitsbaum enthalten:
+The base is `4fc49f46dc95d4a27de2509e7fceb2931e91faeb`. Local development
+commits are allowed. Export the complete working-tree state relative to the base:
 
 ```sh
 git -C qemu diff --binary 4fc49f46dc95d4a27de2509e7fceb2931e91faeb > patches/0001-ez80f91-minimal.patch
@@ -26,50 +25,43 @@ git -C qemu apply --reverse --check ../patches/0001-ez80f91-minimal.patch
 ninja -C build/ez80 -j8 qemu-system-ez80
 ```
 
-Neue QEMU-Dateien müssen zunächst im dortigen Index bekannt sein, damit
-`git diff` sie erfasst. Fremde lokale Änderungen nicht pauschal zurücksetzen.
-Die Vorwärtsprüfung erfolgt zusätzlich in einem unveränderten Basischeckout.
-QEMU-Patches werden über dieses Projekt veröffentlicht, nicht in den
-konfigurierten QEMU-Upstream gepusht.
+New QEMU files must be known to its index for `git diff` to include them.
+Do not reset unrelated edits. Also check forward application in an unchanged
+base checkout. Publish the patch through this project; the configured upstream
+QEMU remote is not the destination for these changes.
 
-## Firmwarequellen und generierte Dateien
+## Firmware and generated files
 
-CAMELs gemeinsamer Kit-Treiber liegt unter `examples/camelf91/kit.inc` und
-für den nativen Build identisch unter `subprojects/CAMELF91_24/asm/`.
-`kit_font.py` erzeugt den Zeichensatz; `word_tests.py` erzeugt die ladbare
-Forth-Testdatei. Der Builder kontrolliert die gemeinsamen Quellen und
-schreibt Image-/Quellhashes in `camel.json`.
+CAMEL's shared kit driver is `examples/camelf91/kit.inc`, identical to the
+native copy under `subprojects/CAMELF91_24/asm/`. `kit_font.py` generates the
+font and `word_tests.py` generates the Forth test file. The builder checks
+shared sources and records image/source hashes in `camel.json`. It reads the
+corrected CAMEL commit directly; `patches/camelf91/` is no longer required.
 
-Bei einer Änderung gespeicherter Test-Images gehören `.bin`, `.json` und
-`.map` zusammen. Diese Dateien sind Testfixtures und werden nicht als
-überflüssige Buildprodukte gelöscht. SDK-Ausgaben, Listings, Objekte und
-IDE-Sitzungen bleiben dagegen in den ignorierten Buildverzeichnissen.
+FreeRTOS dependency versions and ZDS patches are maintained in the subproject's
+[build guide](../subprojects/FreeRTOS-eZ80f91/BUILD.md) and `setup-dependencies.py`.
+Use public upstream revisions plus the supplied patches, not unpublished library commits.
 
-## Aufräumen
+Keep fixture `.bin`, `.json` and `.map` files together. They are test inputs,
+not disposable build products. SDK output, listings, objects and IDE sessions
+belong in ignored build directories.
 
-Entfernbar sind Python-/Lint-Caches, temporäre Berichte und nach Prüfung
-nicht mehr benötigte Buildkopien. Vor dem Entfernen eines doppelten Git-
-Checkouts müssen Arbeitsbaum, HEAD und Herkunft mit dem verbleibenden
-Checkout verglichen werden. Ein ungeprüftes `git clean -xfd` ist hier
-ungeeignet: Es würde auch lokale SDK-/Builddaten oder Flash-Nutzdaten erfassen.
+## Cleanup
 
-Erhalten bleiben insbesondere:
+Python/lint caches, temporary reports and obsolete build copies can be removed
+after checking their purpose. Before removing duplicate checkouts, compare
+working trees, HEADs and origins. An unchecked `git clean -xfd` can destroy
+SDK files and saved guest flash.
 
-- Flash-Images `ez80f91_*.<port>` und aktuelle Laufzeitprotokolle;
-- verwendete ZDS-Projekt-/Target-/Linkerdateien;
-- Testfixtures und deren Metadaten;
-- Herstellerunterlagen, ursprüngliche Lizenzhinweise und Firmwarequellen.
+Preserve flash files `ez80f91_*.<port>`, active logs, used ZDS project/target/linker
+files, fixtures and metadata, vendor references, original notices and firmware sources.
+Historical session notes are available in Git; maintained guides replace them.
 
-Die ehemaligen chronologischen Sitzungsnotizen wurden durch
-[Status](status.md), [Tests](testing.md) und die projektbezogenen Anleitungen
-ersetzt. Sie sind bei Bedarf in der Git-Historie verfügbar.
+## Commit and publication
 
-## Commit und Push
-
-Abhängigkeiten werden vor ihren Eltern veröffentlicht: BSP vor CAMEL,
-Bibliotheken vor FreeRTOS und beide Firmwareprojekte vor dem Hauptprojekt.
-Danach werden die passenden Gitlinks im Hauptrepository committed. So
-verweist ein veröffentlichter Commit auf erreichbare Quellstände.
+Publish dependencies before their parents: BSP before CAMEL, library revisions
+and patches before the FreeRTOS parent, and firmware projects before the main
+repository. Then update the main gitlinks so published commits remain obtainable.
 
 ```sh
 git status --short
@@ -77,8 +69,6 @@ git diff --check
 git submodule status --recursive
 ```
 
-[Tests](testing.md), Dokumentationslinks und Fixture-Hashes vor dem Commit
-prüfen. Änderungen gezielt stagen, damit Flash-Dateien, SDKs, Cachedateien
-und Zugangsdaten nicht versehentlich veröffentlicht werden. Ohne Force-Push
-arbeiten; bei neuen Remote-Commits zuerst deren Verhältnis zum lokalen Stand
-prüfen.
+Check [tests](testing.md), documentation links and fixture hashes before a
+commit. Stage deliberately; do not publish flash data, SDKs, caches or credentials.
+Avoid force pushes and reconcile new remote commits first.
