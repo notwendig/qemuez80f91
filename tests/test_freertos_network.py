@@ -2,6 +2,7 @@
 """Isolated full-firmware DHCP, ICMP and TCP-console test over Ethernet.
 
 Usage: test_freertos_network.py QEMU FIRMWARE.bin [EXTERNAL_FLASH.bin]
+Add --cpm to boot CP/M on TCP 4050 and run DIR.
 With EXTERNAL_FLASH.bin, cold-boot internal flash and attach external flash at 0x100000.
 No bridge, external DHCP server or host TCP ports are needed.
 """
@@ -14,6 +15,11 @@ import threading
 import time
 from pathlib import Path
 from ez80_testlib import VM
+
+cpm_test = '--cpm' in sys.argv
+if cpm_test:
+    sys.argv.remove('--cpm')
+SERVICE_PORT = 4050 if cpm_test else 4040
 
 SERVER_IP = socket.inet_aton('192.168.77.1')
 GUEST_IP = socket.inet_aton('192.168.77.123')
@@ -77,9 +83,9 @@ class Peer:
         pseudo = SERVER_IP + destination + struct.pack('!BBH', 0, protocol, len(packet))
         return checksum(pseudo + packet) or 65535
 
-    def tcp(self, flags, ack=0):
-        packet = bytearray(struct.pack('!HHIIBBHHH', 40000, 4040,
-                                      self.local_seq, ack, 0x50, flags, 8192, 0, 0))
+    def tcp(self, flags, ack=0, payload=b''):
+        packet = bytearray(struct.pack('!HHIIBBHHH', 40000, SERVICE_PORT,
+                                      self.local_seq, ack, 0x50, flags, 8192, 0, 0) + payload)
         packet[16:18] = struct.pack('!H', self.transport_checksum(6, packet))
         self.ipv4(6, packet)
 
@@ -143,7 +149,7 @@ class Peer:
         elif ip[9] == 1 and packet[:2] == b'\0\0' and packet[4:8] == b'\x12\x34\0\1':
             assert packet[8:] == b'ez80-upgrade'
             self.ping = True
-        elif ip[9] == 6 and packet[:4] == struct.pack('!HH', 4040, 40000):
+        elif ip[9] == 6 and packet[:4] == struct.pack('!HH', SERVICE_PORT, 40000):
             sequence = struct.unpack('!I', packet[4:8])[0]
             flags = packet[13]
             assert not flags & 4, 'TCP listener reset the connection'
@@ -191,8 +197,9 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
     thread.start()
     try:
         vm.cmd('cont')
-        deadline = time.monotonic() + 90
+        deadline = time.monotonic() + (300 if cpm_test else 90)
         started = False
+        command_sent = False
         retry_at = 0.0
         while time.monotonic() < deadline:
             assert not peer.errors, peer.errors
@@ -207,12 +214,21 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
                 if not peer.tcp_connected:
                     peer.tcp(2)
                 retry_at = time.monotonic() + 1
-            if peer.ping and peer.tcp_connected and b'UT ' in peer.received:
+            if cpm_test and b'a>' in peer.received.lower():
+                if not command_sent:
+                    peer.received.clear()
+                    peer.tcp(0x18, peer.remote_seq, b'DIR\r')
+                    peer.local_seq += 4
+                    command_sent = True
+                elif b'COM' in peer.received.upper():
+                    break
+            elif not cpm_test and peer.ping and peer.tcp_connected and b'UT ' in peer.received:
                 break
             time.sleep(.1)
         vm.cmd('stop')
         assert peer.ping, ('ICMP echo timeout', uart.read_bytes()[-1500:])
-        assert peer.tcp_connected and b'UT ' in peer.received, (
+        service_ok = (command_sent and b'COM' in peer.received.upper() and b'a>' in peer.received.lower()) if cpm_test else b'UT ' in peer.received
+        assert peer.tcp_connected and service_ok, (
             'TCP console timeout', bytes(peer.received), uart.read_bytes()[-1500:])
         if flash_boot:
             # Check that board startup attached the external image at its fixed address.
@@ -229,4 +245,4 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
         vm.close()
         host.close()
         thread.join(2)
-print('PASS: DHCP, ARP, ICMP, TCP console and full-width IPv4 diagnostics')
+print('PASS: DHCP, ARP, ICMP, ' + ('CP/M boot and DIR' if cpm_test else 'TCP console') + ' and full-width IPv4 diagnostics')

@@ -3,7 +3,8 @@
 The FreeRTOS Release profile now places its compressed CP/M disk image in external
 AMD flash at `0x100000`, with program code in internal flash. The RAM Debug profile
 is retained. The split Flash image passed the isolated cold-boot DHCP, ARP, ICMP
-and TCP-console test, including an external-image read at `0x100000`. The disk
+and TCP-console test, including an external-image read at `0x100000`. CP/M
+boot and a `DIR` command also passed from the split flash image. The disk
 image matched all 101,820 compressed bytes and decompressed to 256,256 bytes.
 See the firmware [build instructions](../subprojects/FreeRTOS-eZ80f91/BUILD.md#zds-ii-535).
 
