@@ -24,7 +24,7 @@ Obtain SDKs from their vendors. They are not included in this repository.
 ```sh
 git clone https://github.com/notwendig/qemuez80f91.git
 cd qemuez80f91
-git submodule update --init -- subprojects/CAMELF91_24 subprojects/FreeRTOS-eZ80f91
+python3 scripts/setup-dependencies.py
 git clone --depth 1 --branch v11.1.2 https://gitlab.com/qemu-project/qemu.git qemu
 sh scripts/apply-qemu-patches.sh
 mkdir -p build/ez80
@@ -34,6 +34,14 @@ ninja -j8 qemu-system-ez80
 cd ../..
 export QEMU_EZ80="$PWD/build/ez80/qemu-system-ez80"
 ```
+
+`scripts/setup-dependencies.py` prepares both firmware projects, including the
+nested CAMEL BSP and patched FreeRTOS, TCP/IP and uzlib sources. It can be run
+again after cloning. A plain clone or outer-submodule initialization leaves
+these nested library directories empty; ZDS then reports missing `FreeRTOS.h`
+and `No rule to make target` for library sources. Run setup before opening or
+rebuilding the ZDS project. `git submodule update --init --recursive` alone
+fetches upstream sources but does not apply the required compatibility patches.
 
 `apply-qemu-patches.sh` checks the upstream base and accepts an identical patch
 that is already applied. It does not reset an existing development branch.
@@ -123,6 +131,7 @@ Cable uses the host address, or `127.0.0.1` when ZDS runs on the same host.
 
 | Symptom | Check |
 | --- | --- |
+| Missing `FreeRTOS.h` / library source targets | Run `python3 scripts/setup-dependencies.py`, then **Rebuild All** in ZDS. |
 | QEMU executable not found | Set `QEMU_EZ80` to the executable you built. |
 | No UART banner | Resume with F5 in ZDS; load the matching RAM/flash target. |
 | CAMEL DTL write failure at 100000h | Disable external flash autodetection in the RAM debug target. |

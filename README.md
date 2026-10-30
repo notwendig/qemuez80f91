@@ -23,8 +23,12 @@ or bus-accurate and does not establish complete eZ80F91 hardware compatibility.
 ```sh
 git clone https://github.com/notwendig/qemuez80f91.git
 cd qemuez80f91
-git submodule update --init -- subprojects/CAMELF91_24 subprojects/FreeRTOS-eZ80f91
+python3 scripts/setup-dependencies.py
 ```
+
+The setup command also downloads the nested BSP, kernel, TCP/IP and uzlib
+sources and applies the required compatibility patches. A plain clone or
+outer-submodule initialization alone is not enough to build the ZDS firmware.
 
 Build the pinned QEMU release with the supplied eZ80 patch:
 
