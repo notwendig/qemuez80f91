@@ -2,6 +2,7 @@
 """Isolated full-firmware DHCP, ICMP and TCP-console test over Ethernet.
 
 Usage: test_freertos_network.py QEMU FIRMWARE.bin [EXTERNAL_FLASH.bin]
+Add --debug-reset to test a debugger-provided stack and cleared MADL.
 Add --cpm to boot CP/M on TCP 4050 and run DIR.
 With EXTERNAL_FLASH.bin, cold-boot internal flash and attach external flash at 0x100000.
 No bridge, external DHCP server or host TCP ports are needed.
@@ -16,6 +17,9 @@ import time
 from pathlib import Path
 from ez80_testlib import VM
 
+debug_reset = '--debug-reset' in sys.argv
+if debug_reset:
+    sys.argv.remove('--debug-reset')
 cpm_test = '--cpm' in sys.argv
 if cpm_test:
     sys.argv.remove('--cpm')
@@ -188,10 +192,20 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
     peer = Peer(host)
     vm = VM(Path(sys.argv[2]).resolve(), 'file:' + str(uart),
             extra=('-icount', 'shift=5,sleep=off', '-nic', f'socket,fd={guest.fileno()}',
-                   '-global', 'ez80f91-emac.phy-addr=31'),
+                   '-global', 'ez80f91-emac.phy-addr=31',
+                   *(['-gdb', f'unix:{directory}/gdb.sock,server=on,wait=off'] if debug_reset else [])),
             pass_fds=(guest.fileno(),),
             machine='ez80f91-freertos' if flash_boot else 'ez80f91-freertos,ram-boot=on',
             loader='-bios' if flash_boot else '-kernel', cwd=directory)
+    if debug_reset:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/zds'))
+        from rsp import RSP
+        debugger = RSP(unix=f'{directory}/gdb.sock')
+        registers = debugger.registers()
+        registers[9] = 0xC80000
+        registers[18] = 1
+        registers[19] = 0
+        debugger.set_registers(registers)
     guest.close()
     thread = threading.Thread(target=peer.run)
     thread.start()
