@@ -10,7 +10,9 @@ new run of every test in the earlier release table.
 - The CAMEL direct-source build reproduced the saved binary; all 89 UART cases
   passed before and after reset.
 - Full ZDS II 5.3.5 firmware compiled and linked with Plus-TCP V4.4.2 and
-  uzlib `6d60d65`.
+  uzlib `6d60d65`. Release was subsequently repaired and rebuilt with zero
+  warnings/errors using the same RAM profile; its image passed the isolated
+  DHCP/ARP/ICMP/TCP-console test.
 - Isolated Ethernet test passed DHCP, ARP, ICMP Echo and TCP-console data.
   The updated test also verifies correct full-width IPv4 diagnostics.
 - CP/M disk decompression passed CRC, truncation, size and output-bound checks.
