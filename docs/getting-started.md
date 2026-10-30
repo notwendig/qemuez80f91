@@ -98,6 +98,27 @@ accept explicit bridge/server settings for other environments.
 Debugger TCP 4040 and discovery UDP 3000 are independent of guest Ethernet.
 A second instance must use another debug port, for example `./start.sh dbgport 4041`.
 
+## Using another network
+
+`nadibox` is the development LAN's DHCP server, not a requirement of the
+FreeRTOS firmware. Any suitable external DHCP server or router can supply a
+lease. Connect the host bridge to the desired LAN; the launchers do not create
+the bridge or configure a DHCP server.
+
+The `start.sh` launcher currently fixes the bridge and helper in
+[`tools/start.py`](../tools/start.py). To use another bridge, update the
+`/sys/class/net/br0/brif` check, `br=br0` backend option and `start_after_bridge`
+argument together, plus the diagnostic message. Update the helper path if your
+system installs it elsewhere. Permit the selected bridge in the helper's
+allowlist, normally `/etc/qemu/bridge.conf` (for example, `allow br1`).
+
+The separate ZTP launcher accepts `--bridge`, `--bridge-helper` and
+`--dhcp-server` instead. Its `--dhcp-server` value identifies the expected server
+for lease validation; it does not start or reconfigure that server.
+
+Application clients use the guest's assigned DHCP address. ZDS Ethernet Smart
+Cable uses the host address, or `127.0.0.1` when ZDS runs on the same host.
+
 ## Troubleshooting
 
 | Symptom | Check |
