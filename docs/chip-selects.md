@@ -74,6 +74,20 @@ RAM/flash survive disabling, remapping and system reset. Process persistence
 is implemented as described in [Flash files](flash-uart.md), including deferred
 external-file attachment after a valid CS enable.
 
+For writable raw CP/M disks, attach a file to CS3 RAM:
+
+```sh
+qemu-system-ez80 -M ez80f91-minimal,cs3-file=/absolute/path/to/cs3-abcdij.img
+```
+
+`cs3-file` requires `cs3=ram` and accepts a nonempty file up to 16 MiB.
+It loads once at startup, preserves bank contents across remapping/reset,
+and saves exactly the original raw length on orderly exit, without a CRC
+trailer. Bytes beyond the file start at zero and are not persisted.
+Firmware controls the address window. The updated CP/M firmware uses
+200000h–AFFFFFh for A/B/C/D/I/J and narrows CS2 before heap initialization
+to avoid hiding the disk. See [disk layout](../images/cpm/README.md).
+
 Internal main flash and its information page are separate devices. Wait states
 and external bus signals are not cycle-accurate. The generic bank-offset mapping
 does not infer arbitrary physical address wiring.

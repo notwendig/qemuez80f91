@@ -90,6 +90,11 @@ the full test makes 201 result checks. Another 89 cases run before and after res
 
 ### FreeRTOS and ZTP
 
+CP/M uses raw writable A/B/C/D/I/J disk images on CS3, without startup
+decompression. The [disk layout and build instructions](images/cpm/README.md)
+describe the image formats. `start.sh` initializes a separate persistent
+`ez80f91_cs3.<debugport>` image from the bundled template on first use.
+
 ```sh
 python3 subprojects/FreeRTOS-eZ80f91/setup-dependencies.py
 python3 -m tools.demo --prepare-only

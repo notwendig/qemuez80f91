@@ -1,0 +1,807 @@
+[
+  {
+    "drive": "A",
+    "offset": 0,
+    "size": 256256,
+    "format": "ibm-3740",
+    "imported_files": 0,
+    "skipped_files": [],
+    "sha256": "24e3d722df7854aad445380342d784d6f95f1bd5354a1b4072e0dabbdd15f2b3"
+  },
+  {
+    "drive": "B",
+    "offset": 256256,
+    "size": 256256,
+    "format": "ibm-3740-data",
+    "imported_files": 9,
+    "skipped_files": [],
+    "sha256": "e9220cf58d8cd225c49b62ec95989c6c12529ed433b659c20ca14dd0319809ea"
+  },
+  {
+    "drive": "C",
+    "offset": 512512,
+    "size": 256256,
+    "format": "ibm-3740-data",
+    "imported_files": 62,
+    "skipped_files": [
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/L.SUB"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/LIBMT.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/LINKMT.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MOD1.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MOD2.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTERRS.TXT"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.000"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.001"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.002"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.003"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.004"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.005"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.006"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/OVLMGR.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PASLIB.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PINI.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PROG.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PUT.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RANDOMIO.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/READ.ME"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RNB.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RNC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/ROVLMGR.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RST.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/SPPFIX.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/STRIP.CMD"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/STRIP.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRAN9511.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRAN9511.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRANCEND.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/WNC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XBDOS.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.DOC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.SRC"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ROGUE.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/SARGON.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.DAT"
+      }
+    ],
+    "sha256": "2a4f6352b3b2c99115af585a4941b83532885515400d9eb2116dbf9c2ca4e091"
+  },
+  {
+    "drive": "D",
+    "offset": 768768,
+    "size": 256256,
+    "format": "ibm-3740-data",
+    "imported_files": 31,
+    "skipped_files": [
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/SPPFIX.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/WNC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XBDOS.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.DOC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.SRC"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ROGUE.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/SARGON.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.DAT"
+      }
+    ],
+    "sha256": "ff2a4de9ebce8ad032c1234e56d6f9bfbcff2f688b427b594bd15f77a4cf63c4"
+  },
+  {
+    "drive": "I",
+    "offset": 1025024,
+    "size": 4194304,
+    "format": "4mb-hd",
+    "imported_files": 231,
+    "skipped_files": [
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/READ.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/RENAME.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/REXT.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/RINDEX.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/ROM.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/ROM.LIB"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SBRK.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SCAN.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SCANF.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SETBUF.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SETJMP.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SETJMP.H"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SETMEM.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SGTTY.H"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SHIFTS.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SIDSYM.COM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SIN.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SINH.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SPRINTF.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SQRT.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SQZ.COM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SSCANF.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STDIO.H"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STRCAT.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STRCMP.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STRCPY.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STRLEN.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/STRNCPY.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SUPPORT.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/SWAPMEM.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/T.LIB"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/TAN.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/TANH.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/TOUPPER.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/UNGETC.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/UNLINK.C"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/USER.ASM"
+      },
+      {
+        "user": 2,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/2/WRITE.C"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/AMD9511X.CMD"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/AMDIO.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/APUSUB.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/ATWNB.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/BCDREALS.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/C.SUB"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/CALC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/CHN.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/CPMRD.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/CWT.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/DBUGHELP.TXT"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/DEBUGGER.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/DIS8080.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/DIV.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/FIBDEF.LIB"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/FPREALS.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/FPRTNS.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/FULLHEAP.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/GET.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/HLT.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/INDEXER.DOC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/INDEXER.PAS"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/IOCHK.BLD"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/IOERR.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/L.SUB"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/LIBMT.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/LINKMT.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MOD1.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MOD2.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTERRS.TXT"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.000"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.001"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.002"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.003"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.004"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.005"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.006"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/MTPLUS.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/OVLMGR.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PASLIB.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PINI.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PROG.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/PUT.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RANDOMIO.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/READ.ME"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RNB.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RNC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/ROVLMGR.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/RST.MAC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/SPPFIX.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/STRIP.CMD"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/STRIP.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRAN9511.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRAN9511.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/TRANCEND.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.ERL"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/WNC.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XBDOS.SRC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.COM"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.DOC"
+      },
+      {
+        "user": 3,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.SRC"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADCONF.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ROGUE.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/SARGON.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.DAT"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.COM"
+      },
+      {
+        "user": 8,
+        "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.DAT"
+      }
+    ],
+    "sha256": "0f72e845b96d16b2453445aae6115d218716ff13b3fa27140f4f273c83f8ff49"
+  },
+  {
+    "drive": "J",
+    "offset": 5219328,
+    "size": 4194304,
+    "format": "4mb-hd",
+    "imported_files": 33,
+    "skipped_files": [],
+    "sha256": "71d76c2eb5d5e7ee54ed03b4a26243a4af4a3fec2f25d4dc8052cdd287e3d1c4"
+  }
+]

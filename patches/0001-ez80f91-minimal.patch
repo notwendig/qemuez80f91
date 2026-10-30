@@ -1047,9 +1047,10 @@ new file mode 100644
 +type_init(emac_register_types);
 diff --git a/hw/ez80/ez80f91.c b/hw/ez80/ez80f91.c
 new file mode 100644
+index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 --- /dev/null
 +++ b/hw/ez80/ez80f91.c
-@@ -0,0 +1,216 @@
+@@ -0,0 +1,243 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "qemu/osdep.h"
 +#include "qapi/error.h"
@@ -1075,6 +1076,7 @@ new file mode 100644
 +    bool ram_boot;
 +    uint32_t oscillator;
 +    char *cs_kind[4];
++    char *cs3_file;
 +};
 +static void common_init(MachineState *machine, bool evb)
 +{
@@ -1100,6 +1102,9 @@ new file mode 100644
 +    for (unsigned cs = 0; cs < 4; cs++) {
 +        g_autofree char *name = g_strdup_printf("cs%u", cs);
 +        qdev_prop_set_string(memory, name, s->cs_kind[cs]);
++    }
++    if (s->cs3_file) {
++        qdev_prop_set_string(memory, "cs3-file", s->cs3_file);
 +    }
 +    qdev_prop_set_bit(memory, "evb", evb);
 +    qdev_prop_set_bit(memory, "ram-boot", s->ram_boot);
@@ -1211,8 +1216,27 @@ new file mode 100644
 +    g_free(EZ80F91_MACHINE(obj)->cs_kind[cs]);
 +    EZ80F91_MACHINE(obj)->cs_kind[cs] = kind;
 +}
++static void get_cs3_file(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    visit_type_str(v, name, &EZ80F91_MACHINE(obj)->cs3_file, errp);
++}
++static void set_cs3_file(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    char *path = NULL;
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "cs3-file is a startup-only board setting");
++        return;
++    }
++    if (visit_type_str(v, name, &path, errp)) {
++        g_free(EZ80F91_MACHINE(obj)->cs3_file);
++        EZ80F91_MACHINE(obj)->cs3_file = path;
++    }
++}
 +static void machine_finalize(Object *obj)
 +{
++    g_free(EZ80F91_MACHINE(obj)->cs3_file);
 +    for (unsigned cs = 0; cs < 4; cs++) {
 +        g_free(EZ80F91_MACHINE(obj)->cs_kind[cs]);
 +    }
@@ -1235,6 +1259,10 @@ new file mode 100644
 +            "External device on this chip select: ram, flash or none");
 +
 +    }
++    object_class_property_add(oc, "cs3-file", "str", get_cs3_file,
++                              set_cs3_file, NULL, NULL);
++    object_class_property_set_description(oc, "cs3-file",
++        "Raw writable CS3 RAM image, saved on orderly exit");
 +    mc->desc = "eZ80F91 minimal development machine (experimental)";
 +    mc->init = minimal_init;
 +    mc->default_cpu_type = EZ80_CPU_TYPE_NAME("ez80f91");
@@ -1367,10 +1395,10 @@ index 0000000..83b4fbf
 +type_init(intc_register_types);
 diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
 new file mode 100644
-index 0000000..817cf23
+index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 --- /dev/null
 +++ b/hw/ez80/memory.c
-@@ -0,0 +1,822 @@
+@@ -0,0 +1,854 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 memory decoding and Flash information-page I/O. */
 +#include "qemu/osdep.h"
@@ -1397,6 +1425,8 @@ index 0000000..817cf23
 +    MemoryRegion flash, ram, eram;
 +    MemoryRegion bank[4], window[4];
 +    char *cs_kind[4];
++    char *cs3_file;
++    size_t cs3_file_size;
 +    unsigned flash_base[4];
 +    MemoryRegion *external_flash[4];
 +    MemoryRegion cs_ports, ram_ports, flash_ports, bus_ports;
@@ -2028,6 +2058,15 @@ index 0000000..817cf23
 +    EZ80F91MemoryState *s = container_of(notifier, EZ80F91MemoryState,
 +                                        flash_exit);
 +
++    if (s->cs3_file) {
++        g_autoptr(GError) error = NULL;
++        if (!g_file_set_contents(s->cs3_file,
++                memory_region_get_ram_ptr(&s->bank[3]),
++                s->cs3_file_size, &error)) {
++            error_report("Cannot save %s: %s", s->cs3_file, error->message);
++        }
++    }
++
 +    for (unsigned slot = 0; slot < 5; slot++) {
 +        MemoryRegion *mr = s->persistent[slot];
 +        g_autoptr(GError) error = NULL;
@@ -2068,6 +2107,22 @@ index 0000000..817cf23
 +                return;
 +            }
 +            source = &s->bank[cs];
++            if (cs == 3 && s->cs3_file) {
++                g_autofree char *contents = NULL;
++                g_autoptr(GError) error = NULL;
++                gsize length;
++                if (!g_file_get_contents(s->cs3_file, &contents, &length, &error)) {
++                    error_setg(errp, "Cannot load %s: %s", s->cs3_file,
++                               error->message);
++                    return;
++                }
++                if (!length || length > 16 * MiB) {
++                    error_setg(errp, "CS3 file must contain 1..16777216 bytes");
++                    return;
++                }
++                memcpy(memory_region_get_ram_ptr(source), contents, length);
++                s->cs3_file_size = length;
++            }
 +        } else if (!strcmp(s->cs_kind[cs], "flash")) {
 +            DeviceState *flash = qdev_new(TYPE_PFLASH_CFI02);
 +
@@ -2107,6 +2162,10 @@ index 0000000..817cf23
 +                                            &s->window[cs], 4 - cs);
 +    }
 +
++    if (s->cs3_file && strcmp(s->cs_kind[3], "ram")) {
++        error_setg(errp, "cs3-file requires cs3=ram");
++        return;
++    }
 +    s->flash_exit.notify = flash_save;
 +    qemu_add_exit_notifier(&s->flash_exit);
 +    if (s->kit_led_file) {
@@ -2156,6 +2215,7 @@ index 0000000..817cf23
 +    DEFINE_PROP_STRING("cs1", EZ80F91MemoryState, cs_kind[1]),
 +    DEFINE_PROP_STRING("cs2", EZ80F91MemoryState, cs_kind[2]),
 +    DEFINE_PROP_STRING("cs3", EZ80F91MemoryState, cs_kind[3]),
++    DEFINE_PROP_STRING("cs3-file", EZ80F91MemoryState, cs3_file),
 +    DEFINE_PROP_BOOL("evb", EZ80F91MemoryState, evb, false),
 +    DEFINE_PROP_BOOL("ram-boot", EZ80F91MemoryState, ram_boot, false),
 +    DEFINE_PROP_STRING("kit-led-state", EZ80F91MemoryState, kit_led_file),

@@ -1,0 +1,107 @@
+[
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/SPPFIX.COM"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/UTILMOD.SRC"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/WNC.SRC"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XBDOS.SRC"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.COM"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.DOC"
+  },
+  {
+    "drive": "D",
+    "user": 3,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/3/XREF.SRC"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCHUM.DAT"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/CATCONF.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADCONF.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/LADDER.DAT"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ROGUE.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/SARGON.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK1.DAT"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK2.DAT"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.COM"
+  },
+  {
+    "drive": "D",
+    "user": 8,
+    "file": "/home/juergen/Projects/zilogz80-code/CPM22/disks/I/8/ZORK3.DAT"
+  }
+]

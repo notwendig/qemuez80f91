@@ -54,6 +54,14 @@ def terminal_session(port, qemu, run=False, kit=False):
         uart_log = Path(lock.name).with_suffix('.uart.log')
         kit_state = Path(lock.name).with_suffix('.kit.json')
         kit_options = []
+        disk_options = []
+        template = Path(__file__).resolve().parents[1] / 'images/cpm/cs3-abcdij.img'
+        if template.is_file():
+            disk = Path.cwd() / f'ez80f91_cs3.{port}'
+            if not disk.exists():
+                shutil.copyfile(template, disk)
+            disk_options = ['-global', f'ez80f91-memory.cs3-file={disk}']
+            print('CP/M CS3: ' + str(disk), flush=True)
         if kit:
             kit_state.unlink(missing_ok=True)
             kit_options = ['-global', f'ez80f91-memory.kit-led-state={kit_state}']
@@ -72,7 +80,7 @@ def terminal_session(port, qemu, run=False, kit=False):
                 '-chardev', f'stdio,id=uart,logfile={uart_log}', '-serial', 'chardev:uart',
                 '-rtc', 'base=utc,clock=host',
                 '-icount', 'shift=5,sleep=off', '-global', 'ez80f91-emac.phy-addr=31',
-                *network, *kit_options], pass_fds=(lock.fileno(),))
+                *network, *kit_options, *disk_options], pass_fds=(lock.fileno(),))
             if kit:
                 kit_child = subprocess.Popen([sys.executable,
                     str(Path(__file__).with_name('kit.py')), str(kit_state), '--port', str(port), '--qmp', str(qmp_path)])
