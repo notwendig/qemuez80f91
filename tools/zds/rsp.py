@@ -48,16 +48,24 @@ class RSP:
         self.socket.sendall(
             b"$" + raw + b"#" + f"{sum(raw) & 255:02x}".encode()
         )
-        return self.packet()
+        reply = self.packet()
+        # An out-of-band interrupt can precede a command reply when QMP
+        # resumed the CPU independently of this RSP connection.
+        while command not in ("?", "s") and reply.startswith(("T", "S")):
+            reply = self.packet()
+        return reply
 
     def poll(self):
         if self.running and select.select([self.socket], [], [], 0)[0]:
             self.packet()
             self.running = False
 
-    def stop(self):
+    def stop(self, force=False):
         self.poll()
-        if self.running:
+        if force and not self.running:
+            self.socket.sendall(b"\x03")
+            self.command("?")
+        elif self.running:
             self.socket.sendall(b"\x03")
             self.packet()
             self.running = False

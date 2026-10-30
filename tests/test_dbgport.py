@@ -46,7 +46,16 @@ with tempfile.TemporaryDirectory(prefix='f91-dbgport-') as td:
             cable.sendall((len(script)+3).to_bytes(2,'little')+b'\0'+script)
             header=exact(cable,3);assert header[2]==0
             assert exact(cable,int.from_bytes(header[:2],'little')-3)==b'000003080001\0'
-        assert 'PC=000000' in vm.hmp('info registers'),'dbgport should start halted'
+        # QMP may resume the CPU without updating the helper's RSP state.
+        vm.cmd('cont')
+        with socket.create_connection(('127.0.0.1',port),timeout=3) as cable:
+            cable.settimeout(5)
+            script=b'. R11=80 $\0'
+            cable.sendall((len(script)+3).to_bytes(2,'little')+b'\0'+script)
+            header=exact(cable,3)
+            assert header[2]==0,header
+            exact(cable,int.from_bytes(header[:2],'little')-3)
+        assert 'PC=000000' in vm.hmp('info registers'),'ZDI reset after QMP continue failed'
     finally:vm.close()
     with socket.socket() as check:
         check.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)

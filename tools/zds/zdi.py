@@ -92,7 +92,7 @@ class ZDI:
                 if not self.rsp.running:
                     self.rsp.run()
         elif address == 0x11 and value & 0x80:
-            self.rsp.stop()
+            self.rsp.stop(force=True)
             reply = self.rsp.command("qRcmd," + b"system_reset".hex())
             while reply.startswith("O") and reply != "OK":
                 reply = self.rsp.packet()
