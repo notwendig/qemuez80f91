@@ -61,13 +61,19 @@ memory window, QEMU attaches the file for its actual lower address. Reset alone
 does not load an external file. Reactivating the same base preserves contents;
 changing the base saves the old file and loads the new one.
 
-Raw files reside in the current working directory:
+Flash files reside in the current working directory:
 `ez80f91_<BASEADDR>.<DEBUGPORT>`, uppercase hexadecimal without leading zeros.
 Internal flash uses base `0`; without `--dbgport`, the suffix is `.0`.
 There are no fixed external file addresses. Orderly exit, SIGINT and SIGTERM
 save internal and attached external flash. Duplicate file addresses are rejected.
 
-Missing files and short tails are filled with FFh. Oversized/unreadable files
+Saved files contain the full chip contents followed by four bytes of IEEE CRC32
+(polynomial `0xEDB88320`, little-endian). CRC covers the chip contents only.
+The loader verifies the checksum before using the image and rejects mismatches.
+Legacy raw images up to the chip size remain readable and gain the CRC trailer
+on their next save. Raw firmware passed with `-bios` has no CRC trailer.
+
+Missing files and short legacy tails are filled with FFh. Oversized/unreadable files
 cause an error. `-bios` overwrites the beginning of loaded internal flash;
 without it, execution starts from saved contents. RAM `-kernel` loading remains
 available. Information-page storage is separate. SIGKILL/crashes cannot save state.

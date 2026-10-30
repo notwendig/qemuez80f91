@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Exercise ZDS-style internal flash erase polling and RAM-based programming."""
 from pathlib import Path
+import zlib
+
+
+def flash_payload(path):
+    image = path.read_bytes()
+    payload, trailer = image[:-4], image[-4:]
+    assert int.from_bytes(trailer, 'little') == zlib.crc32(payload), path
+    return payload
+
 import tempfile
 from ez80_testlib import VM
 
@@ -57,5 +66,5 @@ with tempfile.TemporaryDirectory(prefix='f91-internal-flash-') as td:
         assert sample.read_bytes() == expected, (sample.read_bytes().hex(), expected.hex())
     finally:
         vm.close()
-    assert (Path(td) / 'ez80f91_0.0').read_bytes() == b'\xff' * (256 * 1024)
+    assert flash_payload(Path(td) / 'ez80f91_0.0') == b'\xff' * (256 * 1024)
 print('PASS: ZDS erase polling, memory/I/O programming, protection, page/mass erase, info selection, persistence')

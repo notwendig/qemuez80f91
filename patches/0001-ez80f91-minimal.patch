@@ -1367,10 +1367,10 @@ index 0000000..83b4fbf
 +type_init(intc_register_types);
 diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
 new file mode 100644
-index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
+index 0000000..817cf23
 --- /dev/null
 +++ b/hw/ez80/memory.c
-@@ -0,0 +1,797 @@
+@@ -0,0 +1,822 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 memory decoding and Flash information-page I/O. */
 +#include "qemu/osdep.h"
@@ -1387,6 +1387,7 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +#include "system/system.h"
 +#include "qemu/error-report.h"
 +#include "qemu/timer.h"
++#include "qemu/crc32.h"
 +
 +#define TYPE_EZ80F91_MEMORY "ez80f91-memory"
 +OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91MemoryState, EZ80F91_MEMORY)
@@ -1935,6 +1936,25 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +    .valid = { .min_access_size = 1, .max_access_size = 4 },
 +    .impl = { .min_access_size = 1, .max_access_size = 1 },
 +};
++/* IEEE CRC32, stored as a four-byte little-endian trailer. */
++static uint32_t flash_crc32(const uint8_t *data, size_t size)
++{
++    uint32_t crc = UINT32_MAX;
++    for (size_t i = 0; i < size; i++) {
++        crc = crc32_table[(crc ^ data[i]) & 255] ^ (crc >> 8);
++    }
++    return crc ^ UINT32_MAX;
++}
++
++static bool flash_write_image(const char *path, MemoryRegion *mr, GError **error)
++{
++    size_t size = memory_region_size(mr);
++    g_autofree uint8_t *image = g_malloc(size + 4);
++    memcpy(image, memory_region_get_ram_ptr(mr), size);
++    stl_le_p(image + size, flash_crc32(image, size));
++    return g_file_set_contents(path, (const char *)image, size + 4, error);
++}
++
 +/* Raw flash images live in the invocation's working directory. */
 +static bool flash_load(EZ80F91MemoryState *s, unsigned slot,
 +                       MemoryRegion *mr, unsigned base, Error **errp)
@@ -1955,7 +1975,16 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +                                         qemu_get_ez80_debug_port());
 +    memset(data, 0xff, size);
 +    if (g_file_get_contents(s->flash_file[slot], &contents, &length, &error)) {
-+        if (length > size) {
++        if (length == size + 4) {
++            uint32_t stored = ldl_le_p(contents + size);
++            uint32_t actual = flash_crc32((const uint8_t *)contents, size);
++            if (stored != actual) {
++                error_setg(errp, "%s CRC32 mismatch: stored %08X, calculated %08X",
++                           s->flash_file[slot], stored, actual);
++                return false;
++            }
++            length = size;
++        } else if (length > size) {
 +            error_setg(errp, "%s exceeds flash size %zu",
 +                       s->flash_file[slot], size);
 +            return false;
@@ -1982,9 +2011,7 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +        return;
 +    }
 +    if (s->persistent[slot]) {
-+        if (!g_file_set_contents(s->flash_file[slot],
-+                                 memory_region_get_ram_ptr(mr),
-+                                 memory_region_size(mr), &error)) {
++        if (!flash_write_image(s->flash_file[slot], mr, &error)) {
 +            error_report("Cannot save %s: %s", s->flash_file[slot],
 +                         error->message);
 +            exit(EXIT_FAILURE);
@@ -2005,9 +2032,7 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +        MemoryRegion *mr = s->persistent[slot];
 +        g_autoptr(GError) error = NULL;
 +
-+        if (mr && !g_file_set_contents(s->flash_file[slot],
-+                                      memory_region_get_ram_ptr(mr),
-+                                      memory_region_size(mr), &error)) {
++        if (mr && !flash_write_image(s->flash_file[slot], mr, &error)) {
 +            error_report("Cannot save %s: %s", s->flash_file[slot],
 +                         error->message);
 +        }
@@ -2168,7 +2193,6 @@ index 0000000..3317793717a8262a04cc7e7a6fbb392844fb0467
 +{
 +    return EZ80F91_MEMORY(dev)->ram_ctl & 0x40;
 +}
-
 diff --git a/hw/ez80/meson.build b/hw/ez80/meson.build
 new file mode 100644
 --- /dev/null

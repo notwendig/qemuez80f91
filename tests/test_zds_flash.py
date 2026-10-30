@@ -4,6 +4,15 @@ import argparse
 import json
 import os
 from pathlib import Path
+import zlib
+
+
+def flash_payload(path):
+    image = path.read_bytes()
+    payload, trailer = image[:-4], image[-4:]
+    assert int.from_bytes(trailer, 'little') == zlib.crc32(payload), path
+    return payload
+
 import select
 import socket
 import subprocess
@@ -87,10 +96,10 @@ def main():
         expected = bytearray((i * 37 + (i >> 8)) & 255 for i in range(10240))
         expected[2048:6144] = b'\xff' * 4096
         internal = work / f'ez80f91_0.{port}'
-        assert internal.read_bytes() == expected + b'\xff' * (256 * 1024 - len(expected))
+        assert flash_payload(internal) == expected + b'\xff' * (256 * 1024 - len(expected))
         external = work / f'ez80f91_100000.{port}'
         pattern = bytes((i * 13 + 7) & 255 for i in range(512))
-        assert external.read_bytes() == pattern + b'\xff' * (1024 * 1024 - len(pattern))
+        assert flash_payload(external) == pattern + b'\xff' * (1024 * 1024 - len(pattern))
         print('PASS: native --dbgport, original ZDS DLL, internal/external flash files verified independently')
 
 

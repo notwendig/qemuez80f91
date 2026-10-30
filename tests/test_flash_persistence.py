@@ -2,6 +2,15 @@
 """Flash images survive QEMU restarts; missing/short images are erased."""
 import json
 from pathlib import Path
+import zlib
+
+
+def flash_payload(path):
+    image = path.read_bytes()
+    payload, trailer = image[:-4], image[-4:]
+    assert int.from_bytes(trailer, 'little') == zlib.crc32(payload), path
+    return payload
+
 import subprocess
 import sys
 import tempfile
@@ -45,7 +54,7 @@ with tempfile.TemporaryDirectory(prefix='ez80-flash-persistence-') as td:
     root = Path(td)
     run(root)
     assert sorted(p.name for p in root.iterdir()) == ['ez80f91_0.0']
-    assert (root / 'ez80f91_0.0').read_bytes() == b'\xff' * (256 * 1024)
+    assert flash_payload(root / 'ez80f91_0.0') == b'\xff' * (256 * 1024)
     names = ['100000', '400000', '800000', 'C00000']
     # Guest explicitly sets lower/upper bounds, then activates each CS.
     code = bytearray([0x5b, 0xc3, 5, 0, 0])
@@ -65,13 +74,33 @@ with tempfile.TemporaryDirectory(prefix='ez80-flash-persistence-') as td:
         assert (root / f'ez80f91_{name}.0').read_bytes() == bytes([0x40 + index])
     run(root, ['-bios', str(bios)], execute=True)
     for index, name in enumerate(names):
-        data = (root / f'ez80f91_{name}.0').read_bytes()
+        data = flash_payload(root / f'ez80f91_{name}.0')
         assert len(data) == 1024 * 1024
         assert data[0] == 0x40 + index
         assert data[1:] == b'\xff' * (len(data) - 1)
     # Restart directly from persisted internal flash activates the same files.
     run(root, execute=True)
-    assert (root / 'ez80f91_0.0').read_bytes()[:len(code)] == code
+    assert flash_payload(root / 'ez80f91_0.0')[:len(code)] == code
+    # Reject payload or trailer corruption without rewriting the damaged file.
+    bad = root / 'ez80f91_0.0'
+    original = bad.read_bytes()
+    for offset in (10, len(original) - 1):
+        broken = bytearray(original)
+        broken[offset] ^= 1
+        bad.write_bytes(broken)
+        assert 'CRC32 mismatch' in run(root, check=False)
+        assert bad.read_bytes() == broken
+    bad.write_bytes(original)
+    external = root / 'ez80f91_100000.0'
+    broken = bytearray(external.read_bytes())
+    broken[0] ^= 1
+    external.write_bytes(broken)
+    failure = subprocess.run([binary, '-M', 'ez80f91-minimal,cs0=flash',
+        '-bios', str(bios), '-display', 'none', '-serial', 'none',
+        '-monitor', 'none', '-nic', 'none'], cwd=root, capture_output=True,
+        text=True, timeout=10)
+    assert failure.returncode and 'CRC32 mismatch' in failure.stderr, failure.stderr
+    assert external.read_bytes() == broken
     # Reject oversized input without overwriting it.
     bad = root / 'ez80f91_0.0'
     bad.write_bytes(b'\x55' * (256 * 1024 + 1))
