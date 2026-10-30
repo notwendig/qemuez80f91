@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Isolated full-firmware DHCP, ICMP and TCP-console test over Ethernet.
 
-Usage: test_freertos_network.py QEMU FIRMWARE.bin
+Usage: test_freertos_network.py QEMU FIRMWARE.bin [EXTERNAL_FLASH.bin]
+With EXTERNAL_FLASH.bin, cold-boot internal flash and attach external flash at 0x100000.
 No bridge, external DHCP server or host TCP ports are needed.
 """
+import re
 import socket
 import struct
 import sys
@@ -173,12 +175,17 @@ class Peer:
 
 with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
     uart = Path(directory) / 'uart.txt'
+    flash_boot = len(sys.argv) == 4
+    if flash_boot:
+        (Path(directory) / 'ez80f91_100000.0').write_bytes(Path(sys.argv[3]).read_bytes())
     host, guest = socket.socketpair()
     peer = Peer(host)
     vm = VM(Path(sys.argv[2]).resolve(), 'file:' + str(uart),
             extra=('-icount', 'shift=5,sleep=off', '-nic', f'socket,fd={guest.fileno()}',
                    '-global', 'ez80f91-emac.phy-addr=31'),
-            pass_fds=(guest.fileno(),), machine='ez80f91-freertos,ram-boot=on', loader='-kernel')
+            pass_fds=(guest.fileno(),),
+            machine='ez80f91-freertos' if flash_boot else 'ez80f91-freertos,ram-boot=on',
+            loader='-bios' if flash_boot else '-kernel', cwd=directory)
     guest.close()
     thread = threading.Thread(target=peer.run)
     thread.start()
@@ -207,6 +214,12 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
         assert peer.ping, ('ICMP echo timeout', uart.read_bytes()[-1500:])
         assert peer.tcp_connected and b'UT ' in peer.received, (
             'TCP console timeout', bytes(peer.received), uart.read_bytes()[-1500:])
+        if flash_boot:
+            # Check that board startup attached the external image at its fixed address.
+            prefix = Path(sys.argv[3]).read_bytes()[:16]
+            memory = vm.hmp('xp /16bx 0x100000')
+            values = bytes(int(value, 16) for value in re.findall(r'0x([0-9a-fA-F]{2})\b', memory))
+            assert values == prefix, (memory, prefix)
         diagnostics = uart.read_bytes() + bytes(peer.received)
         assert b'vDHCPProcess: offer 192.168.77.123' in diagnostics, diagnostics
         assert b'ipARP_REQUEST from 192.168.77.1 to 192.168.77.123 end-point 192.168.77.123' in diagnostics, diagnostics

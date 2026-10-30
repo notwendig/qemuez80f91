@@ -96,7 +96,8 @@ python3 -m tools.demo --prepare-only
 ```
 
 Build FreeRTOS in `EZ80F910300ZCOG.zdsproj`, configuration **Debug** or
-**Release**. Both use the same RAM board profile; Release omits debug information.
+**Release**. Debug uses RAM. Release places code in internal flash and the compressed CP/M
+disk image in external AMD flash at `0x100000`.
 Its dependencies are FreeRTOS-Kernel **V11.3.2**, FreeRTOS-Plus-TCP **V4.4.2**
 and uzlib commit **6d60d65**. ZDS compatibility changes are supplied as patches.
 `python3 -m tools.demo` runs the installed ZTP TCP/UDP example instead.
