@@ -10,11 +10,15 @@ At process startup QEMU's RTC base initializes the calendar. The launcher uses
 `-rtc base=utc,clock=host`: host UTC matches SNTP. Weekdays use ISO numbering
 (Monday=1, Sunday=7). `-rtc` selects base/time source independently of CPU speed.
 Guest-set time has no separate battery file across process restarts.
-Alarm registers can be read/written, but comparison, alarm IRQ and sleep wakeup
-are not implemented.
+All enabled alarm fields must match. Comparison occurs on RTC ticks and when
+RTC_UNLOCK is cleared. INT_EN gates vector 06Ch; reading RTC_CTRL clears the
+alarm flag and IRQ. An enabled alarm during SLEEP causes reset and sets
+SLP_WAKE. Source selection supplies the RTC-derived timer/watchdog clock.
+See [On-chip devices](onchip.md).
 
 ```sh
 python3 tests/test_rtc.py build/ez80/qemu-system-ez80
+python3 tests/test_watchdog_nmi.py build/ez80/qemu-system-ez80
 ```
 
 The ZTP demonstration accesses these registers through its original RTC driver.

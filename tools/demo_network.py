@@ -9,6 +9,36 @@ import threading
 import time
 
 
+def host_link_options(bridge, sysfs=Path('/sys/class/net')):
+    """Use active physical bridge members; cap the 10/100 PHY at 100 Mbps."""
+    links = []
+    for member in sorted((sysfs / bridge / 'brif').iterdir()):
+        interface = sysfs / member.name
+        if not (interface / 'device').exists():
+            continue  # TAP/veth speeds do not describe a physical host link.
+        try:
+            if (interface / 'carrier').read_text().strip() != '1':
+                continue
+            speed = int((interface / 'speed').read_text().strip())
+            duplex = (interface / 'duplex').read_text().strip()
+        except (OSError, ValueError):
+            continue
+        if speed > 0 and duplex in ('full', 'half'):
+            links.append((member.name, speed, duplex))
+    if links:
+        # A bridge can have several uplinks; use their common lower bound.
+        speed = 100 if min(link[1] for link in links) >= 100 else 10
+        full = all(link[2] == 'full' for link in links)
+        source = ', '.join(f'{name}: {rate} Mbps {mode}' for name, rate, mode in links)
+    else:
+        speed, full = 100, True
+        source = 'keine lesbaren physischen Hostlink-Werte; PHY-Standard'
+    print(f'Hostlink: {source}; EMAC: {speed} Mbps, '
+          f'{"Full" if full else "Half"}-Duplex.', flush=True)
+    return ['-global', f'ez80f91-emac.link-speed={speed}',
+            '-global', f'ez80f91-emac.full-duplex={"on" if full else "off"}']
+
+
 def dhcp_leases(path):
     """Read complete DHCP ACKs from a possibly still-growing QEMU PCAP."""
     try:

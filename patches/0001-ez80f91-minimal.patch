@@ -582,9 +582,10 @@ index 0000000..1116f59
 +type_init(clock_register_types);
 diff --git a/hw/ez80/emac.c b/hw/ez80/emac.c
 new file mode 100644
+index 0000000..be4ed44
 --- /dev/null
 +++ b/hw/ez80/emac.c
-@@ -0,0 +1,460 @@
+@@ -0,0 +1,508 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional eZ80F91 descriptor MAC; no collision or wire timing model. */
 +#include "qemu/osdep.h"
@@ -613,6 +614,8 @@ new file mode 100644
 +    qemu_irq irq[3];
 +    uint8_t r[0x5a];
 +    uint8_t phy_addr;
++    uint32_t link_speed;
++    bool full_duplex;
 +    uint16_t phy[32], trp, rwp;
 +    bool tx_fault;
 +};
@@ -632,9 +635,31 @@ new file mode 100644
 +    s->r[0x4d] |= bits;
 +    irq_update(s);
 +}
++static uint16_t phy_partner(F91EmacState *s)
++{
++    return 1 | (s->link_speed == 100 ?
++                (s->full_duplex ? 0x100 : 0x80) :
++                (s->full_duplex ? 0x40 : 0x20));
++}
++static uint16_t phy_mode(F91EmacState *s)
++{
++    if (s->phy[0] & 0x1000) {
++        unsigned common = s->phy[4] & phy_partner(s) & 0x1e0;
++        /* Clause-22 priority: 100 full, 100 half, 10 full, 10 half. */
++        for (unsigned mode = 0x100; mode >= 0x20; mode >>= 1) {
++            if (common & mode) {
++                return mode;
++            }
++        }
++        return 0;
++    }
++    return s->phy[0] & 0x2000 ?
++        (s->phy[0] & 0x100 ? 0x100 : 0x80) :
++        (s->phy[0] & 0x100 ? 0x40 : 0x20);
++}
 +static bool link_up(F91EmacState *s)
 +{
-+    return !(s->phy[0] & 0x0c00) &&
++    return !(s->phy[0] & 0x0c00) && phy_mode(s) &&
 +        ((s->phy[0] & 0x4000) || (s->r[0x20] & 1) ||
 +         (qemu_get_queue(s->nic)->peer && !qemu_get_queue(s->nic)->link_down));
 +}
@@ -823,7 +848,7 @@ new file mode 100644
 +    s->phy[0] = 0x3100;
 +    s->phy[2] = 0x22;
 +    s->phy[3] = 0x561b;
-+    s->phy[4] = s->phy[5] = 0x1e1;
++    s->phy[4] = 0x1e1;
 +    s->phy[6] = 1;
 +}
 +static void mii(F91EmacState *s, uint8_t value)
@@ -835,7 +860,8 @@ new file mode 100644
 +    }
 +    if (s->r[0x3f] == s->phy_addr) {
 +        if (value & 0x80) {
-+            if (reg != 1 && reg != 2 && reg != 3 && reg != 5 && reg != 6) {
++            if (reg != 1 && reg != 2 && reg != 3 && reg != 5 &&
++                reg != 6 && reg != 18) {
 +                s->phy[reg] = lduw_le_p(s->r + 0x3c);
 +                if (reg == 0) {
 +                    if (s->phy[0] & 0x8000) {
@@ -845,7 +871,24 @@ new file mode 100644
 +                }
 +            }
 +        }
-+        data = reg == 1 ? 0x7849 | (link_up(s) ? 0x24 : 0) : s->phy[reg];
++        switch (reg) {
++        case 1:
++            data = 0x7849 | (link_up(s) ?
++                            (s->phy[0] & 0x1000 ? 0x24 : 4) : 0);
++            break;
++        case 5:
++            data = phy_partner(s);
++            break;
++        case 18:
++            /* Am79C874 diagnostic: bit 10 = 100 Mbps, bit 11 = full. */
++            data = link_up(s) ?
++                ((phy_mode(s) & 0x180 ? 0x400 : 0) |
++                 (phy_mode(s) & 0x140 ? 0x800 : 0)) : 0;
++            break;
++        default:
++            data = s->phy[reg];
++            break;
++        }
 +    }
 +    if (value & 0x50) {
 +        stw_le_p(s->r + 0x4e, data);
@@ -991,6 +1034,10 @@ new file mode 100644
 +        error_setg(errp, "F91 EMAC requires memory and PHY address 0..31");
 +        return;
 +    }
++    if (s->link_speed != 10 && s->link_speed != 100) {
++        error_setg(errp, "F91 EMAC link-speed must be 10 or 100 Mbps");
++        return;
++    }
 +    qemu_macaddr_default_if_unset(&s->conf.macaddr);
 +    s->nic = qemu_new_nic(&net_info, &s->conf, TYPE_F91_EMAC, dev->id,
 +                          &dev->mem_reentrancy_guard, s);
@@ -1022,6 +1069,8 @@ new file mode 100644
 +    DEFINE_PROP_LINK("memory", F91EmacState, memory,
 +                     "ez80f91-memory", DeviceState *),
 +    DEFINE_PROP_UINT8("phy-addr", F91EmacState, phy_addr, 0),
++    DEFINE_PROP_UINT32("link-speed", F91EmacState, link_speed, 100),
++    DEFINE_PROP_BOOL("full-duplex", F91EmacState, full_duplex, true),
 +};
 +static void emac_class_init(ObjectClass *oc, const void *data)
 +{
@@ -1047,10 +1096,10 @@ new file mode 100644
 +type_init(emac_register_types);
 diff --git a/hw/ez80/ez80f91.c b/hw/ez80/ez80f91.c
 new file mode 100644
-index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
+index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c747314ea5
 --- /dev/null
 +++ b/hw/ez80/ez80f91.c
-@@ -0,0 +1,243 @@
+@@ -0,0 +1,333 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "qemu/osdep.h"
 +#include "qapi/error.h"
@@ -1077,6 +1126,9 @@ index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 +    uint32_t oscillator;
 +    char *cs_kind[4];
 +    char *cs3_file;
++    char *dev_dir;
++    char *hostname;
++    uint32_t devport, wd2797a;
 +};
 +static void common_init(MachineState *machine, bool evb)
 +{
@@ -1105,6 +1157,16 @@ index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 +    }
 +    if (s->cs3_file) {
 +        qdev_prop_set_string(memory, "cs3-file", s->cs3_file);
++    }
++    if (s->dev_dir) {
++        qdev_prop_set_string(memory, "dev-dir", s->dev_dir);
++        qdev_prop_set_uint32(memory, "devport", s->devport);
++    }
++    if (s->wd2797a) {
++        qdev_prop_set_uint32(memory, "wd2797a", s->wd2797a);
++    }
++    if (s->hostname) {
++        qdev_prop_set_string(memory, "hostname", s->hostname);
 +    }
 +    qdev_prop_set_bit(memory, "evb", evb);
 +    qdev_prop_set_bit(memory, "ram-boot", s->ram_boot);
@@ -1174,6 +1236,7 @@ index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 +{
 +    EZ80F91MachineState *s = EZ80F91_MACHINE(obj);
 +    s->oscillator = 50000000;
++    s->devport = 0x1000;
 +    for (unsigned cs = 0; cs < 4; cs++) {
 +        s->cs_kind[cs] = g_strdup(cs ? "ram" : "flash");
 +    }
@@ -1234,9 +1297,75 @@ index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 +        EZ80F91_MACHINE(obj)->cs3_file = path;
 +    }
 +}
++static void get_dev_dir(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    visit_type_str(v, name, &EZ80F91_MACHINE(obj)->dev_dir, errp);
++}
++static void set_dev_dir(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    char *path = NULL;
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "dev-dir is a startup-only board setting");
++        return;
++    }
++    if (visit_type_str(v, name, &path, errp)) {
++        g_free(EZ80F91_MACHINE(obj)->dev_dir);
++        EZ80F91_MACHINE(obj)->dev_dir = path;
++    }
++}
++static void get_devport(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->devport, errp);
++}
++static void set_devport(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "devport is a startup-only board setting");
++        return;
++    }
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->devport, errp);
++}
++static void get_wd2797a(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->wd2797a, errp);
++}
++static void set_wd2797a(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "wd2797a is a startup-only board setting");
++        return;
++    }
++    visit_type_uint32(v, name, &EZ80F91_MACHINE(obj)->wd2797a, errp);
++}
++static void get_hostname(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    visit_type_str(v, name, &EZ80F91_MACHINE(obj)->hostname, errp);
++}
++static void set_hostname(Object *obj, Visitor *v, const char *name,
++                         void *opaque, Error **errp)
++{
++    char *value = NULL;
++    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
++        error_setg(errp, "hostname is a startup-only board setting");
++        return;
++    }
++    if (visit_type_str(v, name, &value, errp)) {
++        g_free(EZ80F91_MACHINE(obj)->hostname);
++        EZ80F91_MACHINE(obj)->hostname = value;
++    }
++}
 +static void machine_finalize(Object *obj)
 +{
++    g_free(EZ80F91_MACHINE(obj)->hostname);
 +    g_free(EZ80F91_MACHINE(obj)->cs3_file);
++    g_free(EZ80F91_MACHINE(obj)->dev_dir);
 +    for (unsigned cs = 0; cs < 4; cs++) {
 +        g_free(EZ80F91_MACHINE(obj)->cs_kind[cs]);
 +    }
@@ -1263,6 +1392,16 @@ index 0000000000..6e97cf20bbbcced0b6afedc925a604edc0f3bb6f
 +                              set_cs3_file, NULL, NULL);
 +    object_class_property_set_description(oc, "cs3-file",
 +        "Raw writable CS3 RAM image, saved on orderly exit");
++    object_class_property_add(oc, "dev-dir", "str", get_dev_dir,
++                              set_dev_dir, NULL, NULL);
++    object_class_property_add(oc, "hostname", "str", get_hostname,
++                              set_hostname, NULL, NULL);
++    object_class_property_set_description(oc, "hostname",
++        "Guest DHCP hostname, default ez80<debugport>; requires firmware support");
++    object_class_property_add(oc, "devport", "uint32", get_devport,
++                              set_devport, NULL, NULL);
++    object_class_property_add(oc, "wd2797a", "uint32", get_wd2797a,
++                              set_wd2797a, NULL, NULL);
 +    mc->desc = "eZ80F91 minimal development machine (experimental)";
 +    mc->init = minimal_init;
 +    mc->default_cpu_type = EZ80_CPU_TYPE_NAME("ez80f91");
@@ -1395,10 +1534,10 @@ index 0000000..83b4fbf
 +type_init(intc_register_types);
 diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
 new file mode 100644
-index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
+index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6fd7efa6aa
 --- /dev/null
 +++ b/hw/ez80/memory.c
-@@ -0,0 +1,854 @@
+@@ -0,0 +1,1074 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 memory decoding and Flash information-page I/O. */
 +#include "qemu/osdep.h"
@@ -1416,6 +1555,7 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +#include "qemu/error-report.h"
 +#include "qemu/timer.h"
 +#include "qemu/crc32.h"
++#include "hw/ez80/wd2797a.h"
 +
 +#define TYPE_EZ80F91_MEMORY "ez80f91-memory"
 +OBJECT_DECLARE_SIMPLE_TYPE(EZ80F91MemoryState, EZ80F91_MEMORY)
@@ -1427,6 +1567,19 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +    char *cs_kind[4];
 +    char *cs3_file;
 +    size_t cs3_file_size;
++    uint32_t cs3_gap_offset, cs3_gap_size;
++    char *dev_dir;
++    char *hostname;
++    MemoryRegion host_ports;
++    uint8_t host_config[68]; /* HOST signature, then 63 ASCII bytes and NUL. */
++    uint32_t devport, wd2797a;
++    F91WD2797A fdc;
++    MemoryRegion dev_select_port;
++    uint8_t dev_select;
++    char *dev_path[16];
++    uint8_t *dev_data[16];
++    gsize dev_size[16];
++    bool dev_dirty[16], dev_readonly[16];
 +    unsigned flash_base[4];
 +    MemoryRegion *external_flash[4];
 +    MemoryRegion cs_ports, ram_ports, flash_ports, bus_ports;
@@ -1452,6 +1605,138 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +};
 +
 +static void external_flash_activate(EZ80F91MemoryState *s, unsigned cs);
++
++static uint64_t host_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    return s->host_config[addr];
++}
++static void host_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    /* Read-only virtual board configuration. */
++}
++static const MemoryRegionOps host_ops = {
++    .read = host_read, .write = host_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++
++/* External drive selector: low nibble is A=0..P=15; high nibble selects
++ * a 2-MiB bank. CS3 offset 200000 holds the discovery descriptor. */
++static uint64_t dev_select_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    return s->dev_data[s->dev_select & 15] ? s->dev_select : 0xff;
++}
++static void dev_select_write(void *opaque, hwaddr addr, uint64_t value,
++                             unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    s->dev_select = value;
++}
++static uint64_t dev_window_read(void *opaque, hwaddr addr, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    unsigned drive = s->dev_select & 15;
++    size_t offset = (s->dev_select >> 4) * (2 * MiB) + addr;
++    if (addr >= 2 * MiB) {
++        uint8_t config[] = {'C', 'P', 'M', 'D', s->devport & 255,
++                            s->devport >> 8, 21, 1};
++        return addr - 2 * MiB < sizeof(config) ?
++            config[addr - 2 * MiB] : 0xff;
++    }
++    return offset < s->dev_size[drive] ? s->dev_data[drive][offset] : 0xff;
++}
++static void dev_window_write(void *opaque, hwaddr addr, uint64_t value,
++                             unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    unsigned drive = s->dev_select & 15;
++    size_t offset = (s->dev_select >> 4) * (2 * MiB) + addr;
++    if (addr < 2 * MiB && offset < s->dev_size[drive]) {
++        s->dev_data[drive][offset] = value;
++        s->dev_dirty[drive] = true;
++    }
++}
++static const MemoryRegionOps dev_select_ops = {
++    .read = dev_select_read, .write = dev_select_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps dev_window_ops = {
++    .read = dev_window_read, .write = dev_window_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++
++static bool dev_load(EZ80F91MemoryState *s, Error **errp)
++{
++    unsigned count = 0;
++    if (s->cs3_file || (!s->wd2797a && strcmp(s->cs_kind[3], "ram"))) {
++        error_setg(errp, "dev-dir requires cs3=ram and no cs3-file");
++        return false;
++    }
++    if (!s->wd2797a && (s->devport < 0x100 || s->devport > 0xffff ||
++                       (s->devport >= 0xff08 && s->devport <= 0xff4b))) {
++        error_setg(errp, "devport must be an external I/O port in 0x100..0xffff outside 0xff08..0xff4b");
++        return false;
++    }
++    if (!g_file_test(s->dev_dir, G_FILE_TEST_IS_DIR)) {
++        error_setg(errp, "Disk directory does not exist: %s", s->dev_dir);
++        return false;
++    }
++    for (unsigned drive = 0; drive < 16; drive++) {
++        g_autofree char *name = g_strdup_printf("%c.img", 'A' + drive);
++        g_autoptr(GError) error = NULL;
++        s->dev_path[drive] = g_build_filename(s->dev_dir, name, NULL);
++        if (!g_file_test(s->dev_path[drive], G_FILE_TEST_EXISTS)) {
++            g_free(s->dev_path[drive]);
++            name[1] = 0; /* Also accept plain A, B, ... filenames. */
++            s->dev_path[drive] = g_build_filename(s->dev_dir, name, NULL);
++            if (!g_file_test(s->dev_path[drive], G_FILE_TEST_EXISTS)) {
++                continue;
++            }
++        }
++        if (!g_file_get_contents(s->dev_path[drive],
++                (char **)&s->dev_data[drive], &s->dev_size[drive], &error)) {
++            error_setg(errp, "Cannot read %s: %s", s->dev_path[drive],
++                       error->message);
++            return false;
++        }
++        if (!s->dev_size[drive] || s->dev_size[drive] > 32 * MiB) {
++            error_setg(errp, "%s must contain 1..33554432 bytes",
++                       s->dev_path[drive]);
++            return false;
++        }
++        if (s->wd2797a && s->dev_size[drive] != 256256 &&
++            s->dev_size[drive] != 4 * MiB) {
++            error_setg(errp, "%s requires IBM-3740 (256256 bytes) or 4mb-hd (4194304 bytes)",
++                       s->dev_path[drive]);
++            return false;
++        }
++        struct stat st;
++        s->dev_readonly[drive] = stat(s->dev_path[drive], &st) == 0 &&
++                                 (!(st.st_mode & 0222) || access(s->dev_path[drive], W_OK));
++        count++;
++    }
++    if (!count) {
++        error_setg(errp, "No A.img..P.img or A..P images in %s", s->dev_dir);
++        return false;
++    }
++    if (s->wd2797a) {
++        f91_wd2797a_init(&s->fdc, OBJECT(s), s->wd2797a, s->dev_data,
++                         s->dev_size, s->dev_dirty, s->dev_readonly);
++        return true;
++    }
++    memory_region_init_io(&s->dev_select_port, OBJECT(s), &dev_select_ops,
++                          s, "cpm.drive-select", 1);
++    memory_region_add_subregion(get_system_io(), s->devport,
++                                &s->dev_select_port);
++    return true;
++}
 +
 +/* Kit SW1..3 pull PB0..2 low. Implement GPIO input/output and the
 + * dual-edge interrupt mode used by the board's button driver. */
@@ -1911,6 +2196,10 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +static void memory_reset(Object *obj, ResetType type)
 +{
 +    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
++    s->dev_select = 0;
++    if (s->wd2797a) {
++        f91_wd2797a_reset(&s->fdc);
++    }
 +    kit_accumulate(s);
 +    memset(s->pb, 0, sizeof(s->pb));
 +    s->pb[1] = 0xff;
@@ -2058,10 +2347,28 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +    EZ80F91MemoryState *s = container_of(notifier, EZ80F91MemoryState,
 +                                        flash_exit);
 +
++    for (unsigned drive = 0; drive < 16; drive++) {
++        g_autoptr(GError) error = NULL;
++        if (s->dev_dirty[drive] &&
++            !g_file_set_contents(s->dev_path[drive],
++                                (char *)s->dev_data[drive],
++                                s->dev_size[drive], &error)) {
++            error_report("Cannot save %s: %s", s->dev_path[drive],
++                         error->message);
++        }
++    }
++
 +    if (s->cs3_file) {
 +        g_autoptr(GError) error = NULL;
++        uint8_t *ram = memory_region_get_ram_ptr(&s->bank[3]);
++        g_autofree uint8_t *image = g_malloc(s->cs3_file_size);
++        size_t first = s->cs3_gap_size ?
++            MIN(s->cs3_file_size, s->cs3_gap_offset) : s->cs3_file_size;
++        memcpy(image, ram, first);
++        memcpy(image + first, ram + first + s->cs3_gap_size,
++               s->cs3_file_size - first);
 +        if (!g_file_set_contents(s->cs3_file,
-+                memory_region_get_ram_ptr(&s->bank[3]),
++                (const char *)image,
 +                s->cs3_file_size, &error)) {
 +            error_report("Cannot save %s: %s", s->cs3_file, error->message);
 +        }
@@ -2081,12 +2388,42 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +static void memory_realize(DeviceState *dev, Error **errp)
 +{
 +    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    if (!s->hostname) {
++        s->hostname = g_strdup_printf("ez80%u", qemu_get_ez80_debug_port());
++    }
++    size_t host_length = strlen(s->hostname);
++    if (!host_length || host_length > 63 || !g_ascii_isalnum(s->hostname[0]) ||
++        !g_ascii_isalnum(s->hostname[host_length - 1])) {
++        error_setg(errp, "hostname must be a 1..63 character ASCII host label");
++        return;
++    }
++    for (size_t i = 0; i < host_length; i++) {
++        if (!g_ascii_isalnum(s->hostname[i]) && s->hostname[i] != '-') {
++            error_setg(errp, "hostname permits only ASCII letters, digits and interior hyphens");
++            return;
++        }
++    }
++    memcpy(s->host_config, "HOST", 4);
++    memcpy(s->host_config + 4, s->hostname, host_length + 1);
++    memory_region_init_io(&s->host_ports, OBJECT(s), &host_ops, s,
++                          "f91.hostname", sizeof(s->host_config));
++    memory_region_add_subregion(get_system_io(), 0xff08, &s->host_ports);
 +    if (s->ram_boot && !s->evb) {
 +        error_setg(errp, "RAM boot requires the FreeRTOS development board");
 +        return;
 +    }
 +    if (!flash_load(s, 0, &s->flash, 0, errp)) {
 +        return;
++    }
++    if (s->wd2797a) {
++        if (!s->dev_dir || s->wd2797a < 0x100 || s->wd2797a > 0xfff8 ||
++            (s->wd2797a <= 0xff4b && s->wd2797a + 7 >= 0xff00)) {
++            error_setg(errp, "wd2797a requires dev-dir and an external base 0x100..0xfff8 outside 0xfef9..0xff4b");
++            return;
++        }
++        if (!dev_load(s, errp)) {
++            return;
++        }
 +    }
 +    for (unsigned cs = 0; cs < 4; cs++) {
 +        g_autofree char *name = g_strdup_printf("ez80f91.cs%u", cs);
@@ -2095,7 +2432,14 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +        if (!s->cs_kind[cs]) {
 +            s->cs_kind[cs] = g_strdup(cs ? "ram" : "flash");
 +        }
-+        if (!strcmp(s->cs_kind[cs], "none")) {
++        if (cs == 3 && s->dev_dir && !s->wd2797a) {
++            if (!dev_load(s, errp)) {
++                return;
++            }
++            memory_region_init_io(&s->bank[cs], OBJECT(s), &dev_window_ops,
++                                  s, name, 16 * MiB);
++            source = &s->bank[cs];
++        } else if (!strcmp(s->cs_kind[cs], "none")) {
 +            /* An unpopulated higher-priority CS still blocks lower CS lines. */
 +            memory_region_init_io(&s->bank[cs], OBJECT(s), &empty_cs_ops, s,
 +                                  name, 16 * MiB);
@@ -2116,11 +2460,20 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +                               error->message);
 +                    return;
 +                }
-+                if (!length || length > 16 * MiB) {
-+                    error_setg(errp, "CS3 file must contain 1..16777216 bytes");
++                if (!length || length > 16 * MiB ||
++                    s->cs3_gap_offset > 16 * MiB ||
++                    s->cs3_gap_size > 16 * MiB ||
++                    (s->cs3_gap_size &&
++                     MAX(length, s->cs3_gap_offset) + s->cs3_gap_size > 16 * MiB)) {
++                    error_setg(errp, "CS3 file and optional gap exceed 16 MiB bank");
 +                    return;
 +                }
-+                memcpy(memory_region_get_ram_ptr(source), contents, length);
++                size_t first = s->cs3_gap_size ?
++                    MIN(length, s->cs3_gap_offset) : length;
++                uint8_t *ram = memory_region_get_ram_ptr(source);
++                memcpy(ram, contents, first);
++                memcpy(ram + first + s->cs3_gap_size, contents + first,
++                       length - first);
 +                s->cs3_file_size = length;
 +            }
 +        } else if (!strcmp(s->cs_kind[cs], "flash")) {
@@ -2216,6 +2569,12 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +    DEFINE_PROP_STRING("cs2", EZ80F91MemoryState, cs_kind[2]),
 +    DEFINE_PROP_STRING("cs3", EZ80F91MemoryState, cs_kind[3]),
 +    DEFINE_PROP_STRING("cs3-file", EZ80F91MemoryState, cs3_file),
++    DEFINE_PROP_STRING("dev-dir", EZ80F91MemoryState, dev_dir),
++    DEFINE_PROP_STRING("hostname", EZ80F91MemoryState, hostname),
++    DEFINE_PROP_UINT32("wd2797a", EZ80F91MemoryState, wd2797a, 0),
++    DEFINE_PROP_UINT32("devport", EZ80F91MemoryState, devport, 0x1000),
++    DEFINE_PROP_UINT32("cs3-gap-offset", EZ80F91MemoryState, cs3_gap_offset, 0),
++    DEFINE_PROP_UINT32("cs3-gap-size", EZ80F91MemoryState, cs3_gap_size, 0),
 +    DEFINE_PROP_BOOL("evb", EZ80F91MemoryState, evb, false),
 +    DEFINE_PROP_BOOL("ram-boot", EZ80F91MemoryState, ram_boot, false),
 +    DEFINE_PROP_STRING("kit-led-state", EZ80F91MemoryState, kit_led_file),
@@ -2255,12 +2614,13 @@ index 0000000000..86a429fcbbaf3d67d66dc301511714ae83cedc5a
 +}
 diff --git a/hw/ez80/meson.build b/hw/ez80/meson.build
 new file mode 100644
+index 0000000000..327f145abdf5fe0b89474df9e9546e7a2daca78b
 --- /dev/null
 +++ b/hw/ez80/meson.build
 @@ -0,0 +1,4 @@
 +# SPDX-License-Identifier: GPL-2.0-or-later
 +ez80_ss = ss.source_set()
-+ez80_ss.add(when: 'CONFIG_EZ80F91_MINIMAL', if_true: files('ez80f91.c', 'uart.c', 'memory.c', 'intc.c', 'timer.c', 'clock.c', 'emac.c', 'rtc.c'))
++ez80_ss.add(when: 'CONFIG_EZ80F91_MINIMAL', if_true: files('ez80f91.c', 'uart.c', 'memory.c', 'intc.c', 'timer.c', 'clock.c', 'emac.c', 'rtc.c', 'wd2797a.c'))
 +hw_arch += {'ez80': ez80_ss}
 diff --git a/hw/ez80/timer.c b/hw/ez80/timer.c
 new file mode 100644
@@ -5491,3 +5851,497 @@ new file mode 100644
 +    type_register_static(&rtc_type);
 +}
 +type_init(rtc_register_types);
+diff --git a/hw/ez80/wd2797a.c b/hw/ez80/wd2797a.c
+new file mode 100644
+index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
+--- /dev/null
++++ b/hw/ez80/wd2797a.c
+@@ -0,0 +1,452 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Register-level WD2797A with raw 128-byte-sector disk backends.
++ * Seek/sector transfers are functional, not rotationally timed. */
++#include "qemu/osdep.h"
++#include "hw/ez80/wd2797a.h"
++#include "system/address-spaces.h"
++#include "qemu/units.h"
++
++#define FDC_CRC_ERROR 0x08
++#define FDC_NOT_FOUND 0x10
++#define FDC_WRITE_PROTECT 0x40
++#define FDC_NOT_READY 0x80
++
++static bool ready(F91WD2797A *s)
++{
++    return s->images[s->control & 15] != NULL;
++}
++
++static unsigned sectors(F91WD2797A *s)
++{
++    return s->sizes[s->control & 15] == 256256 ? 26 : 32;
++}
++
++static unsigned tracks(F91WD2797A *s)
++{
++    return s->sizes[s->control & 15] == 256256 ? 77 : 1024;
++}
++
++static uint8_t status(F91WD2797A *s)
++{
++    uint8_t result = (s->error & ~FDC_NOT_READY) | (s->busy ? 1 : 0);
++    unsigned drive = s->control & 15;
++    if (!ready(s)) {
++        result |= FDC_NOT_READY;
++    }
++    if (s->type1) {
++        result |= ready(s) && qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) % 200 < 2 ? 2 : 0;
++        result |= s->cylinder[drive] == 0 ? 4 : 0;
++        result |= s->readonly[drive] ? FDC_WRITE_PROTECT : 0;
++        result |= s->head_loaded ? 0x20 : 0;
++    } else {
++        result |= s->drq ? 2 : 0;
++    }
++    return result;
++}
++
++static void finish(F91WD2797A *s, uint8_t error)
++{
++    s->error |= error;
++    s->busy = s->drq = false;
++    s->intrq = true;
++}
++
++static bool valid_track(F91WD2797A *s)
++{
++    unsigned track = s->track | (s->track_high << 8);
++    return ready(s) && !(s->control & 0x10) &&
++           track < tracks(s) && track == s->cylinder[s->control & 15];
++}
++
++static void sector_start(F91WD2797A *s)
++{
++    unsigned drive = s->control & 15;
++    unsigned track = s->track | (s->track_high << 8);
++    if (!ready(s)) {
++        finish(s, FDC_NOT_READY);
++        return;
++    }
++    if (s->writing && s->readonly[drive]) {
++        finish(s, FDC_WRITE_PROTECT);
++        return;
++    }
++    if (!valid_track(s) || !s->sector || s->sector > sectors(s)) {
++        finish(s, FDC_NOT_FOUND);
++        return;
++    }
++    s->offset = ((size_t)track * sectors(s) + s->sector - 1) * 128;
++    s->position = 0;
++    s->length = 128;
++    s->busy = s->drq = true;
++    s->transfer = 0;
++    if (!s->writing) {
++        memcpy(s->buffer, s->images[drive] + s->offset, 128);
++    }
++}
++
++static uint16_t crc16(const uint8_t *data, unsigned length)
++{
++    uint16_t crc = 0xffff;
++    for (unsigned i = 0; i < length; i++) {
++        crc ^= data[i] << 8;
++        for (unsigned bit = 0; bit < 8; bit++) {
++            crc = (crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0);
++        }
++    }
++    return crc;
++}
++
++static uint16_t record_crc(F91WD2797A *s, uint8_t mark,
++                           const uint8_t *data, unsigned length)
++{
++    uint8_t bytes[132];
++    unsigned prefix = s->control & 0x20 ? 3 : 0;
++    memset(bytes, 0xa1, prefix);
++    bytes[prefix] = mark;
++    memcpy(bytes + prefix + 1, data, length);
++    return crc16(bytes, prefix + 1 + length);
++}
++
++static void track_start(F91WD2797A *s, bool writing)
++{
++    unsigned drive = s->control & 15;
++    bool mfm = s->control & 0x20;
++    unsigned cylinder = s->cylinder[drive];
++    unsigned pos = 0;
++    uint8_t gap = mfm ? 0x4e : 0xff;
++    if (!ready(s) || (s->control & 0x10) || cylinder >= tracks(s)) {
++        finish(s, FDC_NOT_FOUND);
++        return;
++    }
++    if (writing && s->readonly[drive]) {
++        finish(s, FDC_WRITE_PROTECT);
++        return;
++    }
++    s->offset = (size_t)cylinder * sectors(s) * 128;
++    s->length = mfm ? 12500 : 6250;
++    s->position = 0;
++    s->transfer = writing ? 3 : 2;
++    s->writing = writing;
++    s->multiple = false;
++    s->write_crc = 0xffff;
++    s->last_sync = false;
++    memset(s->buffer, gap, s->length);
++    if (!writing) {
++        pos = 40;
++        memset(s->buffer + pos, 0, mfm ? 12 : 6); pos += mfm ? 12 : 6;
++        if (mfm) { memset(s->buffer + pos, 0xc2, 3); pos += 3; }
++        s->buffer[pos++] = 0xfc;
++        pos += mfm ? 50 : 26;
++        for (unsigned sector = 1; sector <= sectors(s); sector++) {
++            uint8_t id[] = {cylinder & 255, 0, sector, 0};
++            const uint8_t *data = s->images[drive] + s->offset + (sector - 1) * 128;
++            uint16_t crc = record_crc(s, 0xfe, id, 4);
++            memset(s->buffer + pos, 0, mfm ? 12 : 6); pos += mfm ? 12 : 6;
++            if (mfm) { memset(s->buffer + pos, 0xa1, 3); pos += 3; }
++            s->buffer[pos++] = 0xfe;
++            memcpy(s->buffer + pos, id, 4); pos += 4;
++            s->buffer[pos++] = crc >> 8; s->buffer[pos++] = crc;
++            pos += mfm ? 22 : 11;
++            memset(s->buffer + pos, 0, mfm ? 12 : 6); pos += mfm ? 12 : 6;
++            if (mfm) { memset(s->buffer + pos, 0xa1, 3); pos += 3; }
++            s->buffer[pos++] = 0xfb;
++            memcpy(s->buffer + pos, data, 128); pos += 128;
++            crc = record_crc(s, 0xfb, data, 128);
++            s->buffer[pos++] = crc >> 8; s->buffer[pos++] = crc;
++            pos += mfm ? 40 : 27;
++        }
++        assert(pos <= s->length);
++    }
++    s->busy = s->drq = true;
++}
++
++/* Fixed raw geometries cannot retain custom sector IDs or bad CRCs. Validate
++ * a complete 128-byte-sector format before replacing the track atomically. */
++static uint8_t track_commit(F91WD2797A *s)
++{
++    uint8_t formatted[32 * 128];
++    uint64_t seen = 0;
++    unsigned count = sectors(s), cylinder = s->cylinder[s->control & 15];
++    for (unsigned pos = 0; pos + 7 <= s->length;) {
++        if (s->buffer[pos++] != 0xfe) { continue; }
++        uint8_t *id = s->buffer + pos;
++        uint16_t crc = record_crc(s, 0xfe, id, 4);
++        if (id[0] != (cylinder & 255) || id[1] || id[3] ||
++            !id[2] || id[2] > count) { return FDC_NOT_FOUND; }
++        if (id[4] != (crc >> 8) || id[5] != (crc & 255)) { return FDC_CRC_ERROR; }
++        unsigned sector = id[2];
++        pos += 6;
++        while (pos < s->length && s->buffer[pos] != 0xfb &&
++               s->buffer[pos] != 0xf8 && s->buffer[pos] != 0xfe) { pos++; }
++        if (pos + 131 > s->length || s->buffer[pos] == 0xfe) { return FDC_NOT_FOUND; }
++        uint8_t mark = s->buffer[pos++];
++        crc = record_crc(s, mark, s->buffer + pos, 128);
++        if (s->buffer[pos + 128] != (crc >> 8) ||
++            s->buffer[pos + 129] != (crc & 255)) { return FDC_CRC_ERROR; }
++        memcpy(formatted + (sector - 1) * 128, s->buffer + pos, 128);
++        seen |= 1ULL << (sector - 1);
++        pos += 130;
++    }
++    if (seen != (1ULL << count) - 1) { return FDC_NOT_FOUND; }
++    memcpy(s->images[s->control & 15] + s->offset, formatted, count * 128);
++    s->dirty[s->control & 15] = true;
++    return 0;
++}
++
++static void command(F91WD2797A *s, uint8_t value)
++{
++    unsigned drive = s->control & 15;
++    unsigned group = value >> 4;
++    if (group == 13) { /* Force Interrupt also aborts a partial write. */
++        timer_del(s->index_timer);
++        s->command = value;
++        s->busy = s->drq = false;
++        s->type1 = true;
++        s->intrq = (value & 8) != 0;
++        s->error = 0;
++        if (value & 4) {
++            int64_t now = qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL);
++            timer_mod(s->index_timer, now + 200 - now % 200);
++        }
++        return;
++    }
++    if (s->busy) {
++        return; /* Only Force Interrupt is accepted during a transfer. */
++    }
++    timer_del(s->index_timer);
++    s->command = value;
++    s->error = 0;
++    s->intrq = false;
++    s->type1 = group < 8;
++    if (!ready(s)) {
++        finish(s, FDC_NOT_READY);
++        return;
++    }
++    if (group < 8) {
++        s->head_loaded = (value & 8) != 0;
++        if (group == 0) { /* Restore */
++            s->cylinder[drive] = s->track = s->track_high = 0;
++            s->step_in = false;
++        } else if (group == 1) { /* Seek: target is the Data Register. */
++            unsigned target = s->data | (s->track_high << 8);
++            s->step_in = target >= s->cylinder[drive];
++            s->cylinder[drive] = target;
++            s->track = s->data;
++        } else {
++            if (group >= 4) {
++                s->step_in = group < 6;
++            }
++            if (s->step_in && s->cylinder[drive] < 65535) {
++                s->cylinder[drive]++;
++            } else if (!s->step_in && s->cylinder[drive]) {
++                s->cylinder[drive]--;
++            }
++            if (value & 0x10) {
++                s->track = s->cylinder[drive];
++                s->track_high = s->cylinder[drive] >> 8;
++            }
++        }
++        finish(s, (value & 4) && !valid_track(s) ? FDC_NOT_FOUND : 0);
++    } else if (group < 12) { /* Read/Write Sector, optional multiple mode. */
++        s->head_loaded = true;
++        s->writing = group >= 10;
++        s->multiple = (value & 0x10) != 0;
++        sector_start(s);
++    } else if (group == 12) { /* Read Address, synthesized FM ID + CRC. */
++        s->head_loaded = true;
++        uint8_t id[] = {0xfe, s->track, 0, s->sector, 0};
++        uint16_t crc;
++        if (!valid_track(s)) {
++            finish(s, FDC_NOT_FOUND);
++            return;
++        }
++        if (!id[3] || id[3] > sectors(s)) {
++            id[3] = 1;
++        }
++        crc = record_crc(s, 0xfe, id + 1, 4);
++        memcpy(s->buffer, id + 1, 4);
++        s->buffer[4] = crc >> 8;
++        s->buffer[5] = crc;
++        s->length = 6;
++        s->position = 0;
++        s->busy = s->drq = true;
++        s->writing = s->multiple = false;
++        s->transfer = 1;
++    } else {
++        s->head_loaded = true;
++        track_start(s, group == 15);
++    }
++}
++
++static void byte_done(F91WD2797A *s)
++{
++    unsigned drive = s->control & 15;
++    if (s->position != s->length) {
++        return;
++    }
++    if (s->transfer == 3) {
++        finish(s, track_commit(s));
++        return;
++    }
++    if (s->writing) {
++        memcpy(s->images[drive] + s->offset, s->buffer, 128);
++        s->dirty[drive] = true;
++    }
++    if (s->transfer == 1) {
++        s->sector = s->track;
++    }
++    if (s->multiple) {
++        s->sector++;
++        sector_start(s);
++    } else {
++        finish(s, 0);
++    }
++}
++
++static uint64_t fdc_read(void *opaque, hwaddr addr, unsigned size)
++{
++    F91WD2797A *s = opaque;
++    switch (addr) {
++    case 0: {
++        uint8_t value = status(s);
++        s->intrq = false;
++        return value;
++    }
++    case 1: return s->track;
++    case 2: return s->sector;
++    case 3:
++        if (s->drq && !s->writing) {
++            s->data = s->buffer[s->position++];
++            byte_done(s);
++        }
++        return s->data;
++    case 4: return s->control;
++    case 5: return (s->drq ? 1 : 0) | (s->intrq ? 2 : 0) |
++                   (ready(s) ? 0x80 : 0);
++    case 6: return s->track_high;
++    case 7: return 0x97;
++    default: return 0xff;
++    }
++}
++
++static void fdc_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    F91WD2797A *s = opaque;
++    switch (addr) {
++    case 0: command(s, value); break;
++    case 1: if (!s->busy) { s->track = value; } break;
++    case 2: if (!s->busy) { s->sector = value; } break;
++    case 3:
++        s->data = value;
++        if (s->drq && s->writing) {
++            if (s->transfer == 3) {
++                uint8_t byte = value;
++                if (byte == 0xf7) {
++                    s->buffer[s->position++] = s->write_crc >> 8;
++                    if (s->position < s->length) {
++                        s->buffer[s->position++] = s->write_crc;
++                    }
++                    s->last_sync = false;
++                } else {
++                    if ((s->control & 0x20) && byte == 0xf5) {
++                        if (!s->last_sync) { s->write_crc = 0xffff; }
++                        byte = 0xa1;
++                        s->last_sync = true;
++                    } else {
++                        s->last_sync = false;
++                        if ((s->control & 0x20) && byte == 0xf6) { byte = 0xc2; }
++                        if (!(s->control & 0x20) &&
++                            (byte == 0xfe || (byte >= 0xf8 && byte <= 0xfb))) {
++                            s->write_crc = 0xffff;
++                        }
++                    }
++                    s->buffer[s->position++] = byte;
++                    s->write_crc ^= byte << 8;
++                    for (unsigned bit = 0; bit < 8; bit++) {
++                        s->write_crc = (s->write_crc << 1) ^
++                            (s->write_crc & 0x8000 ? 0x1021 : 0);
++                    }
++                }
++            } else {
++                s->buffer[s->position++] = value;
++            }
++            byte_done(s);
++        }
++        break;
++    case 4:
++    {
++        bool was_ready = ready(s);
++        if (s->busy && value != s->control) {
++            finish(s, FDC_NOT_FOUND);
++        }
++        s->control = value;
++        if ((s->command >> 4) == 13 &&
++            (((s->command & 1) && !was_ready && ready(s)) ||
++             ((s->command & 2) && was_ready && !ready(s)))) {
++            s->intrq = true;
++        }
++        break;
++    }
++    case 6: if (!s->busy) { s->track_high = value; } break;
++    }
++}
++
++static uint64_t discovery_read(void *opaque, hwaddr addr, unsigned size)
++{
++    F91WD2797A *s = opaque;
++    uint8_t config[] = {'W', 'D', '9', '7', s->base & 255, s->base >> 8, 1, 1};
++    return config[addr];
++}
++static void discovery_write(void *opaque, hwaddr addr, uint64_t value,
++                            unsigned size)
++{
++}
++static const MemoryRegionOps fdc_ops = {
++    .read = fdc_read, .write = fdc_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps discovery_ops = {
++    .read = discovery_read, .write = discovery_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++
++static void index_irq(void *opaque)
++{
++    F91WD2797A *s = opaque;
++    if ((s->command & 0xf4) == 0xd4) {
++        if (ready(s)) { s->intrq = true; }
++        timer_mod(s->index_timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 200);
++    }
++}
++
++void f91_wd2797a_reset(F91WD2797A *s)
++{
++    s->command = s->track = s->sector = s->data = s->control = 0;
++    s->track_high = s->error = 0;
++    s->busy = s->drq = s->intrq = false;
++    s->head_loaded = false;
++    if (s->index_timer) { timer_del(s->index_timer); }
++    s->type1 = true;
++    s->step_in = true;
++}
++
++void f91_wd2797a_init(F91WD2797A *s, Object *owner, unsigned base,
++                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly)
++{
++    s->base = base;
++    s->images = images;
++    s->sizes = sizes;
++    s->dirty = dirty;
++    s->readonly = readonly;
++    s->index_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, index_irq, s);
++    memory_region_init_io(&s->ports, owner, &fdc_ops, s, "wd2797a", 8);
++    memory_region_add_subregion(get_system_io(), base, &s->ports);
++    memory_region_init_io(&s->discovery, owner, &discovery_ops, s,
++                          "wd2797a.discovery", 8);
++    memory_region_add_subregion(get_system_io(), 0xff00, &s->discovery);
++    f91_wd2797a_reset(s);
++}
+diff --git a/hw/ez80/wd2797a.h b/hw/ez80/wd2797a.h
+new file mode 100644
+index 0000000000..4dc6f906475bae8a5694c4d62470cbad88d7085e
+--- /dev/null
++++ b/hw/ez80/wd2797a.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef F91_WD2797A_H
++#define F91_WD2797A_H
++
++#include "system/memory.h"
++#include "qemu/timer.h"
++
++typedef struct F91WD2797A {
++    MemoryRegion ports, discovery;
++    uint32_t base;
++    uint8_t **images;
++    gsize *sizes;
++    bool *dirty, *readonly;
++    uint8_t command, track, sector, data, control, track_high, error;
++    bool type1, busy, drq, intrq, writing, multiple, step_in, head_loaded;
++    unsigned position, length;
++    uint16_t cylinder[16];
++    size_t offset;
++    uint8_t buffer[16384];
++    unsigned transfer;
++    uint16_t write_crc;
++    bool last_sync;
++    QEMUTimer *index_timer;
++} F91WD2797A;
++
++void f91_wd2797a_init(F91WD2797A *s, Object *owner, unsigned base,
++                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly);
++void f91_wd2797a_reset(F91WD2797A *s);
++
++#endif

@@ -28,34 +28,39 @@ Kit registers appear only when enabled and CS2 covers 800000h. Higher-priority
 CS0/1 and internal memory still take precedence. Without kit state enabled,
 these addresses retain their ordinary memory mapping.
 
-## Complete-scan display
+## Firmware display driver
 
-QEMU integrates each LED's on-time across all seven rows, filtering brief
-switching pulses. Publication occurs only after the last row's on-time ends.
-The previous complete frame remains visible during slow or paused scans.
-Pixels redraw only when the complete mask changes; registers/buttons update
-independently. Every complete scan is accepted, including continuously moving
-text. Requiring duplicate frames previously stalled scrolling.
+The firmware driver owns the animation buffers. `shiftDisplay()` updates only
+its working matrix; the timer ISR never reads a shift in progress. Once all
+seven rows are shifted, the task publishes the completed image into a pending
+buffer. If the previous image is still pending, the producer waits rather than
+dropping intermediate scroll positions.
 
-Static dark/parallel output is accepted after 40 ms without an anode change.
-Debugger writes before the first CPU start remain immediately visible.
-This is not an electrical current/brightness/GAL timing simulation. Optional
-modem LEDs D1–4 have no modem model; displayed modem/trigger values are latch bits.
+Before row zero, after seven scans, the ISR accepts a pending image. There is
+no time-based fallback. The ISR composes a complete seven-row scan snapshot
+with a persistent 5×7 overlay. `LED5x7_set(x,y)` sets one overlay bit and
+`LED5x7_clr(x,y)` removes it; x=0..4 is left-to-right and y=0..6 top-to-bottom.
+Coordinates outside these bounds are ignored. Clearing an overlay bit does not
+erase the animation pixel below it. These setters are task-context APIs.
+Overlay changes take effect at the next scan boundary, independently of the
+animation's seven-scan cadence. The active-low cathode output is the inverse
+of the logical animation-OR-overlay image. Rows are blanked before changing
+cathodes to avoid electrical row-switch ghosts.
 
-State is `/tmp/ez80f91-<uid>/<port>.kit.json`. A direct launch can set
-`-global ez80f91-memory.kit-led-state=/tmp/kit.json`. The launcher manages the
-window and state file with its instance.
+The GUI is passive: QEMU integrates complete hardware scans and publishes only
+those images. It does not impose an extra seven-scan delay or a 300-ms partial
+frame timer. Static debugger probes before execution remain visible directly.
 
 ```sh
-python3 tests/test_kit.py build/ez80/qemu-system-ez80
+python3 tests/test_led_driver.py
+python3 tests/test_led_shifts.py build/ez80/qemu-system-ez80
 python3 tests/test_kit_frames.py build/ez80/qemu-system-ez80
 ```
 
-Tests check polarity/orientation, GPIO direction, CS enable/priority, reset and
-actual seven-row multiplex code. Frame tests pause after each row, including
-more than 40 ms guest time per row, and reject partial images. They cover new
-glyphs, all-dark frames and per-scan scrolling changes using FreeRTOS masks;
-the Forth driver is not modified for these tests.
+The driver test interrupts working-row updates with real C scan-ISR calls,
+checks pending-image backpressure, complete output frames, and set/clear OR
+semantics. The shift test assembles the actual eZ80 routine and verifies all
+five directions in QEMU, including bounds-safe vertical shifts.
 
 ## Buttons
 

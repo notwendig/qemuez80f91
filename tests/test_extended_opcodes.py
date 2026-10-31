@@ -301,16 +301,16 @@ with tempfile.TemporaryDirectory(prefix='ez80-extended-') as temporary:
     r.af(0x11,0x95);r.emit(0x40,0xc3,0,0xe0)
     run('rst-lis-mixed',r,{'AF':0x4295,'ADL':0,'PC':0xb8e003,'SPS':0xfff0,'SPL':0xbfff00},
         [(0xbffefd,bytes([2,2,0xe0]))],board=True)
-    for marker,target in [(1,0x80),(0,0xffe000)]:
+    for mode,target in [(1,0x80),(0,0xffe000)]:
         r=ROM();r.emit(0xed,0x7d,0x3e,0xff,0xed,0x6d)
-        stack=0xfffff0-(4 if marker else 3)
-        frame=bytes([marker])+target.to_bytes(3,'little')[:3 if marker else 2]
+        stack=0xfffff0-(4 if mode else 3)
+        frame=bytes([2 | mode])+target.to_bytes(3,'little')[:3 if mode else 2]
         for i,v in enumerate(frame):r.put(stack+i,v)
-        if not marker:r.put(target,0x76)
+        if not mode:r.put(target,0x76)
         r.ld(0x31,stack);r.emit(0x5b,0xed,0x45)
-        if marker:
+        if mode:
             assert len(r.b)<target;r.b.extend(bytes(target-len(r.b)));r.emit(0x76)
-        run(f'retn-long-frame-{marker}',r,{'ADL':marker,'PC':target+1,'SPL':0xfffff0})
+        run(f'retn-long-frame-{mode}',r,{'ADL':mode,'PC':target+1,'SPL':0xfffff0})
     print('PASS: restart vectors, mixed SPS/SPL frames and RETN including F91 markers')
 
     # Size prefixes select both the extended count width and the memory bank.

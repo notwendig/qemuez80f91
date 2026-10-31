@@ -53,8 +53,13 @@ without networking, local installation and optional ZDS tools.
 ./start.sh                 # UART terminal; CPU waits for ZDS II
 ./start.sh --kit           # also open the matrix/button window
 ./start.sh --run --kit     # start saved flash immediately
+./start.sh --run --hostname mein-ez80  # override the DHCP hostname
 ./start.sh dbgport 4041    # separate instance on another debug port
 ```
+
+The DHCP hostname defaults to `ez80<debugport>` (for example `ez804040`).
+Use `--hostname <name>` to override it; names contain 1–63 ASCII letters,
+digits or interior hyphens. This requires the updated FreeRTOS firmware.
 
 These launchers use the existing `br0` bridge. They do not create a DHCP server;
 **nadibox** supplies DHCP on the development network. The CPU starts only after
@@ -90,10 +95,12 @@ the full test makes 201 result checks. Another 89 cases run before and after res
 
 ### FreeRTOS and ZTP
 
-CP/M uses raw writable A/B/C/D/I/J disk images on CS3, without startup
-decompression. The [disk layout and build instructions](images/cpm/README.md)
-describe the image formats. `start.sh` initializes a separate persistent
-`ez80f91_cs3.<debugport>` image from the bundled template on first use.
+CP/M uses raw writable A/B/C/D/I/J images through a [WD2797A controller](docs/wd2797a.md),
+without decompression or CS3 disk RAM. Use
+`qemuez80f91 --kit --run --wd2797a 0x1000 --dev '/path/to/disks'`.
+Without `--dev`, the per-debug-port disk directory is initialized from existing
+images. The [disk layout and build instructions](images/cpm/README.md) describe
+how to regenerate the raw images.
 
 ```sh
 python3 subprojects/FreeRTOS-eZ80f91/setup-dependencies.py

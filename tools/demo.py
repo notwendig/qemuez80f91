@@ -15,7 +15,7 @@ import time
 import tty
 
 ROOT = Path(__file__).resolve().parents[1]
-from tools.demo_network import DemoNetworkTest, dhcp_leases, start_after_bridge
+from tools.demo_network import DemoNetworkTest, dhcp_leases, host_link_options, start_after_bridge
 
 
 def main():
@@ -107,6 +107,7 @@ def console(qemu, out, seconds, bridge, helper, server, test, cs_kind=(), dbgpor
                 '-object', f'filter-dump,id=demo-capture,netdev=wire,file={out / "network.pcap"}',
                 *([f'--dbgport={dbgport}', '--scan-dev'] if dbgport else []),
                 '-global', 'ez80f91-emac.phy-addr=31',
+                *host_link_options(bridge),
                 '-d', 'unimp,guest_errors', '-D', str(out / 'devices.log')],
                 pass_fds=(uart_guest.fileno(),),
                 stdin=subprocess.DEVNULL, stdout=qemu_log, stderr=subprocess.STDOUT)

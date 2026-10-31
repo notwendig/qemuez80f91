@@ -2,6 +2,8 @@
 """Raw CS3 image persistence and all six CP/M drive boundaries."""
 from pathlib import Path
 import subprocess
+import json
+import time
 import tempfile
 from ez80_testlib import VM
 
@@ -15,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='cpm-cs3-') as temp:
 #include <assert.h>
 #include "cpm_disks.h"
 int main(void) {
-    size_t offsets[] = {0,256256,512512,768768,1025024,5219328};
+    size_t offsets[] = {0,0,0,0,0,0};
     unsigned char drives[] = {0,1,2,3,8,9};
     for(int i=0;i<6;i++) {
         unsigned short tracks=i<4?77:1024, sectors=i<4?26:32;
@@ -34,27 +36,43 @@ int main(void) {
     subprocess.run(['cc', '-I', str(ROOT / 'subprojects/FreeRTOS-eZ80f91/CPM'),
                     str(check), '-o', str(work / 'bounds')], check=True)
     subprocess.run([str(work / 'bounds')], check=True)
-    image = work / 'disks.img'
-    original = bytearray((ROOT / 'images/cpm/cs3-abcdij.img').read_bytes())
-    image.write_bytes(original)
-    # ADL: disable CS0, map CS3 200000..AFFFFF, read I/J end and write J end.
-    rom = bytearray([0x5b,0xc3,5,0,0])
-    def out(port,value): rom.extend([0x3e,value,0xed,0x39,port])
-    def ld(op,addr): rom.extend([op,*addr.to_bytes(3,'little')])
-    out(0xaa,0);out(0xb3,0);out(0xb1,0x20);out(0xb2,0xaf);out(0xb3,8)
-    end = 0x200000 + len(original) - 1
-    ld(0x3a,end);ld(0x32,0xffe100)
-    rom.extend([0x3e,0x42]);ld(0x32,end);rom.append(0x76)
-    firmware = work / 'test.bin';firmware.write_bytes(rom)
-    for attempt in range(2):
-        vm = VM(firmware, machine=f'ez80f91-minimal,cs3-file={image}', extra=('-nic','none'))
-        try:
-            vm.cmd('cont');vm.halted();vm.cmd('stop')
-            sample = work / 'sample'
-            vm.cmd('pmemsave',dict(val=0xffe100,size=1,filename=str(sample)))
-            assert sample.read_bytes() == bytes([original[-1] if not attempt else 0x42])
-        finally:
-            vm.close()
-        expected = original.copy();expected[-1]=0x42
-        assert image.read_bytes()==expected
-    print('PASS: six drive boundaries; CS3 >8MiB load/write/save/restart, raw length preserved')
+    for gap in (0, 0x480000):
+        image = work / 'disks.img'
+        original = bytearray((ROOT / 'images/cpm/cs3-abcdij.img').read_bytes())
+        image.write_bytes(original)
+        # Verify both linear RAM and the kit-safe split around CS2/CS1.
+        rom = bytearray([0x5b,0xc3,5,0,0])
+        def out(port,value): rom.extend([0x3e,value,0xed,0x39,port])
+        def ld(op,addr): rom.extend([op,*addr.to_bytes(3,'little')])
+        out(0xaa,0);out(0xb3,0);out(0xb1,0x20);out(0xb2,0xf7 if gap else 0xaf);out(0xb3,8)
+        if gap:
+            out(0xae,0x80);out(0xaf,0xbf);out(0xb0,0x28)
+            rom.extend([0x3e,0x7f]);ld(0x32,0x800000)
+            rom.extend([0x3e,0]);ld(0x32,0x800001)
+        end = 0x200000 + len(original) - 1 + gap
+        ld(0x3a,end);ld(0x32,0xffe100)
+        rom.extend([0x3e,0x42]);ld(0x32,end);rom.append(0x76)
+        firmware = work / 'test.bin';firmware.write_bytes(rom)
+        for attempt in range(2):
+            state = work / 'kit.json'
+            vm = VM(firmware, machine=f'ez80f91-minimal,cs3-file={image}',
+                    extra=('-nic','none','-global',f'ez80f91-memory.cs3-gap-offset=0x600000',
+                           '-global',f'ez80f91-memory.cs3-gap-size={gap}',
+                           '-global',f'ez80f91-memory.kit-led-state={state}'))
+            try:
+                vm.cmd('cont');vm.halted();vm.cmd('stop')
+                sample = work / 'sample'
+                vm.cmd('pmemsave',dict(val=0xffe100,size=1,filename=str(sample)))
+                assert sample.read_bytes() == bytes([original[-1] if not attempt else 0x42])
+                if gap:
+                    deadline = time.monotonic()+3
+                    while time.monotonic()<deadline:
+                        data=json.loads(state.read_text())
+                        if data['enabled'] and data['anode']==127 and data['cathode']==0:break
+                        time.sleep(.02)
+                    else:raise AssertionError(data)
+            finally:
+                vm.close()
+            expected = original.copy();expected[-1]=0x42
+            assert image.read_bytes()==expected
+        print('PASS: six drive boundaries; CS3 >8MiB load/write/save/restart, raw length preserved')

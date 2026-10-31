@@ -1,4 +1,4 @@
-"""Live 7x5 development-kit LED matrix from QEMU's kit latch telemetry."""
+"""Live 7x5 matrix from QEMU's completed hardware-scan telemetry."""
 import argparse
 import json
 import socket

@@ -1,6 +1,6 @@
 # Development status
 
-Documentation updated **30 October 2026**. Gitlinks, build scripts and fixture
+Documentation updated **31 October 2026**. Gitlinks, build scripts and fixture
 hashes identify source versions. Functional tests do not establish complete
 instruction-set or hardware compatibility.
 
@@ -10,9 +10,12 @@ instruction-set or hardware compatibility.
 | --- | --- |
 | CPU | Z80/ADL, prefixes, 16/24-bit registers and addresses, stacks, calls/returns, TRAP and extended instructions |
 | Memory | Internal RAM/flash/EMAC RAM, CS0–CS3, remapping, priority and AMD flash |
-| UART0 | Polling, RX FIFO, interrupts, pin multiplexing and clock gating |
-| Timers/IRQs | Timer0/1, vectors, priorities, EI delay, RETI and mode transitions |
-| Clock and RTC | Board oscillator/PLL startup, functional lock delay, calendar and ZTP RTC ABI |
+| On-chip registers | All 212 I/O addresses catalogued; 154 reset values/masks checked; [device coverage](onchip.md) |
+| UART0/1 and IrDA | RX FIFO, interrupts, DLAB, mux, clock gating, decoded-byte loopback and modem deltas |
+| Timers/IRQs | Timer0-3, event/capture/compare/PWM, priorities, EI delay, RETI/RETN and mode transitions |
+| SPI/I2C | Real SSI NOR and I2C EEPROM transfers, SPI slave modes, externally addressed I2C slave |
+| Watchdog and RTC | Feeding, NMI/reset causes, clock sources, calendar/alarm IRQ, SLEEP recovery |
+| Clock | Board oscillator/PLL startup, lock delay, clock mux and SLEEP system-clock stop |
 | Ethernet | Shared-RAM descriptors, TX/RX, overflow, filters, interrupts and Clause-22 management |
 | Debugger | Original ZDS EthernetSC DLL, registers/RAM, run/stop/step, breakpoints, flash and discovery |
 | Kit | 5×7 matrix, complete-scan publication, SW1–3 and reset |
@@ -30,8 +33,8 @@ for local, SDK-dependent and live test requirements.
 - No complete instruction/peripheral compatibility claim, cycle-accurate CPU,
   electrical bus model or analog LED simulation.
 - UART transmit/baud timing and many register/interrupt combinations remain untested.
-- Vendor PHY register 18 is incomplete. FreeRTOS may report `10MBPS, HALF_DUPLEX`;
-  this is not a measurement of the host network's speed.
+- PHY speed/duplex diagnostics follow the configured host-derived 10/100 mode;
+  the F91's 100 Mbps limit and functional packet model still apply.
 - The kit publishes each complete scan without requiring repeated identical
   frames. Mid-scan guest writes may produce mixed rows, as on the latch stream.
 - External network tests depend on the bridge, DHCP server and peer. The isolated
@@ -41,7 +44,7 @@ for local, SDK-dependent and live test requirements.
 
 ## Next steps
 
-1. Complete vendor PHY speed/duplex diagnostics.
+1. Validate more device combinations against independent hardware traces.
 2. Compare more CPU/peripheral cases against independent references or hardware.
 3. Exercise additional kernel paths and device combinations with targeted tests.
 

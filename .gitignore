@@ -9,5 +9,5 @@ __pycache__/
 /.aws/
 /.codex/
 /qemu/
-
+/rom-backups/
 /ez80f91_*.[0-9]*

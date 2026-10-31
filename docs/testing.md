@@ -86,6 +86,17 @@ current FreeRTOS linker map are required. First CP/M decompression may take
 minutes. The ZTP demo expects nadibox DHCP and real host UDP/TCP peers.
 Do not run these indiscriminately through a `test_*.py` glob.
 
+For the UDP SysInfo monitor on port 4060, test repeated attachment with:
+
+```sh
+python3 tests/test_freertos_monitor.py ez804040 4060
+```
+
+The test opens three different source ports in sequence, checks each new
+viewer's banner and updates, and verifies that old endpoints stop receiving.
+It temporarily selects its own monitor endpoints; reconnect netcat and press
+Enter afterwards to resume viewing there.
+
 ## Updated full FreeRTOS application
 
 The project uses kernel V11.3.2, Plus-TCP V4.4.2 and uzlib `6d60d65`.
@@ -94,12 +105,18 @@ For the locally generated validation image:
 
 ```sh
 python3 tests/test_freertos_network.py build/ez80/qemu-system-ez80 build/freertos11-full/freertos11.bin
+python3 tests/test_freertos_network.py build/ez80/qemu-system-ez80 build/freertos11-full/freertos11.bin --hostname Labor-4040
+python3 tests/test_hostname.py build/ez80/qemu-system-ez80
 ```
 
 The isolated Ethernet-socket test supplies DHCP Offer/Ack, answers ARP, checks
 ICMP Echo and establishes TCP port 4040. Actual Uptime console data must arrive.
 It also checks full 32-bit DHCP/ARP diagnostic addresses, rejecting the former
 `255.168.77.*` truncation. It requires no bridge or external DHCP server.
+Use freshly rebuilt firmware: DHCP DISCOVER and REQUEST must include option 12
+with `ez800` (no debug port) or the name passed through `--hostname`. The board
+configuration test checks CLI defaults/validation/forwarding, actual CPU I/O,
+the selected debug port, read-only data, 63-byte names and guest reset.
 
 ## Reports and interpretation
 

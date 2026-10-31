@@ -1,0 +1,1584 @@
+{
+  "reference": "ZiLOG PS019217-1222, Table 3; reset/access details in individual register tables take precedence",
+  "registers": [
+    {
+      "address": "0000",
+      "name": "ZDI_ID_L",
+      "reset": "08",
+      "access": "R",
+      "page": 252
+    },
+    {
+      "address": "0001",
+      "name": "ZDI_ID_H",
+      "reset": "00",
+      "access": "R",
+      "page": 252
+    },
+    {
+      "address": "0002",
+      "name": "ZDI_ID_REV",
+      "reset": "XX",
+      "access": "R",
+      "page": 252
+    },
+    {
+      "address": "0010",
+      "name": "INT_P0",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0011",
+      "name": "INT_P1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0012",
+      "name": "INT_P2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0013",
+      "name": "INT_P3",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0014",
+      "name": "INT_P4",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0015",
+      "name": "INT_P5",
+      "reset": "00",
+      "access": "R/W",
+      "page": 61
+    },
+    {
+      "address": "0020",
+      "name": "EMAC_TEST",
+      "reset": "00",
+      "access": "R/W",
+      "page": 298
+    },
+    {
+      "address": "0021",
+      "name": "EMAC_CFG1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 299
+    },
+    {
+      "address": "0022",
+      "name": "EMAC_CFG2",
+      "reset": "37",
+      "access": "R/W",
+      "page": 301
+    },
+    {
+      "address": "0023",
+      "name": "EMAC_CFG3",
+      "reset": "0F",
+      "access": "R/W",
+      "page": 302
+    },
+    {
+      "address": "0024",
+      "name": "EMAC_CFG4",
+      "reset": "00",
+      "access": "R/W",
+      "page": 303
+    },
+    {
+      "address": "0025",
+      "name": "EMAC_STAD_0",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "0026",
+      "name": "EMAC_STAD_1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "0027",
+      "name": "EMAC_STAD_2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "0028",
+      "name": "EMAC_STAD_3",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "0029",
+      "name": "EMAC_STAD_4",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "002A",
+      "name": "EMAC_STAD_5",
+      "reset": "00",
+      "access": "R/W",
+      "page": 304
+    },
+    {
+      "address": "002B",
+      "name": "EMAC_TPTV_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 305
+    },
+    {
+      "address": "002C",
+      "name": "EMAC_TPTV_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 305
+    },
+    {
+      "address": "002D",
+      "name": "EMAC_IPGT",
+      "reset": "15",
+      "access": "R/W",
+      "page": 306
+    },
+    {
+      "address": "002E",
+      "name": "EMAC_IPGR1",
+      "reset": "0C",
+      "access": "R/W",
+      "page": 308
+    },
+    {
+      "address": "002F",
+      "name": "EMAC_IPGR2",
+      "reset": "12",
+      "access": "R/W",
+      "page": 308
+    },
+    {
+      "address": "0030",
+      "name": "EMAC_MAXF_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 309
+    },
+    {
+      "address": "0031",
+      "name": "EMAC_MAXF_H",
+      "reset": "06",
+      "access": "R/W",
+      "page": 310
+    },
+    {
+      "address": "0032",
+      "name": "EMAC_AFR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 311
+    },
+    {
+      "address": "0033",
+      "name": "EMAC_HTBL_0",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0034",
+      "name": "EMAC_HTBL_1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0035",
+      "name": "EMAC_HTBL_2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0036",
+      "name": "EMAC_HTBL_3",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0037",
+      "name": "EMAC_HTBL_4",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0038",
+      "name": "EMAC_HTBL_5",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "0039",
+      "name": "EMAC_HTBL_6",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "003A",
+      "name": "EMAC_HTBL_7",
+      "reset": "00",
+      "access": "R/W",
+      "page": 312
+    },
+    {
+      "address": "003B",
+      "name": "EMAC_MIIMGT",
+      "reset": "00",
+      "access": "R/W",
+      "page": 313
+    },
+    {
+      "address": "003C",
+      "name": "EMAC_CTLD_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 314
+    },
+    {
+      "address": "003D",
+      "name": "EMAC_CTLD_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 315
+    },
+    {
+      "address": "003E",
+      "name": "EMAC_RGAD",
+      "reset": "00",
+      "access": "R/W",
+      "page": 315
+    },
+    {
+      "address": "003F",
+      "name": "EMAC_FIAD",
+      "reset": "00",
+      "access": "R/W",
+      "page": 316
+    },
+    {
+      "address": "0040",
+      "name": "EMAC_PTMR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 316
+    },
+    {
+      "address": "0041",
+      "name": "EMAC_RST",
+      "reset": "20",
+      "access": "R/W",
+      "page": 317
+    },
+    {
+      "address": "0042",
+      "name": "EMAC_TLBP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 318
+    },
+    {
+      "address": "0043",
+      "name": "EMAC_TLBP_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 318
+    },
+    {
+      "address": "0044",
+      "name": "EMAC_BP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 319
+    },
+    {
+      "address": "0045",
+      "name": "EMAC_BP_H",
+      "reset": "C0",
+      "access": "R/W",
+      "page": 319
+    },
+    {
+      "address": "0046",
+      "name": "EMAC_BP_U",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 319
+    },
+    {
+      "address": "0047",
+      "name": "EMAC_RHBP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 320
+    },
+    {
+      "address": "0048",
+      "name": "EMAC_RHBP_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 321
+    },
+    {
+      "address": "0049",
+      "name": "EMAC_RRP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 321
+    },
+    {
+      "address": "004A",
+      "name": "EMAC_RRP_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 322
+    },
+    {
+      "address": "004B",
+      "name": "EMAC_BUFSZ",
+      "reset": "00",
+      "access": "R/W",
+      "page": 322
+    },
+    {
+      "address": "004C",
+      "name": "EMAC_IEN",
+      "reset": "00",
+      "access": "R/W",
+      "page": 323
+    },
+    {
+      "address": "004D",
+      "name": "EMAC_ISTAT",
+      "reset": "00",
+      "access": "R/W",
+      "page": 325
+    },
+    {
+      "address": "004E",
+      "name": "EMAC_PRSD_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 326
+    },
+    {
+      "address": "004F",
+      "name": "EMAC_PRSD_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 327
+    },
+    {
+      "address": "0050",
+      "name": "EMAC_MIISTAT",
+      "reset": "00",
+      "access": "R/W",
+      "page": 327
+    },
+    {
+      "address": "0051",
+      "name": "EMAC_RWP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 328
+    },
+    {
+      "address": "0052",
+      "name": "EMAC_RWP_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 329
+    },
+    {
+      "address": "0053",
+      "name": "EMAC_TRP_L",
+      "reset": "00",
+      "access": "R/W",
+      "page": 329
+    },
+    {
+      "address": "0054",
+      "name": "EMAC_TRP_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 330
+    },
+    {
+      "address": "0055",
+      "name": "EMAC_BLKSLFT_L",
+      "reset": "20",
+      "access": "R/W",
+      "page": 330
+    },
+    {
+      "address": "0056",
+      "name": "EMAC_BLKSLFT_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 331
+    },
+    {
+      "address": "0057",
+      "name": "EMAC_FDATA_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 332
+    },
+    {
+      "address": "0058",
+      "name": "EMAC_FDATA_H",
+      "reset": "0X",
+      "access": "R/W",
+      "page": 332
+    },
+    {
+      "address": "0059",
+      "name": "EMAC_FFLAGS",
+      "reset": "33",
+      "access": "R/W",
+      "page": 333
+    },
+    {
+      "address": "005C",
+      "name": "PLL_DIV_L",
+      "reset": "00",
+      "access": "W",
+      "page": 268
+    },
+    {
+      "address": "005D",
+      "name": "PLL_DIV_H",
+      "reset": "00",
+      "access": "W",
+      "page": 269
+    },
+    {
+      "address": "005E",
+      "name": "PLL_CTL0",
+      "reset": "00",
+      "access": "R/W",
+      "page": 269
+    },
+    {
+      "address": "005F",
+      "name": "PLL_CTL1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 271
+    },
+    {
+      "address": "0060",
+      "name": "TMR0_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 132
+    },
+    {
+      "address": "0061",
+      "name": "TMR0_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 133
+    },
+    {
+      "address": "0062",
+      "name": "TMR0_IIR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 135
+    },
+    {
+      "address": "0063",
+      "name": "TMR0_DR_L",
+      "reset": "XX",
+      "access": "R",
+      "page": 136,
+      "aliases": [
+        "TMR0_RR_L"
+      ]
+    },
+    {
+      "address": "0064",
+      "name": "TMR0_DR_H",
+      "reset": "XX",
+      "access": "R",
+      "page": 137,
+      "aliases": [
+        "TMR0_RR_H"
+      ]
+    },
+    {
+      "address": "0065",
+      "name": "TMR1_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 132
+    },
+    {
+      "address": "0066",
+      "name": "TMR1_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 133
+    },
+    {
+      "address": "0067",
+      "name": "TMR1_IIR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 135
+    },
+    {
+      "address": "0068",
+      "name": "TMR1_DR_L",
+      "reset": "XX",
+      "access": "R",
+      "page": 136,
+      "aliases": [
+        "TMR1_RR_L"
+      ]
+    },
+    {
+      "address": "0069",
+      "name": "TMR1_DR_H",
+      "reset": "XX",
+      "access": "R",
+      "page": 137,
+      "aliases": [
+        "TMR1_RR_H"
+      ]
+    },
+    {
+      "address": "006A",
+      "name": "TMR1_CAP_CTL",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 139
+    },
+    {
+      "address": "006B",
+      "name": "TMR1_CAPA_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 140
+    },
+    {
+      "address": "006C",
+      "name": "TMR1_CAPA_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 141
+    },
+    {
+      "address": "006D",
+      "name": "TMR1_CAPB_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 141
+    },
+    {
+      "address": "006E",
+      "name": "TMR1_CAPB_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 142
+    },
+    {
+      "address": "006F",
+      "name": "TMR2_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 132
+    },
+    {
+      "address": "0070",
+      "name": "TMR2_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 133
+    },
+    {
+      "address": "0071",
+      "name": "TMR2_IIR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 135
+    },
+    {
+      "address": "0072",
+      "name": "TMR2_DR_L",
+      "reset": "XX",
+      "access": "R",
+      "page": 136,
+      "aliases": [
+        "TMR2_RR_L"
+      ]
+    },
+    {
+      "address": "0073",
+      "name": "TMR2_DR_H",
+      "reset": "XX",
+      "access": "R",
+      "page": 137,
+      "aliases": [
+        "TMR2_RR_H"
+      ]
+    },
+    {
+      "address": "0074",
+      "name": "TMR3_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 132
+    },
+    {
+      "address": "0075",
+      "name": "TMR3_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 133
+    },
+    {
+      "address": "0076",
+      "name": "TMR3_IIR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 135
+    },
+    {
+      "address": "0077",
+      "name": "TMR3_DR_L",
+      "reset": "XX",
+      "access": "R",
+      "page": 136,
+      "aliases": [
+        "TMR3_RR_L"
+      ]
+    },
+    {
+      "address": "0078",
+      "name": "TMR3_DR_H",
+      "reset": "XX",
+      "access": "R",
+      "page": 137,
+      "aliases": [
+        "TMR3_RR_H"
+      ]
+    },
+    {
+      "address": "0079",
+      "name": "PWM_CTL1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 153
+    },
+    {
+      "address": "007A",
+      "name": "PWM_CTL2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 154
+    },
+    {
+      "address": "007B",
+      "name": "PWM_CTL3",
+      "reset": "00",
+      "access": "R/W",
+      "page": 156,
+      "aliases": [
+        "TMR3_CAP_CTL"
+      ]
+    },
+    {
+      "address": "007C",
+      "name": "PWM0R_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_CAPA_L"
+      ]
+    },
+    {
+      "address": "007D",
+      "name": "PWM0R_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_CAPA_H"
+      ]
+    },
+    {
+      "address": "007E",
+      "name": "PWM1R_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_CAPB_L"
+      ]
+    },
+    {
+      "address": "007F",
+      "name": "PWM1R_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_CAPB_H"
+      ]
+    },
+    {
+      "address": "0080",
+      "name": "PWM2R_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_OC_CTL1"
+      ]
+    },
+    {
+      "address": "0081",
+      "name": "PWM2R_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_OC_CTL2"
+      ]
+    },
+    {
+      "address": "0082",
+      "name": "PWM3R_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_OC0_L"
+      ]
+    },
+    {
+      "address": "0083",
+      "name": "PWM3R_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 157,
+      "aliases": [
+        "TMR3_OC0_H"
+      ]
+    },
+    {
+      "address": "0084",
+      "name": "PWM0F_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC1_L"
+      ]
+    },
+    {
+      "address": "0085",
+      "name": "PWM0F_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC1_H"
+      ]
+    },
+    {
+      "address": "0086",
+      "name": "PWM1F_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC2_L"
+      ]
+    },
+    {
+      "address": "0087",
+      "name": "PWM1F_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC2_H"
+      ]
+    },
+    {
+      "address": "0088",
+      "name": "PWM2F_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC3_L"
+      ]
+    },
+    {
+      "address": "0089",
+      "name": "PWM2F_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158,
+      "aliases": [
+        "TMR3_OC3_H"
+      ]
+    },
+    {
+      "address": "008A",
+      "name": "PWM3F_L",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158
+    },
+    {
+      "address": "008B",
+      "name": "PWM3F_H",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 158
+    },
+    {
+      "address": "0093",
+      "name": "WDT_CTL",
+      "reset": "08/28",
+      "access": "R/W",
+      "page": 117
+    },
+    {
+      "address": "0094",
+      "name": "WDT_RR",
+      "reset": "XX",
+      "access": "W",
+      "page": 119
+    },
+    {
+      "address": "0096",
+      "name": "PA_DR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "0097",
+      "name": "PA_DDR",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "0098",
+      "name": "PA_ALT1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "0099",
+      "name": "PA_ALT2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "009A",
+      "name": "PB_DR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "009B",
+      "name": "PB_DDR",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "009C",
+      "name": "PB_ALT1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "009D",
+      "name": "PB_ALT2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "009E",
+      "name": "PC_DR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "009F",
+      "name": "PC_DDR",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "00A0",
+      "name": "PC_ALT1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "00A1",
+      "name": "PC_ALT2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "00A2",
+      "name": "PD_DR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "00A3",
+      "name": "PD_DDR",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 55
+    },
+    {
+      "address": "00A4",
+      "name": "PD_ALT1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "00A5",
+      "name": "PD_ALT2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 56
+    },
+    {
+      "address": "00A6",
+      "name": "PA_ALT0",
+      "reset": "00",
+      "access": "W",
+      "page": 56
+    },
+    {
+      "address": "00A7",
+      "name": "PB_ALT0",
+      "reset": "00",
+      "access": "W",
+      "page": 56
+    },
+    {
+      "address": "00A8",
+      "name": "CS0_LBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 85
+    },
+    {
+      "address": "00A9",
+      "name": "CS0_UBR",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 86
+    },
+    {
+      "address": "00AA",
+      "name": "CS0_CTL",
+      "reset": "E8",
+      "access": "R/W",
+      "page": 87
+    },
+    {
+      "address": "00AB",
+      "name": "CS1_LBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 85
+    },
+    {
+      "address": "00AC",
+      "name": "CS1_UBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 86
+    },
+    {
+      "address": "00AD",
+      "name": "CS1_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 87
+    },
+    {
+      "address": "00AE",
+      "name": "CS2_LBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 85
+    },
+    {
+      "address": "00AF",
+      "name": "CS2_UBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 86
+    },
+    {
+      "address": "00B0",
+      "name": "CS2_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 87
+    },
+    {
+      "address": "00B1",
+      "name": "CS3_LBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 85
+    },
+    {
+      "address": "00B2",
+      "name": "CS3_UBR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 86
+    },
+    {
+      "address": "00B3",
+      "name": "CS3_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 87
+    },
+    {
+      "address": "00B4",
+      "name": "RAM_CTL",
+      "reset": "C0",
+      "access": "R/W",
+      "page": 94
+    },
+    {
+      "address": "00B5",
+      "name": "RAM_ADDR_U",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 95
+    },
+    {
+      "address": "00B6",
+      "name": "MBIST_GPR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 96
+    },
+    {
+      "address": "00B7",
+      "name": "MBIST_EMR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 96
+    },
+    {
+      "address": "00B8",
+      "name": "SPI_BRG_L",
+      "reset": "02",
+      "access": "R/W",
+      "page": 207
+    },
+    {
+      "address": "00B9",
+      "name": "SPI_BRG_H",
+      "reset": "00",
+      "access": "R/W",
+      "page": 207
+    },
+    {
+      "address": "00BA",
+      "name": "SPI_CTL",
+      "reset": "04",
+      "access": "R/W",
+      "page": 208
+    },
+    {
+      "address": "00BB",
+      "name": "SPI_SR",
+      "reset": "00",
+      "access": "R",
+      "page": 209
+    },
+    {
+      "address": "00BC",
+      "name": "SPI_TSR",
+      "reset": "XX",
+      "access": "W",
+      "page": 210,
+      "aliases": [
+        "SPI_RBR"
+      ]
+    },
+    {
+      "address": "00BF",
+      "name": "IR_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 199
+    },
+    {
+      "address": "00C0",
+      "name": "UART0_RBR",
+      "reset": "XX",
+      "access": "R",
+      "page": 184,
+      "aliases": [
+        "UART0_THR",
+        "UART0_BRG_L"
+      ]
+    },
+    {
+      "address": "00C1",
+      "name": "UART0_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 185,
+      "aliases": [
+        "UART0_BRG_H"
+      ]
+    },
+    {
+      "address": "00C2",
+      "name": "UART0_IIR",
+      "reset": "01",
+      "access": "R",
+      "page": 186,
+      "aliases": [
+        "UART0_FCTL"
+      ]
+    },
+    {
+      "address": "00C3",
+      "name": "UART0_LCTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 188
+    },
+    {
+      "address": "00C4",
+      "name": "UART0_MCTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 190
+    },
+    {
+      "address": "00C5",
+      "name": "UART0_LSR",
+      "reset": "60",
+      "access": "R",
+      "page": 191
+    },
+    {
+      "address": "00C6",
+      "name": "UART0_MSR",
+      "reset": "XX",
+      "access": "R",
+      "page": 193
+    },
+    {
+      "address": "00C7",
+      "name": "UART0_SPR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 194
+    },
+    {
+      "address": "00C8",
+      "name": "I2C_SAR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 224
+    },
+    {
+      "address": "00C9",
+      "name": "I2C_XSAR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 224
+    },
+    {
+      "address": "00CA",
+      "name": "I2C_DR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 225
+    },
+    {
+      "address": "00CB",
+      "name": "I2C_CTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 226
+    },
+    {
+      "address": "00CE",
+      "name": "PC_ALT0",
+      "reset": "00",
+      "access": "W",
+      "page": 56
+    },
+    {
+      "address": "00CF",
+      "name": "PD_ALT0",
+      "reset": "00",
+      "access": "W",
+      "page": 56
+    },
+    {
+      "address": "00CC",
+      "name": "I2C_SR",
+      "reset": "F8",
+      "access": "R",
+      "page": 227,
+      "aliases": [
+        "I2C_CCR"
+      ]
+    },
+    {
+      "address": "00CD",
+      "name": "I2C_SRR",
+      "reset": "XX",
+      "access": "W",
+      "page": 230
+    },
+    {
+      "address": "00D0",
+      "name": "UART1_RBR",
+      "reset": "XX",
+      "access": "R",
+      "page": 184,
+      "aliases": [
+        "UART1_THR",
+        "UART1_BRG_L"
+      ]
+    },
+    {
+      "address": "00D1",
+      "name": "UART1_IER",
+      "reset": "00",
+      "access": "R/W",
+      "page": 185,
+      "aliases": [
+        "UART1_BRG_H"
+      ]
+    },
+    {
+      "address": "00D2",
+      "name": "UART1_IIR",
+      "reset": "01",
+      "access": "R",
+      "page": 186,
+      "aliases": [
+        "UART1_FCTL"
+      ]
+    },
+    {
+      "address": "00D3",
+      "name": "UART1_LCTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 188
+    },
+    {
+      "address": "00D4",
+      "name": "UART1_MCTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 190
+    },
+    {
+      "address": "00D5",
+      "name": "UART1_LSR",
+      "reset": "60",
+      "access": "R/W",
+      "page": 191
+    },
+    {
+      "address": "00D6",
+      "name": "UART1_MSR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 193
+    },
+    {
+      "address": "00D7",
+      "name": "UART1_SPR",
+      "reset": "00",
+      "access": "R/W",
+      "page": 194
+    },
+    {
+      "address": "00DB",
+      "name": "CLK_PPD1",
+      "reset": "00",
+      "access": "R/W",
+      "page": 47
+    },
+    {
+      "address": "00DC",
+      "name": "CLK_PPD2",
+      "reset": "00",
+      "access": "R/W",
+      "page": 48
+    },
+    {
+      "address": "00E0",
+      "name": "RTC_SEC",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 161
+    },
+    {
+      "address": "00E1",
+      "name": "RTC_MIN",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 162
+    },
+    {
+      "address": "00E2",
+      "name": "RTC_HRS",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 163
+    },
+    {
+      "address": "00E3",
+      "name": "RTC_DOW",
+      "reset": "0X",
+      "access": "R/W",
+      "page": 164
+    },
+    {
+      "address": "00E4",
+      "name": "RTC_DOM",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 165
+    },
+    {
+      "address": "00E5",
+      "name": "RTC_MON",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 166
+    },
+    {
+      "address": "00E6",
+      "name": "RTC_YR",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 167
+    },
+    {
+      "address": "00E7",
+      "name": "RTC_CEN",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 168
+    },
+    {
+      "address": "00E8",
+      "name": "RTC_ASEC",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 169
+    },
+    {
+      "address": "00E9",
+      "name": "RTC_AMIN",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 170
+    },
+    {
+      "address": "00EA",
+      "name": "RTC_AHRS",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 171
+    },
+    {
+      "address": "00EB",
+      "name": "RTC_ADOW",
+      "reset": "0X",
+      "access": "R/W",
+      "page": 172
+    },
+    {
+      "address": "00EC",
+      "name": "RTC_ACTRL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 173
+    },
+    {
+      "address": "00ED",
+      "name": "RTC_CTRL",
+      "reset": "x0xxxx00",
+      "access": "R/W",
+      "page": 174
+    },
+    {
+      "address": "00F0",
+      "name": "CS0_BMC",
+      "reset": "02",
+      "access": "R/W",
+      "page": 88
+    },
+    {
+      "address": "00F1",
+      "name": "CS1_BMC",
+      "reset": "02",
+      "access": "R/W",
+      "page": 88
+    },
+    {
+      "address": "00F2",
+      "name": "CS2_BMC",
+      "reset": "02",
+      "access": "R/W",
+      "page": 88
+    },
+    {
+      "address": "00F3",
+      "name": "CS3_BMC",
+      "reset": "02",
+      "access": "R/W",
+      "page": 88
+    },
+    {
+      "address": "00F5",
+      "name": "FLASH_KEY",
+      "reset": "00",
+      "access": "W",
+      "page": 102
+    },
+    {
+      "address": "00F6",
+      "name": "FLASH_DATA",
+      "reset": "XX",
+      "access": "R/W",
+      "page": 103
+    },
+    {
+      "address": "00F7",
+      "name": "FLASH_ADDR_U",
+      "reset": "00",
+      "access": "R/W",
+      "page": 104
+    },
+    {
+      "address": "00F8",
+      "name": "FLASH_CTL",
+      "reset": "88",
+      "access": "R/W",
+      "page": 105
+    },
+    {
+      "address": "00F9",
+      "name": "FLASH_FDIV",
+      "reset": "01",
+      "access": "R/W",
+      "page": 106
+    },
+    {
+      "address": "00FA",
+      "name": "FLASH_PROT",
+      "reset": "FF",
+      "access": "R/W",
+      "page": 107
+    },
+    {
+      "address": "00FB",
+      "name": "FLASH_IRQ",
+      "reset": "00",
+      "access": "R/W",
+      "page": 108
+    },
+    {
+      "address": "00FC",
+      "name": "FLASH_PAGE",
+      "reset": "00",
+      "access": "R/W",
+      "page": 109
+    },
+    {
+      "address": "00FD",
+      "name": "FLASH_ROW",
+      "reset": "00",
+      "access": "R/W",
+      "page": 111
+    },
+    {
+      "address": "00FE",
+      "name": "FLASH_COL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 112
+    },
+    {
+      "address": "00FF",
+      "name": "FLASH_PGCTL",
+      "reset": "00",
+      "access": "R/W",
+      "page": 112
+    }
+  ]
+}

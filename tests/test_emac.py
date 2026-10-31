@@ -15,14 +15,14 @@ MAC = bytes.fromhex('525400123456')
 FRAME = MAC + bytes.fromhex('0200000000010800') + bytes(range(46))
 
 class Fixture:
-    def __init__(self, root):
+    def __init__(self, root, extra=()):
         self.root = root
         rom = root/'mac.bin'; rom.write_bytes(bytes([0x5b, 0xc3, 5, 0, 0, 0x76]))
         self.host, peer = socket.socketpair()
         self.host.settimeout(3)
         path = root/'gdb.sock'
         self.vm = VM(rom, extra=('-nic', f'socket,id=wire,fd={peer.fileno()}',
-                                 '-gdb', f'unix:{path},server=on,wait=off'),
+                                 '-gdb', f'unix:{path},server=on,wait=off', *extra),
                      pass_fds=(peer.fileno(),))
         peer.close()
         self.g = RSP.__new__(RSP)
@@ -170,8 +170,60 @@ with tempfile.TemporaryDirectory(prefix='f91-emac-') as td:
         assert f.read(f.base+0x1005,2)==bytes.fromhex('0082')
         f.setup();f.io(0x32,4);f.inject(multicast)
         print('PASS: unicast, broadcast, promiscuous and multicast hash filters')
+        f.setup()
+        f.io(0x2b, 0x34); f.io(0x2c, 0x12)
+        f.io(0x24, 0x45)
+        pause = f.packet()
+        assert pause[:6] == bytes.fromhex('0180c2000001') and pause[6:12] == MAC
+        assert pause[12:18] == bytes.fromhex('880800011234')
+        f.io(0x24, 1)
+        f.setup(); f.io(0x24, 9)
+        pause = bytes.fromhex('0180c2000001') + FRAME[6:12] + bytes.fromhex('88080001ea60') + bytes(42)
+        f.vm.cmd('cont')
+        f.host.sendall(struct.pack('!I', len(pause)) + pause)
+        time.sleep(.01)
+        f.vm.cmd('stop')
+        f.tx()
+        assert f.read(f.base + 5, 2) == bytes.fromhex('0080')  # Ownership held during pause.
+        assert f.packet() == FRAME
+        print('PASS: real PAUSE control frame transmission, receive flow control and automatic TX resume')
 
     finally: f.close()
+
+with tempfile.TemporaryDirectory(prefix='f91-phy-modes-') as td:
+    for speed, full, partner, diagnostic in (
+            (10, False, 0x21, 0), (10, True, 0x41, 0x800),
+            (100, False, 0x81, 0x400), (100, True, 0x101, 0xc00)):
+        root = pathlib.Path(td) / f'{speed}-{full}'
+        root.mkdir()
+        f = Fixture(root, ('-global', f'ez80f91-emac.link-speed={speed}',
+                           '-global', f'ez80f91-emac.full-duplex={"on" if full else "off"}'))
+        try:
+            f.setup()
+            assert f.phy(5) == partner
+            assert f.phy(18) == diagnostic
+            assert f.phy(18, 0xffff) == diagnostic  # Read-only diagnostics.
+            assert f.phy(5, 0xffff) == partner
+            f.phy(4, 1)  # No common advertised mode: no negotiated link.
+            assert not f.phy(1) & 0x24 and f.phy(18) == 0
+            f.phy(4, 0x1e1)
+            assert f.phy(1) & 0x24 == 0x24
+            f.phy(0, 0x2100)  # Forced 100/full with autonegotiation disabled.
+            assert f.phy(18) == 0xc00 and f.phy(1) & 0x24 == 4
+            f.phy(0, 0)  # Forced 10/half.
+            assert f.phy(18) == 0 and f.phy(1) & 4
+            f.phy(0, 0x8000)
+            assert f.phy(18) == diagnostic
+            f.vm.cmd('set_link', {'name': 'wire', 'up': False})
+            assert f.phy(18) == 0 and not f.phy(1) & 4
+            f.vm.cmd('set_link', {'name': 'wire', 'up': True})
+            assert f.phy(18) == diagnostic
+            f.vm.cmd('system_reset')
+            f.setup()
+            assert f.phy(18) == diagnostic
+        finally:
+            f.close()
+    print('PASS: 10/100 half/full PHY diagnostics, partner, autonegotiation, forced modes, link loss and reset')
 
 # These probes execute IN0/OUT0, descriptor writes and IM2 dispatch in the CPU.
 class ROM:

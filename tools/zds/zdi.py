@@ -33,6 +33,8 @@ class ZDI:
             return 0x80 | (r[18] << 4) | (r[19] << 3) | (r[20] << 2)
         if 0x10 <= address <= 0x12:
             return self.rd[address - 0x10]
+        if address == 0x17:
+            return self.wr[0x17] & 0xc0
         if address == 0x20:
             r = self.rsp.registers()
             pc = r[0]
@@ -103,7 +105,16 @@ class ZDI:
             if value == 0x16:
                 value = 0
             r = self.rsp.registers()
-            if value in (8, 9):
+            if value in (0x0b, 0x8b):
+                pc = r[0] if r[18] else (r[17] << 16) | (r[0] & 0xffff)
+                if value == 0x0b:
+                    self.rd[0] = self.rsp.memory(pc, 1)[0]
+                else:
+                    self.rsp.write_memory(pc, bytes([self.wr[0x13]]))
+                r[0] = ((pc + 1) & 0xffffff) if r[18] else (
+                    (r[17] << 16) | ((pc + 1) & 0xffff))
+                self.prefetch = True
+            elif value in (8, 9):
                 r[18] = int(value == 8)
             elif value == 10:
                 for a, b in ((1, 6), (2, 7), (3, 8), (12, 14), (13, 15)):
@@ -139,6 +150,8 @@ class ZDI:
             else:
                 raise DTLError(f"ZDI RW control {value:02x}")
             self.rsp.set_registers(r)
+        elif address == 0x17:
+            self.wr[address] = value & 0xc0
         elif address == 0x25:
             self.inject()
         elif (

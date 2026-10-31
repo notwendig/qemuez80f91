@@ -2,7 +2,7 @@
 """Live test: a running FreeRTOS target must boot CP/M and accept DIR twice.
 
 Usage: python3 tests/test_freertos_cpm.py 192.168.77.26 [4050]
-Requires the raw CS3 disk image and matching CP/M BIOS.
+Requires the WD2797A port device, raw disk images and matching firmware.
 """
 import socket
 import sys

@@ -77,10 +77,14 @@ for scans. Timer1 shares the system source but has independent counter/reload/IR
 state. `test_timer_irq.py` checks both sources and independent gating.
 
 ```sh
-nc -u 192.168.77.26 4060
+nc -u ez804040 4060
 ```
 
 The first UDP datagram (for example Enter in netcat) starts the ANSI SysInfo
-monitor. `./start.sh --kit` opens the matrix. The display publishes complete
+monitor. After closing and reopening netcat, press Enter again. The latest
+sender becomes the active viewer, including a new UDP source port; its display
+is redrawn and updates stop going to the previous endpoint. The monitor keeps
+receiving between updates, so QEMU does not need restarting to reconnect.
+`./start.sh --kit` opens the matrix. The display publishes complete
 scans and retains the last complete frame between updates, even when execution
 is slower than real time; see [Kit](kit.md).

@@ -1,13 +1,16 @@
 """Open a dedicated UART terminal and serialize eZ80 instances by debug port."""
 import fcntl
+import argparse
+import json
 import os
+import re
 from pathlib import Path
 import shutil
 import signal
 import socket
 import subprocess
 import sys
-from demo_network import start_after_bridge
+from demo_network import host_link_options, start_after_bridge
 
 
 def lock_port(port):
@@ -32,7 +35,42 @@ def check_port(port):
             raise RuntimeError(f'Debugport {port} ist bereits belegt: {error}') from None
 
 
-def terminal_session(port, qemu, run=False, kit=False):
+def check_qemu(qemu):
+    result = subprocess.run([qemu, '-M', 'ez80f91-minimal,help'],
+                            capture_output=True, text=True, timeout=10)
+    if result.returncode or not all(option in result.stdout + result.stderr
+                                    for option in ('wd2797a=', 'hostname=')):
+        raise RuntimeError(f'QEMU unter {qemu} unterstützt WD2797A/Hostname nicht. '
+                           'Die installierte QEMU-Version muss aktualisiert werden.')
+
+
+def disk_directory(port, supplied=None):
+    if supplied is not None:
+        directory = supplied.resolve()
+        if not directory.is_dir():
+            raise RuntimeError(f'Disk-Verzeichnis fehlt: {directory}')
+        return directory
+    directory = Path.cwd() / f'ez80f91_disks.{port}'
+    directory.mkdir(exist_ok=True)
+    source = Path(__file__).resolve().parents[1] / 'images/cpm'
+    legacy = Path.cwd() / f'ez80f91_cs3.{port}'
+    layout = json.loads((source / 'layout.json').read_text())
+    raw = legacy.read_bytes() if legacy.exists() else None
+    if raw is not None and len(raw) != sum(disk['size'] for disk in layout):
+        raise RuntimeError(f'Unerwartete Größe des bisherigen CS3-Images: {legacy}')
+    for disk in layout:
+        name = disk['drive'] + '.img'
+        target = directory / name
+        if target.exists():
+            continue
+        if raw is None:
+            shutil.copyfile(source / name, target)
+        else:
+            target.write_bytes(raw[disk['offset']:disk['offset'] + disk['size']])
+    return directory
+
+
+def terminal_session(port, qemu, run=False, kit=False, dev=None, devport=0x1000, hostname=None):
     with lock_port(port) as lock:
         check_port(port)
         child = None
@@ -54,14 +92,12 @@ def terminal_session(port, qemu, run=False, kit=False):
         uart_log = Path(lock.name).with_suffix('.uart.log')
         kit_state = Path(lock.name).with_suffix('.kit.json')
         kit_options = []
-        disk_options = []
-        template = Path(__file__).resolve().parents[1] / 'images/cpm/cs3-abcdij.img'
-        if template.is_file():
-            disk = Path.cwd() / f'ez80f91_cs3.{port}'
-            if not disk.exists():
-                shutil.copyfile(template, disk)
-            disk_options = ['-global', f'ez80f91-memory.cs3-file={disk}']
-            print('CP/M CS3: ' + str(disk), flush=True)
+        hostname = hostname if hostname is not None else f'ez80{port}'
+        print(f'Hostname: {hostname}', flush=True)
+        directory = disk_directory(port, dev)
+        disk_options = ['-global', f'ez80f91-memory.dev-dir={directory}',
+                        '-global', f'ez80f91-memory.wd2797a={devport}']
+        print(f'CP/M: {directory}; WD2797A-Basisport {devport:#x}', flush=True)
         if kit:
             kit_state.unlink(missing_ok=True)
             kit_options = ['-global', f'ez80f91-memory.kit-led-state={kit_state}']
@@ -75,12 +111,14 @@ def terminal_session(port, qemu, run=False, kit=False):
         print('Netz: br0; AMD-PHY 31; DHCP von nadibox. UART-Protokoll: ' + str(uart_log), flush=True)
         try:
             child = subprocess.Popen([
-                qemu, '-M', 'ez80f91-minimal', f'--dbgport={port}', '--scan-dev',
+                qemu, '-M', 'ez80f91-minimal,cs3=none', f'--dbgport={port}', '--scan-dev',
                 '-S', '-display', 'none', '-monitor', 'none',
                 '-chardev', f'stdio,id=uart,logfile={uart_log}', '-serial', 'chardev:uart',
                 '-rtc', 'base=utc,clock=host',
                 '-icount', 'shift=5,sleep=off', '-global', 'ez80f91-emac.phy-addr=31',
-                *network, *kit_options, *disk_options], pass_fds=(lock.fileno(),))
+                '-global', f'ez80f91-memory.hostname={hostname}',
+                *host_link_options('br0'), *network, *kit_options, *disk_options],
+                pass_fds=(lock.fileno(),))
             if kit:
                 kit_child = subprocess.Popen([sys.executable,
                     str(Path(__file__).with_name('kit.py')), str(kit_state), '--port', str(port), '--qmp', str(qmp_path)])
@@ -101,17 +139,42 @@ def terminal_session(port, qemu, run=False, kit=False):
 
 
 def main():
-    session = sys.argv[1] == '--session'
-    port = int(sys.argv[2])
-    qemu = str(Path(sys.argv[3]).resolve())
-    run = '--run' in sys.argv[4:]
-    kit = '--kit' in sys.argv[4:]
-    if session:
-        return terminal_session(port, qemu, run, kit)
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--session', action='store_true')
+    mode.add_argument('--launch', action='store_true')
+    parser.add_argument('port', type=int)
+    parser.add_argument('qemu', type=Path)
+    parser.add_argument('--run', action='store_true')
+    parser.add_argument('--kit', action='store_true')
+    parser.add_argument('--dev', type=Path)
+    parser.add_argument('--hostname', help='DHCP-Hostname (Standard: ez80<Debugport>)')
+    parser.add_argument('--wd2797a', '--devport', dest='devport', type=lambda value: int(value, 0), default=0x1000)
+    args = parser.parse_args()
+    if not 0x100 <= args.devport <= 0xfff8 or 0xfef9 <= args.devport <= 0xff4b:
+        parser.error('--wd2797a benötigt 8 externe Ports; Basis 0x100..0xfff8, Bereich 0xff00..0xff4b ist reserviert')
+    if args.hostname is None:
+        args.hostname = f'ez80{args.port}'
+    if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', args.hostname):
+        parser.error('--hostname: 1..63 ASCII-Buchstaben/Ziffern, Bindestriche nur im Inneren')
+    if args.dev is not None:
+        if not args.dev.is_dir():
+            parser.error(f'Disk-Verzeichnis fehlt: {args.dev}')
+        if not any((args.dev / name).is_file() for drive in 'ABCDEFGHIJKLMNOP'
+                   for name in (drive, drive + '.img')):
+            parser.error(f'Keine Dateien A.img..P.img oder A..P in {args.dev}')
+    port, qemu, run, kit = args.port, str(args.qemu.resolve()), args.run, args.kit
+    check_qemu(qemu)
+    if args.session:
+        return terminal_session(port, qemu, run, kit, args.dev, args.devport, args.hostname)
     # Fail before opening a window; the terminal child rechecks under its lock.
     with lock_port(port):
         check_port(port)
     command = [sys.executable, str(Path(__file__).resolve()), '--session', str(port), qemu]
+    command.extend(['--wd2797a', str(args.devport)])
+    command.extend(['--hostname', args.hostname])
+    if args.dev:
+        command.extend(['--dev', str(args.dev.resolve())])
     if run:
         command.append('--run')
     if kit:
@@ -124,7 +187,11 @@ def main():
         terminal = ['xterm', '-T', title, '-e', *command]
     else:
         raise RuntimeError('Kein UART-Terminal gefunden (gnome-terminal oder xterm benötigt).')
-    return subprocess.call(terminal)
+    terminal_env = os.environ.copy()
+    # A closed parent terminal may leave stale D-Bus screen/service IDs.
+    for name in ('GNOME_TERMINAL_SCREEN', 'GNOME_TERMINAL_SERVICE'):
+        terminal_env.pop(name, None)
+    return subprocess.call(terminal, env=terminal_env)
 
 
 if __name__ == '__main__':

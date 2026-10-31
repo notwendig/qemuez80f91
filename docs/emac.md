@@ -69,10 +69,24 @@ The Clause-22 PHY defaults to address 0, IDs 0022h/561Bh. It supports management
 reads/writes, BMCR reset, powerdown/isolation, backend link status and MGTDONE.
 `phy-addr` accepts 0–31; the vendor/FreeRTOS board launch uses address 31.
 
+The starters read speed and duplex from active physical members of the host
+bridge at startup. With several physical members, they use the lowest speed
+and full duplex only if all members report full duplex. TAP interfaces are
+ignored. Speeds above 100 Mbps are capped at the F91 PHY's 100 Mbps limit;
+unavailable host information falls back to 100 Mbps/full duplex.
+Direct QEMU launches can set `-global ez80f91-emac.link-speed=10` (or `100`)
+and `-global ez80f91-emac.full-duplex=off` (or `on`).
+The link partner advertisement and Am79C874 diagnostic register 18 report
+the resulting mode, including guest-forced BMCR modes. With autonegotiation
+enabled, the guest advertisement must include the configured partner mode.
+PHY and guest reset preserve the configured host mode. Restart the emulator
+to read changed host settings; these values do not throttle packet throughput.
+
 ## Tests and limits
 
 ```sh
 python3 tests/test_emac.py build/ez80/qemu-system-ez80
+python3 tests/test_host_link.py
 ```
 
 Tests exercise real socket frames, descriptors/FCS, padding/CRC rejection,

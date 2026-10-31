@@ -28,12 +28,22 @@ user. I's directory overflow is passed to C, then D. Files that do not fit on
 C/D are skipped while smaller following files are still attempted. All failed
 or unreadable imports are rolled back. `layout.json` records overflow per disk;
 `remaining-files.json` lists the 21 files still omitted after D. J's 33 files
-fit completely. The BIOS and CP/M support now use these geometries and directly access the
-CS3 image at 200000–AFFFFF, without decompression. Pass
-`-M ez80f91-minimal,cs3-file=/absolute/path/to/cs3-abcdij.img` to QEMU.
-This attaches writable RAM and preserves the exact raw file length on exit;
-there is no flash CRC trailer. `start.sh` creates and uses a per-debug-port
-copy named `ez80f91_cs3.<port>` so the bundled template remains reusable.
+fit completely.
 
-The previous `cs3-abi.img` (A/B/I) and `cs3-abcdi.img` (A/B/C/D/I) combinations
-are also regenerated; their offsets differ from the six-disk layout above.
+## WD2797A device
+
+The current firmware uses the separate raw images through a WD2797A controller:
+
+```sh
+qemuez80f91 --kit --run --wd2797a 0x1000 --dev '/path/to/disks'
+```
+
+The controller transfers sectors entirely through I/O ports; CS3 disk RAM and
+memory banking are no longer used. `A.img`, `B.img`, etc., or plain A/B names
+are accepted. Existing images retain their exact raw sizes and contents.
+See [register map, geometry extensions and tests](../../docs/wd2797a.md).
+
+Without `--dev`, the starter uses `ez80f91_disks.<debugport>`, retaining existing
+files and migrating the previous combined `ez80f91_cs3.<debugport>` on first use.
+An explicit directory is used directly. The older combined images remain
+artifacts for inspection and migration, rather than current guest memory maps.

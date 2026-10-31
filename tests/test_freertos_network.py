@@ -4,6 +4,7 @@
 Usage: test_freertos_network.py QEMU FIRMWARE.bin [EXTERNAL_FLASH.bin]
 Add --debug-reset to test a debugger-provided stack and cleared MADL.
 Add --cpm to boot CP/M on TCP 4050 and run DIR.
+Add --hostname NAME to check a custom DHCP hostname (default ez800).
 With EXTERNAL_FLASH.bin, cold-boot internal flash and attach external flash at 0x100000.
 No bridge, external DHCP server or host TCP ports are needed.
 """
@@ -24,6 +25,12 @@ cpm_test = '--cpm' in sys.argv
 if cpm_test:
     sys.argv.remove('--cpm')
 SERVICE_PORT = 4050 if cpm_test else 4040
+hostname = None
+if '--hostname' in sys.argv:
+    index = sys.argv.index('--hostname')
+    hostname = sys.argv[index + 1]
+    del sys.argv[index:index + 2]
+expected_hostname = (hostname if hostname is not None else 'ez800').encode('ascii')
 
 SERVER_IP = socket.inet_aton('192.168.77.1')
 GUEST_IP = socket.inet_aton('192.168.77.123')
@@ -46,6 +53,7 @@ class Peer:
         self.lock = threading.Lock()
         self.guest_mac = None
         self.dhcp = []
+        self.hostnames = []
         self.errors = []
         self.ping = False
         self.tcp_connected = False
@@ -106,6 +114,7 @@ class Peer:
     def dhcp_reply(self, boot):
         options = boot[240:]
         message = None
+        name = None
         while options:
             code = options[0]
             options = options[1:]
@@ -116,9 +125,12 @@ class Peer:
             size = options[0]
             if code == 53:
                 message = options[1]
+            if code == 12:
+                name = options[1:size + 1]
             options = options[size + 1:]
         if message not in (1, 3):
             return
+        self.hostnames.append((message, name))
         self.guest_mac = boot[28:34]
         kind = 2 if message == 1 else 5
         self.dhcp.append(kind)
@@ -193,6 +205,7 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
     vm = VM(Path(sys.argv[2]).resolve(), 'file:' + str(uart),
             extra=('-icount', 'shift=5,sleep=off', '-nic', f'socket,fd={guest.fileno()}',
                    '-global', 'ez80f91-emac.phy-addr=31',
+                   *(['-global', f'ez80f91-memory.hostname={hostname}'] if hostname is not None else []),
                    *(['-gdb', f'unix:{directory}/gdb.sock,server=on,wait=off'] if debug_reset else [])),
             pass_fds=(guest.fileno(),),
             machine='ez80f91-freertos' if flash_boot else 'ez80f91-freertos,ram-boot=on',
@@ -251,6 +264,9 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
             values = bytes(int(value, 16) for value in re.findall(r'0x([0-9a-fA-F]{2})\b', memory))
             assert values == prefix, (memory, prefix)
         diagnostics = uart.read_bytes() + bytes(peer.received)
+        assert b'EMAC 100MBPS, FULL_DUPLEX, Link up' in diagnostics, diagnostics
+        assert (1, expected_hostname) in peer.hostnames, peer.hostnames
+        assert (3, expected_hostname) in peer.hostnames, peer.hostnames
         assert b'vDHCPProcess: offer 192.168.77.123' in diagnostics, diagnostics
         assert b'ipARP_REQUEST from 192.168.77.1 to 192.168.77.123 end-point 192.168.77.123' in diagnostics, diagnostics
         assert b'255.168.77.' not in diagnostics, diagnostics
@@ -259,4 +275,4 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
         vm.close()
         host.close()
         thread.join(2)
-print('PASS: DHCP, ARP, ICMP, ' + ('CP/M boot and DIR' if cpm_test else 'TCP console') + ' and full-width IPv4 diagnostics')
+print('PASS: DHCP hostname ' + expected_hostname.decode() + ', ARP, ICMP, ' + ('CP/M boot and DIR' if cpm_test else 'TCP console') + ' and full-width IPv4 diagnostics')

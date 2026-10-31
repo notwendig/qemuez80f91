@@ -3,17 +3,23 @@
 set -eu
 
 usage() {
-    echo "Aufruf: $0 [--run] [--kit] [dbgport <port>]"
+    echo "Aufruf: $0 [--run] [--kit] [--hostname <Name>] [--wd2797a <Basisport>] [--dev <Verzeichnis>] [dbgport <port>]"
     echo "Standard: Debugport 4040; QEMU_EZ80 wählt die QEMU-Datei."
 }
 
 port=4040
 run=
 kit=
+dev=
+devport=0x1000
+hostname=
 while [ $# -gt 0 ]; do
     case "$1" in
         --run) run=--run; shift ;;
         --kit) kit=--kit; shift ;;
+        --hostname) [ $# -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }; hostname=$2; shift 2 ;;
+        --dev) [ $# -ge 2 ] || { usage >&2; exit 2; }; dev=$2; shift 2 ;;
+        --wd2797a|--devport) [ $# -ge 2 ] || { usage >&2; exit 2; }; devport=$2; shift 2 ;;
         *) break ;;
     esac
 done
@@ -45,4 +51,9 @@ if [ ! -x "$qemu" ]; then
     echo "QEMU nicht ausführbar: $qemu (QEMU_EZ80 setzen)." >&2
     exit 1
 fi
-exec python3 "$script_dir/tools/start.py" --launch "$port" "$qemu" ${run:+"$run"} ${kit:+"$kit"}
+set -- --launch "$port" "$qemu" --wd2797a "$devport"
+[ -z "$run" ] || set -- "$@" "$run"
+[ -z "$kit" ] || set -- "$@" "$kit"
+[ -z "$dev" ] || set -- "$@" --dev "$dev"
+[ -z "$hostname" ] || set -- "$@" --hostname "$hostname"
+exec python3 "$script_dir/tools/start.py" "$@"

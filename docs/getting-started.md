@@ -98,6 +98,12 @@ installed vendor example.
 `--run` starts the saved flash immediately. **Ctrl+C** in the UART terminal
 stops the instance and saves its flash.
 
+The DHCP hostname is `ez80<debugport>` by default, such as `ez804040`.
+Use `qemuez80f91 --run --hostname labor-ez80` for a custom name. Names must
+contain 1–63 ASCII letters/digits with optional interior hyphens. Rebuild
+and load the updated FreeRTOS firmware once; later hostname changes only
+require restarting QEMU. Existing firmware keeps its compiled-in hostname.
+
 The launcher requires an existing `br0` and a configured QEMU bridge helper.
 It changes neither the host bridge nor DHCP settings. On the development
 network, nadibox at `192.168.77.1` supplies leases. The [demo tools](ztp-tcpudp.md)

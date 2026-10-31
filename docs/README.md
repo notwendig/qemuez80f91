@@ -27,6 +27,7 @@ manuals, source notices and license documents remain authoritative.
 
 ## Devices and debugging
 
+- [All on-chip devices and register inventory](onchip.md)
 - [Memory and chip selects](chip-selects.md)
 - [Flash and UART](flash-uart.md)
 - [Timers, interrupts and vectors](timer0-interrupts.md)

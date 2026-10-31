@@ -66,7 +66,8 @@ with tempfile.TemporaryDirectory(prefix='f91-flash-uart-') as td:
     r.out(0xf5,0xb6);r.out(0xf5,0x49);r.out(0xfa,0);r.sample(0xfa,4)
     r.out(0xf5,0xb6);r.out(0xf5,0x49);r.out(0xfa,1)
     r.out(0xfc,0);r.out(0xff,2);r.sample(0xfb,5);r.emit(0x76)
-    run('flash-key-unlock-relock-and-protected-page-rejection',r,bytes([0,255,0x55,255,0,2]))
+    # PS019217 Table 40: FLASH_FDIV resets to 01h; locked writes preserve it.
+    run('flash-key-unlock-relock-and-protected-page-rejection',r,bytes([1,255,0x55,255,0,2]))
 
     r=ROM();r.irq(0x50,bytes([0xed,0x38,0xfb,0x32,0,0xe1,0xff,0xf3,0x76]))
     r.out(0xfb,0x80);r.out(0xfc,0x80);r.out(0xff,2);r.emit(0xfb,0,0x76)

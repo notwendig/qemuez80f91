@@ -25,6 +25,12 @@ git -C qemu apply --reverse --check ../patches/0001-ez80f91-minimal.patch
 ninja -C build/ez80 -j8 qemu-system-ez80
 ```
 
+In VS Code, open the main repository folder and use **Run Build Task**
+(`Ctrl+Shift+B`). The default **Build eZ80 QEMU** task uses `build/ez80`.
+Configure that directory first as described in the [README](../README.md).
+Running `make -f Makefile all` inside `qemu/` fails because the generated
+configuration belongs to `build/ez80`, not the source directory.
+
 New QEMU files must be known to its index for `git diff` to include them.
 Do not reset unrelated edits. Also check forward application in an unchanged
 base checkout. Publish the patch through this project; the configured upstream
