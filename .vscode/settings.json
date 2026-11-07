@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/subprojects/FreeRTOS-eZ80f91/kernel"
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "cmake.configureOnOpen": false
 }

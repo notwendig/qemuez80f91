@@ -18,6 +18,11 @@ int main(int argc, char **argv) {
     QApplication app(argc, argv);
     app.setApplicationName("ez80-platform");
     app.setApplicationVersion("1.0");
+    app.setDesktopFileName("ez80-kit");
+    QIcon kitIcon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256, 512})
+        kitIcon.addFile(QString(":/icons/ez80-kit-%1.png").arg(size), QSize(size, size));
+    app.setWindowIcon(kitIcon);
     QCommandLineParser parser;
     parser.setApplicationDescription(
         "Native Qt 6 platform tools for QEMU/eZ80F91: start, kit, demo, f24, zds-launch.");

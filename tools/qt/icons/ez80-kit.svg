@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>eZ80F91 Development Kit</title>
+  <desc>A microcontroller on a teal circuit board with a red 5 by 7 LED matrix displaying Z.</desc>
+  <defs>
+    <linearGradient id="board" x2="0.8" y2="1"><stop stop-color="#245c60"/><stop offset="1" stop-color="#102f38"/></linearGradient>
+    <linearGradient id="chip" x2="0.2" y2="1"><stop stop-color="#162b32"/><stop offset="1" stop-color="#09171e"/></linearGradient>
+    <linearGradient id="pin" x2="1" y2="1"><stop stop-color="#f5d69a"/><stop offset="1" stop-color="#b68b50"/></linearGradient>
+  </defs>
+  <rect x="16" y="20" width="480" height="480" rx="100" fill="#081b24" opacity="0.2"/>
+  <rect x="16" y="12" width="480" height="480" rx="100" fill="url(#board)"/>
+  <rect x="28" y="24" width="456" height="456" rx="90" fill="none" stroke="#86c5bd" stroke-opacity="0.17" stroke-width="3"/>
+  <g fill="none" stroke="#83c4ad" stroke-opacity="0.22" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 194V106H106M458 310v88h-52M196 452h-90v-38M316 52h90v38"/>
+  </g>
+  <g fill="#78bfae" opacity="0.5"><circle cx="106" cy="106" r="7"/><circle cx="406" cy="398" r="7"/></g>
+  <g fill="url(#pin)">
+<rect x="145" y="76" width="18" height="54" rx="5"/>
+<rect x="145" y="382" width="18" height="54" rx="5"/>
+<rect x="76" y="145" width="54" height="18" rx="5"/>
+<rect x="382" y="145" width="54" height="18" rx="5"/>
+<rect x="196" y="76" width="18" height="54" rx="5"/>
+<rect x="196" y="382" width="18" height="54" rx="5"/>
+<rect x="76" y="196" width="54" height="18" rx="5"/>
+<rect x="382" y="196" width="54" height="18" rx="5"/>
+<rect x="247" y="76" width="18" height="54" rx="5"/>
+<rect x="247" y="382" width="18" height="54" rx="5"/>
+<rect x="76" y="247" width="54" height="18" rx="5"/>
+<rect x="382" y="247" width="54" height="18" rx="5"/>
+<rect x="298" y="76" width="18" height="54" rx="5"/>
+<rect x="298" y="382" width="18" height="54" rx="5"/>
+<rect x="76" y="298" width="54" height="18" rx="5"/>
+<rect x="382" y="298" width="54" height="18" rx="5"/>
+<rect x="349" y="76" width="18" height="54" rx="5"/>
+<rect x="349" y="382" width="18" height="54" rx="5"/>
+<rect x="76" y="349" width="54" height="18" rx="5"/>
+<rect x="382" y="349" width="54" height="18" rx="5"/>
+</g>
+  <rect x="108" y="116" width="296" height="296" rx="38" fill="#06131c" opacity="0.4"/>
+  <rect x="112" y="108" width="288" height="296" rx="34" fill="url(#chip)" stroke="#5c8a88" stroke-width="4"/>
+  <g>
+<circle cx="164" cy="148" r="13" fill="#ff644f"/>
+<circle cx="162" cy="145" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="210" cy="148" r="13" fill="#ff644f"/>
+<circle cx="208" cy="145" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="256" cy="148" r="13" fill="#ff644f"/>
+<circle cx="254" cy="145" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="302" cy="148" r="13" fill="#ff644f"/>
+<circle cx="300" cy="145" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="348" cy="148" r="13" fill="#ff644f"/>
+<circle cx="346" cy="145" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="164" cy="184" r="13" fill="#293438"/>
+<circle cx="210" cy="184" r="13" fill="#293438"/>
+<circle cx="256" cy="184" r="13" fill="#293438"/>
+<circle cx="302" cy="184" r="13" fill="#293438"/>
+<circle cx="348" cy="184" r="13" fill="#ff644f"/>
+<circle cx="346" cy="181" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="164" cy="220" r="13" fill="#293438"/>
+<circle cx="210" cy="220" r="13" fill="#293438"/>
+<circle cx="256" cy="220" r="13" fill="#293438"/>
+<circle cx="302" cy="220" r="13" fill="#ff644f"/>
+<circle cx="300" cy="217" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="348" cy="220" r="13" fill="#293438"/>
+<circle cx="164" cy="256" r="13" fill="#293438"/>
+<circle cx="210" cy="256" r="13" fill="#293438"/>
+<circle cx="256" cy="256" r="13" fill="#ff644f"/>
+<circle cx="254" cy="253" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="302" cy="256" r="13" fill="#293438"/>
+<circle cx="348" cy="256" r="13" fill="#293438"/>
+<circle cx="164" cy="292" r="13" fill="#293438"/>
+<circle cx="210" cy="292" r="13" fill="#ff644f"/>
+<circle cx="208" cy="289" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="256" cy="292" r="13" fill="#293438"/>
+<circle cx="302" cy="292" r="13" fill="#293438"/>
+<circle cx="348" cy="292" r="13" fill="#293438"/>
+<circle cx="164" cy="328" r="13" fill="#ff644f"/>
+<circle cx="162" cy="325" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="210" cy="328" r="13" fill="#293438"/>
+<circle cx="256" cy="328" r="13" fill="#293438"/>
+<circle cx="302" cy="328" r="13" fill="#293438"/>
+<circle cx="348" cy="328" r="13" fill="#293438"/>
+<circle cx="164" cy="364" r="13" fill="#ff644f"/>
+<circle cx="162" cy="361" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="210" cy="364" r="13" fill="#ff644f"/>
+<circle cx="208" cy="361" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="256" cy="364" r="13" fill="#ff644f"/>
+<circle cx="254" cy="361" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="302" cy="364" r="13" fill="#ff644f"/>
+<circle cx="300" cy="361" r="5" fill="#ffd4b3" opacity="0.65"/>
+<circle cx="348" cy="364" r="13" fill="#ff644f"/>
+<circle cx="346" cy="361" r="5" fill="#ffd4b3" opacity="0.65"/>
+</g></svg>

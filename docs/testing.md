@@ -180,3 +180,18 @@ python3 tests/test_kit_statistics.py build/ez80/qemu-system-ez80
 This uses an isolated instruction loop to check decoder ranges, the selected
 clock, instruction/virtual/host counters and paused state. Qt tests also verify
 the displayed MIPS, derived MHz and reference estimates.
+
+
+## VSCodium / IDE-free firmware workflow
+
+```sh
+python3 tools/firmware.py build --config Release
+python3 tests/test_firmware_flash.py build/ez80/qemu-system-ez80 build/firmware/Release/build.json
+python3 tests/test_freertos_camel.py build/ez80/qemu-system-ez80 build/firmware/Release/EZ80F910300ZCOG.hex
+```
+
+The flash test uses a temporary working directory. It checks SHA/CRC validation,
+backups, rollback after a second-image write failure, refusal to replace live
+QEMU flash, a clean QMP shutdown and cold boot from the persistent files alone.
+It does not touch the developer's running Kit or flash images. See
+[VSCodium tasks](vscodium.md) for build/deploy commands.

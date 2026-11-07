@@ -12,7 +12,6 @@ instructions; QEMU reads and writes files on the shared CP/M image/directory dri
 
 Both words have stack effect `( drive c-addr u -- )`. Drives are numeric:
 `0` = A:, `1` = B:, ... `15` = P:. Values outside 0..15 are rejected.
-The optional `A:` through `P:` aliases push those same numeric values.
 `S" NAME.F24"` pushes filename address and length, both at the prompt and
 inside colon definitions. Names use CP/M 8.3 matching.
 

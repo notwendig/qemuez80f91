@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=eZ80F91 Development Kit
+GenericName=eZ80 emulator and development kit
+Comment=Terminal consoles, LED matrix and controls for the eZ80F91 kit
+Comment[de]=Terminal-Konsolen, LED-Matrix und Steuerung für das eZ80F91-Kit
+Exec="@CMAKE_INSTALL_PREFIX@/bin/ez80-platform" start --kit
+Icon=ez80-kit
+Terminal=false
+Categories=Development;
+StartupWMClass=ez80-platform
+StartupNotify=true

@@ -7,6 +7,24 @@ The emulator runs actual eZ80 firmware in Z80 and ADL modes. It focuses on
 functional behavior and reproducible regression tests. It is not cycle-accurate
 or bus-accurate and does not establish complete eZ80F91 hardware compatibility.
 
+## Screenshots
+
+![FreeRTOS monitor with network, heap and button status](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2008-00-02.png)
+
+FreeRTOS monitor with the emulated LED matrix, buttons and memory map.
+
+| UART0 startup | CP/M 2.2 |
+| --- | --- |
+| ![FreeRTOS startup and DHCP on UART0](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2007-58-03.png) | ![CP/M 2.2 directory listing](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2007-59-00.png) |
+
+| FreeRTOS command console | CPU diagnostics |
+| --- | --- |
+| ![FreeRTOS command console](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2008-02-03.png) | ![CPU diagnostics](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2008-02-47.png) |
+
+| ZDS II source debugging | CAMEL24 Forth |
+| --- | --- |
+| ![ZDS II source debugging](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2008-30-17.png) | ![CAMEL24 Forth console and dictionary](docs/pictures/Bildschirmfoto%20vom%202026-11-07%2008-39-25.png) |
+
 ## Projects
 
 | Component | Purpose | Documentation |

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live FreeRTOS kit test: ISR, debounce task, and all three button counters.
-Usage: python3 tests/test_freertos_buttons.py /tmp/ez80f91-1000/4040.qmp
-Requires the running firmware to match the project's current ZDS map.
+Usage: python3 tests/test_freertos_buttons.py /tmp/ez80f91-1000/4040.qmp [firmware.map]
+Defaults to the Release CLI build; the map must match the running firmware.
 """
 from pathlib import Path
 import re
@@ -11,7 +11,7 @@ import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from kit import KitControls
 root=Path(__file__).resolve().parents[1]
-mapfile=root/'subprojects/FreeRTOS-eZ80f91/bin/EZ80F910300ZCOGd.map'
+mapfile=Path(sys.argv[2]) if len(sys.argv)>2 else root/'build/firmware/Release/EZ80F910300ZCOG.map'
 address=int(re.search(r'^_get_button\s+C:([0-9A-F]+)',mapfile.read_text(),re.M)[1],16)
 control=KitControls(Path(sys.argv[1]))
 with tempfile.TemporaryDirectory(prefix='f91-live-buttons-') as td:

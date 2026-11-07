@@ -6,6 +6,17 @@ target_compile_definitions(platform-tools PRIVATE EZ80_SOURCE_DIR="${PROJECT_SOU
 target_compile_options(platform-tools PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(ez80-platform main.cpp)
 target_link_libraries(ez80-platform PRIVATE platform-tools)
+set(KIT_ICON_FILES)
+foreach(size 16 24 32 48 64 128 256 512)
+    list(APPEND KIT_ICON_FILES icons/ez80-kit-${size}.png)
+    install(FILES icons/ez80-kit-${size}.png
+        DESTINATION share/icons/hicolor/${size}x${size}/apps RENAME ez80-kit.png)
+endforeach()
+qt_add_resources(ez80-platform kit-icons PREFIX "/icons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/icons" FILES ${KIT_ICON_FILES})
+install(FILES icons/ez80-kit.svg DESTINATION share/icons/hicolor/scalable/apps)
+configure_file(ez80-kit.desktop.in ez80-kit.desktop @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ez80-kit.desktop" DESTINATION share/applications)
 install(TARGETS ez80-platform RUNTIME DESTINATION bin)
 if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)

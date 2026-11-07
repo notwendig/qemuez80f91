@@ -47,3 +47,5 @@ its original limitations are not the current feature list.
 [Validation](validation.md) separates historical release checks from subsequent upgrades.
 
 - [CP/M Unix filesystem and direct 8-bit ports](cpm-hostfs.md)
+
+- [VSCodium: FreeRTOS build and QEMU flash without the ZDS IDE](vscodium.md)

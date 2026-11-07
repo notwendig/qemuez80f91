@@ -124,7 +124,7 @@ To exercise the linked task in an isolated emulator with a native console:
 
 ```sh
 python3 tests/test_freertos_camel.py build/ez80/qemu-system-ez80 \
-  subprojects/FreeRTOS-eZ80f91/Release/EZ80F910300ZCOG.hex
+  build/firmware/Release/EZ80F910300ZCOG.hex
 ```
 
 The test checks ROM built-ins, a newly compiled RAM definition, scheduler

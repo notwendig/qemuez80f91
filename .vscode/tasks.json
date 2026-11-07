@@ -2,20 +2,209 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "FreeRTOS: Build",
+            "type": "process",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/tools/firmware.py",
+                "build",
+                "--config",
+                "${input:firmwareConfig}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "zilog",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning) Z(\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": false
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "FreeRTOS: Rebuild",
+            "type": "process",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/tools/firmware.py",
+                "build",
+                "--config",
+                "${input:firmwareConfig}",
+                "--rebuild"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "zilog",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning) Z(\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "FreeRTOS: QEMU-Flash programmieren",
+            "type": "process",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/tools/flash_firmware.py",
+                "--config",
+                "${input:firmwareConfig}",
+                "--build",
+                "--stop"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "zilog",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning) Z(\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": false
+            }
+        },
+        {
+            "label": "FreeRTOS: Build, Flash und Kit starten",
+            "type": "process",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/tools/flash_firmware.py",
+                "--config",
+                "${input:firmwareConfig}",
+                "--build",
+                "--stop",
+                "--run"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "zilog",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning) Z(\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": false
+            }
+        },
+        {
+            "label": "FreeRTOS: QEMU stoppen",
+            "type": "process",
+            "command": "python3",
+            "args": [
+                "${workspaceFolder}/tools/flash_firmware.py",
+                "--stop-only"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "zilog",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning) Z(\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": false
+            }
+        },
+        {
             "label": "Configure Qt platform tools",
             "type": "process",
             "command": "cmake",
-            "args": ["-S", "${workspaceFolder}", "-B", "${workspaceFolder}/build/platform-tools", "-G", "Ninja"],
+            "args": [
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build/platform-tools",
+                "-G",
+                "Ninja"
+            ],
             "problemMatcher": []
         },
         {
             "label": "Build Qt platform tools",
             "type": "process",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build/platform-tools"],
+            "args": [
+                "--build",
+                "${workspaceFolder}/build/platform-tools"
+            ],
             "dependsOn": "Configure Qt platform tools",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Build eZ80 QEMU",
@@ -30,15 +219,14 @@
             "options": {
                 "cwd": "${workspaceFolder}"
             },
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "group": "build",
             "presentation": {
                 "clear": true,
                 "showReuseMessage": false
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "eZ80 QEMU mit Kit starten",
@@ -60,6 +248,18 @@
                 "showReuseMessage": false
             },
             "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "firmwareConfig",
+            "type": "pickString",
+            "description": "FreeRTOS-Konfiguration (beide starten aus Flash)",
+            "options": [
+                "Release",
+                "Debug"
+            ],
+            "default": "Release"
         }
     ]
 }
