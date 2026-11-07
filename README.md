@@ -17,6 +17,7 @@ or bus-accurate and does not establish complete eZ80F91 hardware compatibility.
 | FreeRTOS-eZ80f91 | RTOS, TCP/IP, CP/M 2.2 and kit demonstration | [Project](https://github.com/notwendig/FreeRTOS-eZ80f91), [Build](subprojects/FreeRTOS-eZ80f91/BUILD.md) |
 | ZTP TCPUDPDemo | Build and run the installed vendor example | [TCP/UDP](docs/ztp-tcpudp.md) |
 | Debugger and tests | Ethernet Smart Cable, discovery and regression tests | [ZDS II](docs/zds-ethernet.md), [Tests](docs/testing.md) |
+| Native platform tools | C++/Qt 6 UART terminal, kit, demo and ZDS launchers | [Platform tools](docs/platform-tools.md) |
 
 ## Quick start
 
@@ -49,13 +50,26 @@ without networking, local installation and optional ZDS tools.
 
 ## Operation
 
+Build the native platform tools once (C++17, CMake and Qt 6 Core/Network/Widgets/Xml):
+
+```sh
+cmake -S . -B build/platform-tools -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build/platform-tools
+ctest --test-dir build/platform-tools --output-on-failure
+```
+
 ```sh
 ./start.sh                 # UART terminal; CPU waits for ZDS II
 ./start.sh --kit           # also open the matrix/button window
 ./start.sh --run --kit     # start saved flash immediately
 ./start.sh --run --hostname mein-ez80  # override the DHCP hostname
 ./start.sh dbgport 4041    # separate instance on another debug port
+./start.sh --headless --bridge none  # UART in this terminal, offline
 ```
+
+The UART and kit windows are native Qt 6 widgets. The old Python launcher
+commands remain compatibility entry points. Firmware builders, regression
+scripts and QEMU's bundled debugger protocol helper still use Python.
 
 The DHCP hostname defaults to `ez80<debugport>` (for example `ez804040`).
 Use `--hostname <name>` to override it; names contain 1–63 ASCII letters,
@@ -76,7 +90,7 @@ terminal, **Ctrl+C** stops the instance and saves its flash contents.
 ### CamelForth
 
 ```sh
-python3 tools/zds/f24.py
+tools/platform.sh f24
 ```
 
 The launcher builds a separate copy and opens ZDS II with source debugging.
@@ -104,7 +118,7 @@ how to regenerate the raw images.
 
 ```sh
 python3 subprojects/FreeRTOS-eZ80f91/setup-dependencies.py
-python3 -m tools.demo --prepare-only
+tools/platform.sh demo --prepare-only
 ```
 
 Build FreeRTOS in `EZ80F910300ZCOG.zdsproj`, configuration **Debug** or
@@ -112,7 +126,7 @@ Build FreeRTOS in `EZ80F910300ZCOG.zdsproj`, configuration **Debug** or
 disk image in external AMD flash at `0x100000`.
 Its dependencies are FreeRTOS-Kernel **V11.3.2**, FreeRTOS-Plus-TCP **V4.4.2**
 and uzlib commit **6d60d65**. ZDS compatibility changes are supplied as patches.
-`python3 -m tools.demo` runs the installed ZTP TCP/UDP example instead.
+`tools/platform.sh demo` runs the installed ZTP TCP/UDP example instead.
 Both require the appropriate [ZDS and network setup](docs/getting-started.md).
 
 ## Data and configuration

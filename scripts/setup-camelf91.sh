@@ -10,4 +10,5 @@ if ! git -C "$root/subprojects/CAMELF91_24" merge-base --is-ancestor "$expected"
     exit 1
 fi
 git -C "$root/subprojects/CAMELF91_24" submodule update --init -- libbsp
+python3 "$root/scripts/setup-camel-core.py"
 echo "CAMELF91_24 ready at $actual"

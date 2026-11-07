@@ -22,8 +22,8 @@ qemu-system-ez80 -M ez80f91-freertos,ram-boot=on,cs0=flash,cs1=ram,cs2=ram,cs3=f
 ```
 
 ```sh
-python3 -m tools.demo --cs3 flash
-python3 tools/zds/f24.py --cs3 flash
+tools/platform.sh demo --cs3 flash
+tools/platform.sh f24 --cs3 flash
 ```
 
 The diagnostic probe accepts the same options. Device type remains fixed during

@@ -1,0 +1,24 @@
+{
+  "binary_sha256": "8bccba10ddbfb6377efcbc93570ba24ab312daceddb4f243ab65339fc1e32a6c",
+  "sources": {
+    "BOOT.ASM": "5b337bb27c868ec91c791c9e18cb6b31babef63859042863f175c040ad424023",
+    "CCP.ASM": "b97aa6199ff089189a2abe872fa142be7d6af271c229dd4b84186944aeac2b63",
+    "BDOS.ASM": "2048d9ae2126a402aa0e3a16559dd5e3cedc3e78b4e63992345b0c7643af4635",
+    "BIOS.ASM": "c5bb0f8e1a8dd3c3b034dab4f44f3eb847d64b176636ac67a517de5797a48347",
+    "CPM.INC": "b8daf4b906cdd660339c7a866795886710d36bcdcbcca865f3db40cfd6a553f1",
+    "HWC.INC": "7265029f030b1cbe86c24da5f9ccb730d305ecc9e75708716f6b423a68b6ea39"
+  },
+  "board": "ez80f91-freertos,ram-boot=on",
+  "console_ports": [
+    140,
+    141
+  ],
+  "filesystem_ports": [
+    142,
+    143
+  ],
+  "fdc_ports": [
+    24,
+    31
+  ]
+}

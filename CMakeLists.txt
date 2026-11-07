@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.21)
+project(qemuez80f91_tools VERSION 1.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Network Widgets Xml)
+include(CTest)
+add_subdirectory(tools/qt)

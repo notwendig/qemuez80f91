@@ -14,19 +14,21 @@ startup is not an established reference scenario.
 ## Application console
 
 ```sh
-python3 -m tools.demo
+tools/platform.sh demo
 ```
 
 The launcher builds the RAM image if needed and uses the existing bridge helper
-with `br0`. UART runs in the calling terminal. Log in as `anonymous` / `anonymous`;
-use `help`, `bsdudpserver` and `bsdtcpserver`. **Ctrl+C** or **Ctrl+]** stops QEMU
-and restores terminal settings.
+with `br0`. UART opens in a native Qt window. Add `--headless` to use the calling
+terminal. Log in as `anonymous` / `anonymous`; use `help`, `bsdudpserver` and
+`bsdtcpserver`. **Ctrl+C** or closing UART stops QEMU; headless mode also accepts
+**Ctrl+]** and restores terminal settings. Build the [platform tools](platform-tools.md)
+before the first launch.
 
 ```sh
-python3 -m tools.demo --test           # automatically test DHCP + 1000-byte UDP + 4000-byte TCP
-python3 -m tools.demo --rebuild        # rebuild and open the console
-python3 -m tools.demo --prepare-only   # prepare the image only
-python3 -m tools.demo --seconds 20     # close the console after 20 seconds
+tools/platform.sh demo --test           # automatically test DHCP + 1000-byte UDP + 4000-byte TCP
+tools/platform.sh demo --rebuild        # rebuild and open the console
+tools/platform.sh demo --prepare-only   # prepare the image only
+tools/platform.sh demo --seconds 20     # close the console after 20 seconds
 ```
 
 `--qemu`, `--zds`, `--out`, `QEMU_EZ80` and `ZDS_HOME` select tools/output.
@@ -122,7 +124,7 @@ from the matching image's map; RAM and flash-filesystem builds differ.
 ## ZDS debug port and discovery
 
 ```sh
-python3 -m tools.demo --dbgport=4040
+tools/platform.sh demo --dbgport=4040
 ```
 
 This enables Ethernet Smart Cable and UDP 3000 discovery, pausing the CPU until

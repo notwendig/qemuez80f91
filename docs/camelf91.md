@@ -10,6 +10,7 @@ The earlier `b975f3a` baseline is retained only as a historical reference.
 | Path | Console and output | Purpose |
 | --- | --- | --- |
 | Native ZDS project | Interrupt-driven UART0 through `libbsp`; `Debug/camel_f91.lod`/`.hex` | Board and source debugging |
+| Kit native-port build | `examples/camelf91/camel-hostfs.bin`; direct console/file I/O | Shared [Unix CP/M filesystem](cpm-hostfs.md) |
 | Workspace polling build | Polling adapter; `build/camelf91/camel.bin`/`.json`/`.map` | Reproducible regression tests and a separate ZDS project |
 
 The [dictionary test](camelf91-words.md) executes 237 entries and makes 201
@@ -45,7 +46,7 @@ uses `externalAutoSelect=false`, since CS0 external flash is disabled there.
 
 ```sh
 python3 examples/camelf91/build.py --zds "$ZDS_HOME"
-python3 tools/zds/f24.py --prepare-only
+tools/platform.sh f24 --prepare-only
 ```
 
 The builder reads the pinned corrected assembly sources, enables the shared
@@ -77,7 +78,7 @@ Release/Chiponly have separate linker/target settings. These tests cover Debug R
 ## Use and tests
 
 ```sh
-python3 tools/zds/f24.py
+tools/platform.sh f24
 python3 tests/test_camelf91.py "$QEMU_EZ80"
 python3 tests/test_camelf91_words.py "$QEMU_EZ80"
 python3 tests/test_camelf91_kit.py "$QEMU_EZ80"
@@ -96,3 +97,38 @@ The launcher creates `build/f24/`. See [ZDS operation](start-f24.md) and
 [core analysis](camelf91-analysis.md) for commands and corrected defects.
 Original port and usage notices remain in the subproject's `ReadMe.txt`,
 `LICENSE` and source headers; see [Licenses](licenses.md).
+
+## FreeRTOS project integration
+
+`subprojects/FreeRTOS-eZ80f91/EZ80F910300ZCOG.zdsproj` also builds the four
+CAMEL24 assembler modules from the sibling `CAMELF91_24/asm` directory.
+Both Debug and Release define `CAMEL_FREERTOS` and `FLASH_BOOT`, using the
+same Flash target and ROM/RAM ranges. Debug retains its source symbols. The FreeRTOS C startup remains
+the firmware entry; CAMEL24 starts as a statically allocated task at priority 2.
+
+Built-in dictionary headers, primitives and high-level words live in ROM/flash.
+The initial user-area template is also in ROM; its mutable copy is in BSS.
+The reserved bank `B80000–B8FFFF` contains the RAM dictionary, Forth task stack,
+return/leave stacks, PAD and HOLD. New colon definitions and variables start
+at `B80000`; the 3072-byte task stack starts at `B8E000` and is the same stack
+registered with the FreeRTOS TCB. The kernel heap does not own this bank.
+
+`camel_console.asm` uses the ports from `CPM/CPM22/HWC.INC`: input/output on
+8Ch/8Dh. Waiting for input calls `vTaskDelay(1)` while preserving interpreter
+registers. `bye` deletes only the Forth task. The existing standalone Kit ROM
+continues to use its own polling BSP; `examples/camelf91/freertos-core.patch`
+records the reviewed conditional core changes used by both builds. The setup
+scripts apply it automatically; repeated setup recognizes an applied patch.
+
+To exercise the linked task in an isolated emulator with a native console:
+
+```sh
+python3 tests/test_freertos_camel.py build/ez80/qemu-system-ez80 \
+  subprojects/FreeRTOS-eZ80f91/Release/EZ80F910300ZCOG.hex
+```
+
+The test checks ROM built-ins, a newly compiled RAM definition, scheduler
+progress while Forth waits for input, 194 core word checks and numeric-drive SAVE. The standalone Kit peripheral
+words are excluded here because the FreeRTOS LED driver owns Timer1.
+It attaches a QEMU console device directly; the Kit's existing standalone
+CAMEL24 tab remains a separate interpreter session.

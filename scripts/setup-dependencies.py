@@ -16,6 +16,7 @@ def main():
         'subprojects/CAMELF91_24', 'subprojects/FreeRTOS-eZ80f91')
     run('git', '-C', str(ROOT / 'subprojects/CAMELF91_24'),
         'submodule', 'update', '--init', '--', 'libbsp')
+    run(sys.executable, str(ROOT / 'scripts/setup-camel-core.py'))
     project = ROOT / 'subprojects/FreeRTOS-eZ80f91'
     run(sys.executable, str(project / 'setup-dependencies.py'))
     required = (

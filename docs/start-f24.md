@@ -3,7 +3,7 @@
 From the project directory:
 
 ```sh
-python3 tools/zds/f24.py
+tools/platform.sh f24
 ```
 
 The launcher builds corrected CAMEL sources with line information and OMF695
@@ -30,20 +30,23 @@ ZDS directory is `~/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5`; build/IDE
 processes use `/tmp/qemuez80f91-zds-wine` without modifying the installation.
 
 ```sh
-python3 tools/zds/f24.py --rebuild
-python3 tools/zds/f24.py --prepare-only
-python3 tools/zds/f24.py --qemu /path/qemu-system-ez80 --zds /path/ZDSII
+tools/platform.sh f24 --rebuild
+tools/platform.sh f24 --prepare-only
+tools/platform.sh f24 --qemu /path/qemu-system-ez80 --zds /path/ZDSII
 ```
 
-`QEMU_EZ80` and `ZDS_HOME` override defaults. The script's historical QEMU
-fallback is `/tmp/qemuez80f91-build-baseline/qemu-system-ez80`; set `QEMU_EZ80`
-to the executable built using [Getting started](getting-started.md).
-TCP 4040 (debugger), UDP 3000 (discovery) and TCP 4444 (UART) must be available.
-The bridge uses `--dbgport=4040` and a private GDB Unix socket. `--gdb-port`
-is retained as a compatibility argument. Stop an older manually started bridge first.
+Build the [Qt platform tools](platform-tools.md) first. `QEMU_EZ80` and
+`ZDS_HOME` override defaults. QEMU is selected from `install/bin`, then
+`build/ez80`, then the historical `/tmp/qemuez80f91-build-baseline` fallback.
+TCP 4040 (debugger) and UDP 3000 (discovery) must be available.
+UART uses a private Unix socket and a native Qt terminal. The bridge uses
+`--dbgport=4040` and a private GDB Unix socket. `--gdb-port` and `--uart-port`
+remain accepted compatibility arguments; they no longer select TCP endpoints.
+Stop an older manually started bridge first.
 
 Logs in `build/f24/`: `zds-session.log`, `qemu.log`, `ide.log`, `build.log` and
-`views.log`. The IDE script is `start.cmd`. Generated targets disable
+`views.log`. UART and QMP paths are under `/tmp/ez80f91-<uid>/4040.*`.
+The IDE script is `start.cmd`. Generated targets disable
 `externalAutoSelect` because the RAM profile has no external flash to identify.
 
 The GUI workflow was checked on 28 October 2026: project opening, Ethernet
@@ -70,7 +73,7 @@ The bridge handles this as an AF-read compatibility case, not a new silicon ZDI 
 ## Guest Ethernet and external banks
 
 `--nic` forwards a QEMU network backend, for example
-`python3 tools/zds/f24.py --nic 'socket,connect=127.0.0.1:5555'`.
+`tools/platform.sh f24 --nic 'socket,connect=127.0.0.1:5555'`.
 This launcher's default is `none`; the peer must speak QEMU's Ethernet socket
 protocol. CAMEL still needs its own guest network driver/stack.
 See [EMAC](emac.md).

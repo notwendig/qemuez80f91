@@ -15,7 +15,9 @@ Vendor firmware and debugger integration additionally require:
 - **ZDS II eZ80Acclaim! 5.3.5**, including ZTP 2.5.1;
 - Wine with access to that installation;
 - Nexus SDK 1.1 and `i686-w64-mingw32-gcc` for original-DLL tests;
-- Tkinter for the kit window, and `gnome-terminal` or `xterm` for `start.sh`.
+- C++17, CMake and Qt 6 (Core, Network, Widgets, Xml; Test for checks) for the
+  native UART, kit and launchers. Tkinter and external terminal apps are no
+  longer required.
 
 Obtain SDKs from their vendors. They are not included in this repository.
 
@@ -50,13 +52,17 @@ See [Development](development.md) for maintaining such a checkout.
 ## Installation and first test
 
 ```sh
+cmake -S . -B build/platform-tools -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build/platform-tools
+ctest --test-dir build/platform-tools --output-on-failure
 python3 scripts/install.py
 export PATH="$PWD/install/bin:$PATH"
 qemuez80f91 --help
 ```
 
-`qemu-system-ez80` is the emulator; `qemuez80f91` opens this checkout's UART
-launcher. The launcher preserves the caller's working directory for flash
+`qemu-system-ez80` is the emulator; `ez80-platform` contains the native Qt tools;
+`qemuez80f91` opens this checkout's UART launcher. The launcher preserves the
+caller's working directory for flash
 files and requires the checkout to remain available. Use `--prefix "$HOME/.local"`
 to install into the user profile. `QEMU_EZ80` overrides automatic selection;
 otherwise `start.sh` tries `install/bin/`, then `build/ez80/`, then the
@@ -78,7 +84,7 @@ Expected output: `Hello eZ80F91`, followed by guest HALT. QEMU remains open;
 export ZDS_HOME="$HOME/.wine/drive_c/Zilog/ZDSII_eZ80Acclaim!_5.3.5"
 sh scripts/setup-camelf91.sh
 python3 examples/camelf91/build.py --zds "$ZDS_HOME"
-python3 tools/zds/f24.py --prepare-only
+tools/platform.sh f24 --prepare-only
 ```
 
 The CAMEL polling build reads corrected sources directly from pinned commit
@@ -119,11 +125,10 @@ FreeRTOS firmware. Any suitable external DHCP server or router can supply a
 lease. Connect the host bridge to the desired LAN; the launchers do not create
 the bridge or configure a DHCP server.
 
-The `start.sh` launcher currently fixes the bridge and helper in
-[`tools/start.py`](../tools/start.py). To use another bridge, update the
-`/sys/class/net/br0/brif` check, `br=br0` backend option and `start_after_bridge`
-argument together, plus the diagnostic message. Update the helper path if your
-system installs it elsewhere. Permit the selected bridge in the helper's
+Use `./start.sh --bridge br1` to select another bridge, or `--bridge none`
+for offline operation. For a nonstandard bridge-helper path, use
+`tools/platform.sh start --bridge br1 --bridge-helper /path/to/qemu-bridge-helper`.
+Permit the selected bridge in the helper's
 allowlist, normally `/etc/qemu/bridge.conf` (for example, `allow br1`).
 
 The separate ZTP launcher accepts `--bridge`, `--bridge-helper` and

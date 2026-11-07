@@ -212,6 +212,8 @@ def export(path=None):
     lines += SETUP + [c['command'] for c in CASES] + ['TEST-REPORT']
     assert max(map(len,lines)) <= 124
     path.write_text('\n'.join(lines)+'\n')
+    if path == Path(__file__).with_name('all-words.fth'):
+        path.with_name('f24all.f24').write_bytes(path.read_bytes())
     return path
 
 if __name__ == '__main__':

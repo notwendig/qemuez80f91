@@ -35,6 +35,11 @@ def build(args):
                 ['git','-C',str(source),'show',COMMIT+':'+filename])
             (out/path.name).write_bytes(original)
             input_names.append(path.name)
+    # Apply the reviewed optional FreeRTOS integration before checking the tree.
+    # The standalone build leaves CAMEL_FREERTOS undefined.
+    core_patch = Path(__file__).parent / 'freertos-core.patch'
+    subprocess.run(['git', 'apply', '--unsafe-paths', '--directory=' + str(out),
+                    '-p2', str(core_patch.resolve())], cwd=ROOT, check=True)
     for filename in source_files:
         path = source/filename
         if path.suffix in ('.asm','.inc'):
@@ -46,7 +51,7 @@ def build(args):
     start = native.index(b'\tSEGMENT TEXT\r\n; UART0 configuration')
     end = native.index(b'\tSEGMENT CODE', start)
     native = native[:start] + native[end:]
-    native = native.replace(b'\t.INCLUDE "uart.inc"\r\n', b'')
+    native = re.sub(rb'^[ \t]*\.INCLUDE "uart.inc"\r?\n', b'', native, flags=re.M)
     low.write_bytes(native.replace(
         b'\tld iy,camel_uart0cfg\r\n\tcall init_uart0\r\n', b''))
     # The native project and polling build share the same reviewed kit driver.
@@ -83,7 +88,7 @@ def build(args):
     inc=';'.join(wine_path(p) for p in (out,zds/'include/zilog',zds/'include/std'))
     for module in modules:
         run('ez80asm.exe','-cpu:eZ80F91','-define:_DEBUG','-define:FLASHED=0',
-            '-include:'+inc,'-list',*(['-debug'] if getattr(args,'debug_info',False) else []),module+'.asm')
+            '-include:'+inc,'-list',*(['-define:HOSTFS'] if getattr(args,'hostfs',False) else []),*(['-debug'] if getattr(args,'debug_info',False) else []),module+'.asm')
     link=original_link.decode().replace('\r\n','\n')
     if not getattr(args,'debug_info',False):
         link=link.replace('-FORMAT=OMF695,INTEL32','-FORMAT=INTEL32')
@@ -98,7 +103,7 @@ def build(args):
         match = re.search(r'^'+re.escape(name)+r'\s+[CD]:([0-9A-F]+)\b',text,re.MULTILINE)
         if not match: raise ValueError('Missing symbol '+name)
         symbols[name] = int(match[1],16)
-    metadata={'symbols':symbols,'upstream_commit':COMMIT,'board':'ez80f91-freertos,ram-boot=on',
+    metadata={'hostfs':getattr(args,'hostfs',False),'symbols':symbols,'upstream_commit':COMMIT,'board':'ez80f91-freertos,ram-boot=on',
               'binary_sha256':hashlib.sha256((out/'camel.bin').read_bytes()).hexdigest(),
               'sources':{name:hashlib.sha256((out/name).read_bytes()).hexdigest()
                          for name in sorted(set(input_names))},
@@ -108,6 +113,7 @@ def build(args):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--hostfs',action='store_true',help='Use native QEMU console/file I/O ports')
     p.add_argument('--debug-info',action='store_true',help='Also emit OMF695 and source line information for ZDS II')
     p.add_argument('--source',type=Path,default=ROOT/'subprojects/CAMELF91_24')
     p.add_argument('--zds',type=Path,required=True)

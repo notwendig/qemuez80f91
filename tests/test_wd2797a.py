@@ -21,7 +21,8 @@ with tempfile.TemporaryDirectory(prefix='wd2797a-') as temp:
         expected[drive]=bytearray(data)
     paths[1].chmod(0o444)
     rom=root/'halt.bin';rom.write_bytes(b'\x76')
-    base=0x1234
+    eight_bit = "--8bit" in sys.argv
+    base=0x18 if eight_bit else 0x1234
     def start():
         gdb=root/'gdb.sock';gdb.unlink(missing_ok=True)
         state=root/'kit.json'
@@ -32,8 +33,8 @@ with tempfile.TemporaryDirectory(prefix='wd2797a-') as temp:
             '-global',f'ez80f91-memory.kit-led-state={state}'))
         return vm,RSP(unix=str(gdb)),state
     vm,g,state=start()
-    def rd(reg):return g.memory(0x1000000+base+reg,1)[0]
-    def wr(reg,value):g.write_memory(0x1000000+base+reg,bytes([value]))
+    def rd(reg):return g.memory(0x1000000+base+reg+(0xa700 if eight_bit else 0),1)[0]
+    def wr(reg,value):g.write_memory(0x1000000+base+reg+((value<<8) if eight_bit else 0),bytes([value]))
     def seek(drive,track,sector):
         wr(4,drive);wr(6,track>>8);wr(3,track&255);wr(0,0x10)
         assert not rd(0)&0x99
@@ -46,7 +47,7 @@ with tempfile.TemporaryDirectory(prefix='wd2797a-') as temp:
         assert not rd(5)&2
         return data
     try:
-        cfg=g.memory(0x100ff00,8)
+        cfg=g.memory(0x100fe40 if eight_bit else 0x100ff00,8)
         assert cfg==b'WD97'+base.to_bytes(2,'little')+b'\x01\x01',cfg
         g.write_memory(0x10000aa,b'\x00')
         assert g.memory(0x10000b3,1)==b'\x00'

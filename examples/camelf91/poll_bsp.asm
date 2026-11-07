@@ -4,6 +4,25 @@
     XDEF kbhit
     SEGMENT CODE
     .ASSUME ADL=1
+ifdef HOSTFS
+init_bsp:
+    di
+    ret
+putc:
+    out (08dh),a
+    ld a,1
+    or a
+    ret
+kbhit:
+    in a,(08ch)
+    and 1
+    ret
+getc:
+    call kbhit
+    jr z,getc
+    in a,(08dh)
+    ret
+else
 init_bsp:
     di
     ld a,0ffh
@@ -45,4 +64,5 @@ getc:
     jr z,getc
     in0 a,(0c0h)
     ret
+endif ; HOSTFS
     END

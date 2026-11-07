@@ -9,6 +9,7 @@ manuals, source notices and license documents remain authoritative.
 | Guide | Contents |
 | --- | --- |
 | [Getting started](getting-started.md) | Dependencies, checkout, build, installation and first ROM |
+| [Platform tools](platform-tools.md) | Native C++/Qt 6 UART, kit, demo and ZDS launchers |
 | [Status](status.md) | Current capabilities, tested scope and limitations |
 | [Architecture](architecture.md) | CPU, devices, memory, time model and debugging |
 | [Development](development.md) | Repositories, patches, generated files and publication |
@@ -44,3 +45,5 @@ manuals, source notices and license documents remain authoritative.
 [First execution](first-execution.md) describes a historical CPU/UART milestone;
 its original limitations are not the current feature list.
 [Validation](validation.md) separates historical release checks from subsequent upgrades.
+
+- [CP/M Unix filesystem and direct 8-bit ports](cpm-hostfs.md)

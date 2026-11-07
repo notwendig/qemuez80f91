@@ -396,13 +396,14 @@ index 0000000..86c4370
 +    select PFLASH_CFI02
 diff --git a/hw/ez80/clock.c b/hw/ez80/clock.c
 new file mode 100644
-index 0000000..1116f59
+index 0000000..20346f1
 --- /dev/null
 +++ b/hw/ez80/clock.c
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,201 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 clock mux and PLL; analog settling is not simulated. */
 +#include "qemu/osdep.h"
++#include "hw/ez80/ez80f91.h"
 +#include "qapi/error.h"
 +#include "qemu/timer.h"
 +#include "qemu/log.h"
@@ -424,7 +425,19 @@ index 0000000..1116f59
 +    uint32_t oscillator;
 +    uint16_t divider;
 +    uint8_t div_low, ctl0, ctl1;
++    bool sleeping;
 +};
++uint64_t ez80f91_clock_hz(void)
++{
++    Object *obj = object_resolve_path_type("", TYPE_EZ80F91_CLOCK, NULL);
++    if (!obj) {
++        return 0;
++    }
++    EZ80F91ClockState *s = EZ80F91_CLOCK(obj);
++    unsigned source = s->ctl0 & 3;
++    return source == 1 ? (uint64_t)s->oscillator * s->divider
++         : source == 2 ? 32768 : s->oscillator;
++}
 +static void update_irq(EZ80F91ClockState *s)
 +{
 +    qemu_set_irq(s->irq, ((s->ctl1 & 0x10) && (s->ctl1 & 4))
@@ -435,7 +448,13 @@ index 0000000..1116f59
 +    unsigned source = s->ctl0 & 3;
 +    unsigned frequency = source == 1 ? s->oscillator * s->divider
 +                       : source == 2 ? 32768 : s->oscillator;
-+    clock_update_hz(s->sclk, frequency);
++    clock_update_hz(s->sclk, s->sleeping ? 0 : frequency);
++}
++static void sleep_input(void *opaque, int line, int level)
++{
++    EZ80F91ClockState *s = opaque;
++    s->sleeping = !!level;
++    update_clock(s);
 +}
 +static void locked(void *opaque)
 +{
@@ -530,6 +549,7 @@ index 0000000..1116f59
 +    timer_del(s->lock_timer);
 +    s->divider = s->div_low = 2;
 +    s->ctl0 = s->ctl1 = 0;
++    s->sleeping = false;
 +    update_clock(s);
 +    update_irq(s);
 +}
@@ -546,6 +566,7 @@ index 0000000..1116f59
 +{
 +    EZ80F91ClockState *s = EZ80F91_CLOCK(obj);
 +    s->sclk = qdev_init_clock_out(DEVICE(s), "sclk");
++    qdev_init_gpio_in(DEVICE(s), sleep_input, 1);
 +    s->lock_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, locked, s);
 +    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq);
 +    memory_region_init_io(&s->ports, obj, &clock_ops, s, "f91.pll", 4);
@@ -1096,10 +1117,10 @@ index 0000000..be4ed44
 +type_init(emac_register_types);
 diff --git a/hw/ez80/ez80f91.c b/hw/ez80/ez80f91.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c747314ea5
+index 0000000..092524c
 --- /dev/null
 +++ b/hw/ez80/ez80f91.c
-@@ -0,0 +1,333 @@
+@@ -0,0 +1,378 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "qemu/osdep.h"
 +#include "qapi/error.h"
@@ -1133,7 +1154,7 @@ index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c7
 +static void common_init(MachineState *machine, bool evb)
 +{
 +    EZ80F91MachineState *s = EZ80F91_MACHINE(machine);
-+    DeviceState *memory, *uart, *intc, *timer, *clock, *emac, *rtc;
++    DeviceState *memory, *uart, *intc, *timer, *clock, *emac, *rtc, *spi, *i2c;
 +    CPUState *cpu;
 +    const char *image = machine->firmware;
 +    uint64_t image_limit = 256 * KiB;
@@ -1175,6 +1196,8 @@ index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c7
 +    if (image && load_image_targphys(image, 0, image_limit, &error_fatal) < 0) {
 +        exit(EXIT_FAILURE);
 +    }
++    DeviceState *hostfs = qdev_new("ez80f91-hostfs");
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(hostfs), &error_fatal);
 +    cpu = cpu_create(machine->cpu_type);
 +    qemu_register_resettable(OBJECT(cpu));
 +    intc = qdev_new("ez80f91-intc");
@@ -1183,28 +1206,68 @@ index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c7
 +        qdev_connect_gpio_out(intc, line, qdev_get_gpio_in(DEVICE(cpu), line));
 +    }
 +    sysbus_connect_irq(SYS_BUS_DEVICE(memory), 0, qdev_get_gpio_in(intc, 4));
-+    for (unsigned bit = 0; bit < 3; bit++) {
++    for (unsigned bit = 0; bit < 32; bit++) {
 +        sysbus_connect_irq(SYS_BUS_DEVICE(memory), bit + 1,
-+                           qdev_get_gpio_in(intc, 24 + bit));
++                           qdev_get_gpio_in(intc, 16 + bit));
 +    }
 +    clock = qdev_new("ez80f91-clock");
 +    qdev_prop_set_uint32(clock, "osc-frequency", s->oscillator);
 +    sysbus_realize_and_unref(SYS_BUS_DEVICE(clock), &error_fatal);
 +    sysbus_connect_irq(SYS_BUS_DEVICE(clock), 0, qdev_get_gpio_in(intc, 3));
 +    device_cold_reset(clock);
++    qdev_connect_gpio_out_named(DEVICE(cpu), "sleep", 0, qdev_get_gpio_in(clock, 0));
 +    rtc = qdev_new("ez80f91-rtc");
 +    sysbus_realize_and_unref(SYS_BUS_DEVICE(rtc), &error_fatal);
 +    device_cold_reset(rtc);
-+    uart = qdev_new("ez80f91-uart");
-+    qdev_prop_set_chr(uart, "chardev", serial_hd(0));
-+    qdev_connect_clock_in(uart, "sclk", qdev_get_clock_out(clock, "sclk"));
-+    sysbus_realize_and_unref(SYS_BUS_DEVICE(uart), &error_fatal);
-+    sysbus_connect_irq(SYS_BUS_DEVICE(uart), 0, qdev_get_gpio_in(intc, 12));
++    sysbus_connect_irq(SYS_BUS_DEVICE(rtc), 0, qdev_get_gpio_in(intc, 11));
++    DeviceState *watchdog = qdev_new("ez80f91-watchdog");
++    qdev_connect_clock_in(watchdog, "sclk", qdev_get_clock_out(clock, "sclk"));
++    qdev_connect_clock_in(watchdog, "rtcclk", qdev_get_clock_out(rtc, "rtcclk"));
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(watchdog), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(watchdog), 0, qdev_get_gpio_in(DEVICE(cpu), 10));
++    for (unsigned channel = 0; channel < 2; channel++) {
++        uart = qdev_new("ez80f91-uart");
++        qdev_prop_set_uint8(uart, "channel", channel);
++        object_property_set_link(OBJECT(uart), "memory", OBJECT(memory), &error_abort);
++        qdev_prop_set_chr(uart, "chardev", serial_hd(channel));
++        qdev_connect_clock_in(uart, "sclk", qdev_get_clock_out(clock, "sclk"));
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(uart), &error_fatal);
++        sysbus_connect_irq(SYS_BUS_DEVICE(uart), 0, qdev_get_gpio_in(intc, 12 + channel));
++        qdev_connect_gpio_out_named(memory, "peripheral-config", channel,
++                                     qdev_get_gpio_in(uart, 0));
++    }
 +    timer = qdev_new("ez80f91-timer0");
++    object_property_set_link(OBJECT(timer), "memory", OBJECT(memory), &error_abort);
 +    qdev_connect_clock_in(timer, "sclk", qdev_get_clock_out(clock, "sclk"));
++    qdev_connect_clock_in(timer, "rtcclk", qdev_get_clock_out(rtc, "rtcclk"));
 +    sysbus_realize_and_unref(SYS_BUS_DEVICE(timer), &error_fatal);
-+    sysbus_connect_irq(SYS_BUS_DEVICE(timer), 0, qdev_get_gpio_in(intc, 5));
-+    sysbus_connect_irq(SYS_BUS_DEVICE(timer), 1, qdev_get_gpio_in(intc, 6));
++    qdev_connect_gpio_out_named(memory, "peripheral-config", 4,
++                                qdev_get_gpio_in_named(timer, "config", 0));
++    for (unsigned i = 0; i < 4; i++) {
++        sysbus_connect_irq(SYS_BUS_DEVICE(timer), i, qdev_get_gpio_in(intc, 5 + i));
++    }
++    static const unsigned timer_pins[] = {8, 6, 9, 12, 13};
++    for (unsigned i = 0; i < ARRAY_SIZE(timer_pins); i++) {
++        qdev_connect_gpio_out_named(memory, "pins", timer_pins[i],
++                                    qdev_get_gpio_in_named(timer, "pins", i));
++    }
++    spi = qdev_new("ez80f91-spi");
++    object_property_set_link(OBJECT(spi), "memory", OBJECT(memory), &error_abort);
++    qdev_connect_clock_in(spi, "sclk", qdev_get_clock_out(clock, "sclk"));
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(spi), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(spi), 0, qdev_get_gpio_in(intc, 15));
++    qdev_connect_gpio_out_named(memory, "peripheral-config", 2, qdev_get_gpio_in(spi, 0));
++    static const unsigned spi_pins[] = {10, 11, 15};
++    for (unsigned i = 0; i < ARRAY_SIZE(spi_pins); i++) {
++        qdev_connect_gpio_out_named(memory, "pins", spi_pins[i],
++                                    qdev_get_gpio_in_named(spi, "pins", i));
++    }
++    i2c = qdev_new("ez80f91-i2c");
++    object_property_set_link(OBJECT(i2c), "memory", OBJECT(memory), &error_abort);
++    qdev_connect_clock_in(i2c, "sclk", qdev_get_clock_out(clock, "sclk"));
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(i2c), &error_fatal);
++    sysbus_connect_irq(SYS_BUS_DEVICE(i2c), 0, qdev_get_gpio_in(intc, 14));
++    qdev_connect_gpio_out_named(memory, "peripheral-config", 3, qdev_get_gpio_in(i2c, 0));
 +    emac = qdev_new("ez80f91-emac");
 +    object_property_set_link(OBJECT(emac), "memory", OBJECT(memory),
 +                             &error_abort);
@@ -1215,6 +1278,9 @@ index 0000000000000000000000000000000000000000..0066d8ae860ce02374920adcae9e23c7
 +        sysbus_connect_irq(SYS_BUS_DEVICE(emac), line,
 +                           qdev_get_gpio_in(intc, line));
 +    }
++    DeviceState *jtag = qdev_new("ez80f91-jtag");
++    object_property_set_link(OBJECT(jtag), "memory", OBJECT(memory), &error_abort);
++    sysbus_realize_and_unref(SYS_BUS_DEVICE(jtag), &error_fatal);
 +}
 +static void minimal_init(MachineState *machine)
 +{
@@ -1534,10 +1600,10 @@ index 0000000..83b4fbf
 +type_init(intc_register_types);
 diff --git a/hw/ez80/memory.c b/hw/ez80/memory.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6fd7efa6aa
+index 0000000..9aa84c6
 --- /dev/null
 +++ b/hw/ez80/memory.c
-@@ -0,0 +1,1074 @@
+@@ -0,0 +1,1310 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Functional F91 memory decoding and Flash information-page I/O. */
 +#include "qemu/osdep.h"
@@ -1554,6 +1620,8 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +#include "system/system.h"
 +#include "qemu/error-report.h"
 +#include "qemu/timer.h"
++#include "exec/icount.h"
++#include "system/runstate.h"
 +#include "qemu/crc32.h"
 +#include "hw/ez80/wd2797a.h"
 +
@@ -1582,7 +1650,9 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    bool dev_dirty[16], dev_readonly[16];
 +    unsigned flash_base[4];
 +    MemoryRegion *external_flash[4];
-+    MemoryRegion cs_ports, ram_ports, flash_ports, bus_ports;
++    MemoryRegion cs_ports, ram_ports, flash_ports, bus_ports, id_ports, mbist_ports;
++    uint8_t mbist[2];
++    QEMUTimer *mbist_timer;
 +    uint8_t cs[4][3], bmc[4];
 +    uint8_t ram_ctl, ram_upper, flash_ctl, flash_upper;
 +    uint8_t flash_io[11], info[512], key_stage;
@@ -1592,9 +1662,11 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    MemoryRegion *persistent[5];
 +    char *flash_file[5];
 +    Notifier flash_exit;
-+    MemoryRegion kit_ports, pb_ports, pb_ack_port;
-+    qemu_irq button_irq[3];
-+    uint8_t kit_buttons, pb[4], pb_pending;
++    MemoryRegion kit_ports, pb_ports, pb_ack_port, ack_alias[2], ppd_port;
++    qemu_irq gpio_irq[32], peripheral_config[5], gpio_pin[32];
++    uint8_t kit_buttons, gpio[4][4], gpio_input[4], gpio_pending[4];
++    uint8_t gpio_alt_level[4], gpio_alt_mask[4], ppd1;
++    uint8_t boundary_active[4], boundary_drive[4], boundary_value[4];
 +    char *kit_led_file;
 +    QEMUTimer *kit_timer;
 +    uint8_t kit_latch[3];
@@ -1700,6 +1772,9 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +                continue;
 +            }
 +        }
++        if (g_file_test(s->dev_path[drive], G_FILE_TEST_IS_DIR)) {
++            continue; /* Directory drives use the same CP/M port device. */
++        }
 +        if (!g_file_get_contents(s->dev_path[drive],
 +                (char **)&s->dev_data[drive], &s->dev_size[drive], &error)) {
 +            error_setg(errp, "Cannot read %s: %s", s->dev_path[drive],
@@ -1722,13 +1797,13 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +                                 (!(st.st_mode & 0222) || access(s->dev_path[drive], W_OK));
 +        count++;
 +    }
-+    if (!count) {
++    if (!count && !s->wd2797a) {
 +        error_setg(errp, "No A.img..P.img or A..P images in %s", s->dev_dir);
 +        return false;
 +    }
 +    if (s->wd2797a) {
 +        f91_wd2797a_init(&s->fdc, OBJECT(s), s->wd2797a, s->dev_data,
-+                         s->dev_size, s->dev_dirty, s->dev_readonly);
++                         s->dev_size, s->dev_dirty, s->dev_readonly, s->dev_path);
 +        return true;
 +    }
 +    memory_region_init_io(&s->dev_select_port, OBJECT(s), &dev_select_ops,
@@ -1738,34 +1813,115 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    return true;
 +}
 +
-+/* Kit SW1..3 pull PB0..2 low. Implement GPIO input/output and the
-+ * dual-edge interrupt mode used by the board's button driver. */
-+static uint8_t button_irq_mask(EZ80F91MemoryState *s)
++bool ez80f91_peripheral_enabled(DeviceState *dev, uint8_t mask)
 +{
-+    return s->pb[0] & ~s->pb[1] & ~s->pb[2] & s->pb[3] & 7;
++    return !(EZ80F91_MEMORY(dev)->ppd1 & mask);
 +}
-+static void button_irq_update(EZ80F91MemoryState *s)
++bool ez80f91_gpio_alternate(DeviceState *dev, unsigned port, unsigned mask)
 +{
-+    for (unsigned bit = 0; bit < 3; bit++) {
-+        qemu_set_irq(s->button_irq[bit],
-+                     !!(s->pb_pending & button_irq_mask(s) & (1 << bit)));
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    uint8_t *r = s->gpio[port];
++    return !(s->ppd1 & (0x10 << port)) &&
++        (r[1] & ~r[2] & r[3] & mask) == mask;
++}
++uint8_t ez80f91_gpio_levels(DeviceState *dev, unsigned port)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    uint8_t *r = s->gpio[port];
++    uint8_t drive_low = ~r[3] & ~r[1] & ~r[0];
++    uint8_t drive_high = ~r[3] & r[0] & ((~r[1] & ~r[2]) | (r[1] & r[2]));
++    uint8_t alternate = r[3] & ~r[2] & r[1] & s->gpio_alt_mask[port];
++    uint8_t value = (((s->gpio_input[port] & ~drive_low) | drive_high) & ~alternate) |
++        (s->gpio_alt_level[port] & alternate);
++    return s->boundary_active[port] ?
++        (s->boundary_value[port] & s->boundary_drive[port]) |
++        (s->gpio_input[port] & ~s->boundary_drive[port]) : value;
++}
++uint8_t ez80f91_gpio_output_mask(DeviceState *dev, unsigned port)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    uint8_t *r = s->gpio[port];
++    return s->boundary_active[port] ? s->boundary_drive[port] :
++        (~r[3] & ((~r[1] & (~r[2] | ~r[0])) | (r[1] & r[2] & r[0]))) |
++        (r[3] & ~r[2] & r[1] & s->gpio_alt_mask[port]);
++}
++static void gpio_update(EZ80F91MemoryState *s)
++{
++    for (unsigned p = 0; p < 4; p++) {
++        uint8_t *r = s->gpio[p];
++        uint8_t level = ez80f91_gpio_levels(DEVICE(s), p);
++        uint8_t edge = r[3] & ((r[2] & r[1]) | (~r[2] & ~r[1] & r[0]));
++        uint8_t active = r[3] & r[2] & ~r[1] & ~(level ^ r[0]);
++        s->gpio_pending[p] &= edge;
++        active |= s->gpio_pending[p];
++        for (unsigned b = 0; b < 8; b++) {
++            qemu_set_irq(s->gpio_irq[p * 8 + b],
++                         !(s->ppd1 & (0x10 << p)) && (active & (1 << b)));
++            qemu_set_irq(s->gpio_pin[p * 8 + b], !!(level & (1 << b)));
++        }
 +    }
++}
++static void gpio_notify(EZ80F91MemoryState *s)
++{
++    gpio_update(s);
++    for (unsigned i = 0; i < ARRAY_SIZE(s->peripheral_config); i++) {
++        qemu_set_irq(s->peripheral_config[i], 0);
++        qemu_set_irq(s->peripheral_config[i], 1);
++    }
++}
++void ez80f91_gpio_drive(DeviceState *dev, unsigned port, uint8_t mask,
++                        uint8_t levels)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    s->gpio_alt_mask[port] |= mask;
++    s->gpio_alt_level[port] = (s->gpio_alt_level[port] & ~mask) | (levels & mask);
++    gpio_update(s);
++}
++uint8_t ez80f91_gpio_latch(DeviceState *dev, unsigned port)
++{
++    return EZ80F91_MEMORY(dev)->gpio[port][0];
++}
++void ez80f91_gpio_release(DeviceState *dev, unsigned port, uint8_t mask)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    s->gpio_alt_mask[port] &= ~mask;
++    gpio_update(s);
++}
++void ez80f91_gpio_boundary(DeviceState *dev, unsigned port, bool active,
++                           uint8_t drive, uint8_t value)
++{
++    EZ80F91MemoryState *s = EZ80F91_MEMORY(dev);
++    s->boundary_active[port] = active;
++    s->boundary_drive[port] = drive;
++    s->boundary_value[port] = value;
++    gpio_update(s);
++}
++static void gpio_set_input(void *opaque, int pin, int value)
++{
++    EZ80F91MemoryState *s = opaque;
++    unsigned port = pin / 8, bit = 1 << (pin % 8);
++    uint8_t *r = s->gpio[port];
++    bool old = !!(s->gpio_input[port] & bit);
++    bool rising = !old && value, falling = old && !value;
++    if ((r[3] & bit) && (r[1] & bit ? (r[2] & bit) &&
++        ((r[0] & bit) ? rising : falling) : !(r[2] & bit) &&
++        (r[0] & bit) && (rising || falling))) {
++        s->gpio_pending[port] |= bit;
++    }
++    s->gpio_input[port] = (s->gpio_input[port] & ~bit) | (value ? bit : 0);
++    gpio_notify(s);
 +}
 +static uint64_t pb_read(void *opaque, hwaddr addr, unsigned size)
 +{
 +    EZ80F91MemoryState *s = opaque;
-+    if (addr == 0) {
-+        uint8_t inputs = s->pb[1] | s->pb[3];
-+        return (s->pb[0] & ~inputs) | ((uint8_t)~s->kit_buttons & inputs);
-+    }
-+    return s->pb[addr];
++    return addr % 4 ? s->gpio[addr / 4][addr % 4] :
++        ez80f91_gpio_levels(DEVICE(s), addr / 4);
 +}
 +static void pb_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
 +{
 +    EZ80F91MemoryState *s = opaque;
-+    s->pb[addr] = value;
-+    s->pb_pending &= button_irq_mask(s);
-+    button_irq_update(s);
++    s->gpio[addr / 4][addr % 4] = value;
++    gpio_notify(s);
 +}
 +static uint64_t pb_ack_read(void *opaque, hwaddr addr, unsigned size)
 +{
@@ -1774,8 +1930,34 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +static void pb_ack_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
 +{
 +    EZ80F91MemoryState *s = opaque;
-+    s->pb_pending &= ~value;
-+    button_irq_update(s);
++    s->gpio_pending[addr] &= ~value;
++    gpio_update(s);
++}
++static uint64_t ppd_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_MEMORY(opaque)->ppd1;
++}
++static void ppd_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    EZ80F91_MEMORY(opaque)->ppd1 = value;
++    gpio_notify(opaque);
++}
++static void gpio_input_get(Object *obj, Visitor *v, const char *name,
++                            void *opaque, Error **errp)
++{
++    unsigned port = name[strlen(name) - 1] - 'a';
++    visit_type_uint8(v, name, &EZ80F91_MEMORY(obj)->gpio_input[port], errp);
++}
++static void gpio_input_set(Object *obj, Visitor *v, const char *name,
++                            void *opaque, Error **errp)
++{
++    unsigned port = name[strlen(name) - 1] - 'a';
++    uint8_t value;
++    if (visit_type_uint8(v, name, &value, errp)) {
++        for (unsigned bit = 0; bit < 8; bit++) {
++            gpio_set_input(obj, port * 8 + bit, !!(value & (1 << bit)));
++        }
++    }
 +}
 +static void buttons_get(Object *obj, Visitor *v, const char *name,
 +                        void *opaque, Error **errp)
@@ -1794,9 +1976,10 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +        error_setg(errp, "kit-buttons must be a mask in 0..7");
 +        return;
 +    }
-+    s->pb_pending |= (s->kit_buttons ^ pressed) & button_irq_mask(s);
 +    s->kit_buttons = pressed;
-+    button_irq_update(s);
++    for (unsigned bit = 0; bit < 3; bit++) {
++        gpio_set_input(s, 8 + bit, !(pressed & (1 << bit)));
++    }
 +}
 +static void kit_accumulate(EZ80F91MemoryState *s)
 +{
@@ -1883,6 +2066,35 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +                           "\"cathode\":%u,\"gpio\":%u,\"buttons\":%u,\"enabled\":%s}\n",
 +                           mask, s->kit_latch[0], s->kit_latch[1],
 +                           s->kit_latch[2], s->kit_buttons, s->kit_enabled ? "true" : "false");
++    GString *details = g_string_new_len(json, strlen(json) - 2);
++    g_string_append_printf(details,
++        ",\"host_ns\":\"%" PRId64 "\",\"virtual_ns\":\"%" PRId64
++        "\",\"instructions\":\"%" PRId64 "\",\"icount\":%s,\"running\":%s,"
++        "\"clock_hz\":%" PRIu64 ",\"memory\":[",
++        qemu_clock_get_ns(QEMU_CLOCK_REALTIME), qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
++        icount_enabled() ? icount_get_raw() : 0,
++        icount_enabled() ? "true" : "false", runstate_is_running() ? "true" : "false",
++        ez80f91_clock_hz());
++    for (unsigned i = 0; i < 4; i++) {
++        bool enabled = (s->cs[i][2] & 0x18) == 8 && s->cs[i][1] >= s->cs[i][0];
++        g_string_append_printf(details,
++            "%s{\"name\":\"CS%u\",\"type\":\"%s\",\"start\":%u,\"end\":%u,"
++            "\"enabled\":%s,\"control\":%u,\"bus_mode\":%u}",
++            i ? "," : "", i, s->cs_kind[i] ? s->cs_kind[i] : "none",
++            s->cs[i][0] << 16, (s->cs[i][1] << 16) | 0xffff,
++            enabled ? "true" : "false", s->cs[i][2], s->bmc[i]);
++    }
++    unsigned ram_base = s->ram_upper << 16;
++    g_string_append_printf(details,
++        ",{\"name\":\"Flash int.\",\"start\":%u,\"end\":%u,\"enabled\":%s},"
++        "{\"name\":\"SRAM int.\",\"start\":%u,\"end\":%u,\"enabled\":%s},"
++        "{\"name\":\"EMAC RAM\",\"start\":%u,\"end\":%u,\"enabled\":%s}]}\n",
++        s->flash_upper << 16, (s->flash_upper << 16) + 0x3ffff,
++        s->flash_ctl & 8 ? "true" : "false", ram_base | 0xe000, ram_base | 0xffff,
++        s->ram_ctl & 0x80 ? "true" : "false", ram_base | 0xc000, ram_base | 0xdfff,
++        s->ram_ctl & 0x40 ? "true" : "false");
++    g_free(json);
++    json = g_string_free(details, false);
 +    if (!g_file_set_contents(s->kit_led_file, json, -1, &error)) {
 +        error_report("Kit LED state: %s", error->message);
 +    }
@@ -1916,6 +2128,62 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    .endianness = DEVICE_LITTLE_ENDIAN,
 +    .valid = { .min_access_size = 1, .max_access_size = 1 },
 +    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps ppd_ops = {
++    .read = ppd_read, .write = ppd_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++    .impl = { .min_access_size = 1, .max_access_size = 1 },
++};
++static uint64_t product_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return addr == 0 ? 8 : addr == 2 ? 1 : 0;
++}
++static void product_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++}
++static void mbist_complete(void *opaque)
++{
++    EZ80F91MemoryState *s = opaque;
++    for (unsigned bank = 0; bank < 2; bank++) {
++        if (!(s->mbist[bank] & 0x80)) {
++            continue;
++        }
++        MemoryRegion *region = bank ? &s->eram : &s->ram;
++        uint8_t *ram = memory_region_get_ram_ptr(region);
++        bool pass = true;
++        for (unsigned pattern = 0; pattern < 8; pattern++) {
++            memset(ram, 1 << pattern, 8192);
++            for (unsigned i = 0; i < 8192; i++) {
++                pass &= ram[i] == (1 << pattern);
++            }
++        }
++        memset(ram, 0, 8192);
++        memory_region_set_dirty(region, 0, 8192);
++        s->mbist[bank] = 0x40 | (pass ? 0x20 : 0);
++    }
++}
++static uint64_t mbist_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return EZ80F91_MEMORY(opaque)->mbist[addr];
++}
++static void mbist_write(void *opaque, hwaddr addr, uint64_t value, unsigned size)
++{
++    EZ80F91MemoryState *s = opaque;
++    if (value & 0x80) {
++        s->mbist[addr] = 0x80;
++        timer_mod(s->mbist_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 1000000);
++    } else {
++        s->mbist[addr] &= ~0x80;
++    }
++}
++static const MemoryRegionOps product_ops = {
++    .read = product_read, .write = product_write, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
++};
++static const MemoryRegionOps mbist_ops = {
++    .read = mbist_read, .write = mbist_write, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 1 },
 +};
 +static const MemoryRegionOps kit_ops = {
 +    .read = kit_read, .write = kit_write,
@@ -2197,14 +2465,21 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +{
 +    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
 +    s->dev_select = 0;
++    memset(s->mbist, 0, sizeof(s->mbist));
++    timer_del(s->mbist_timer);
 +    if (s->wd2797a) {
 +        f91_wd2797a_reset(&s->fdc);
 +    }
 +    kit_accumulate(s);
-+    memset(s->pb, 0, sizeof(s->pb));
-+    s->pb[1] = 0xff;
-+    s->pb_pending = 0;
-+    button_irq_update(s);
++    memset(s->gpio, 0, sizeof(s->gpio));
++    memset(s->gpio_pending, 0, sizeof(s->gpio_pending));
++    memset(s->gpio_alt_mask, 0, sizeof(s->gpio_alt_mask));
++    memset(s->boundary_active, 0, sizeof(s->boundary_active));
++    s->ppd1 = 0;
++    for (unsigned i = 0; i < 4; i++) {
++        s->gpio[i][1] = 0xff;
++    }
++    gpio_notify(s);
 +    s->kit_latch[0] = s->kit_latch[2] = 0;
 +    s->kit_latch[1] = 0xff;
 +    kit_clear_energy(s);
@@ -2217,6 +2492,7 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    s->ram_ctl = 0xc0;
 +    s->ram_upper = 0xff;
 +    memset(s->flash_io, 0, sizeof(s->flash_io));
++    s->flash_io[4] = 1;
 +    s->flash_io[5] = 0xff;
 +    s->key_stage = 0;
 +    s->flash_unlocked = false;
@@ -2407,7 +2683,8 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    memcpy(s->host_config + 4, s->hostname, host_length + 1);
 +    memory_region_init_io(&s->host_ports, OBJECT(s), &host_ops, s,
 +                          "f91.hostname", sizeof(s->host_config));
-+    memory_region_add_subregion(get_system_io(), 0xff08, &s->host_ports);
++    memory_region_add_subregion(get_system_io(),
++        s->wd2797a && s->wd2797a < 256 ? 0xfe48 : 0xff08, &s->host_ports);
 +    if (s->ram_boot && !s->evb) {
 +        error_setg(errp, "RAM boot requires the FreeRTOS development board");
 +        return;
@@ -2416,9 +2693,9 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +        return;
 +    }
 +    if (s->wd2797a) {
-+        if (!s->dev_dir || s->wd2797a < 0x100 || s->wd2797a > 0xfff8 ||
++        if (!s->dev_dir || (s->wd2797a < 0x100 && s->wd2797a != 0x18) || s->wd2797a > 0xfff8 ||
 +            (s->wd2797a <= 0xff4b && s->wd2797a + 7 >= 0xff00)) {
-+            error_setg(errp, "wd2797a requires dev-dir and an external base 0x100..0xfff8 outside 0xfef9..0xff4b");
++            error_setg(errp, "wd2797a requires dev-dir and base 0x18 (8-bit) or 0x100..0xfff8 outside 0xfef9..0xff4b");
 +            return;
 +        }
 +        if (!dev_load(s, errp)) {
@@ -2530,20 +2807,40 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +{
 +    EZ80F91MemoryState *s = EZ80F91_MEMORY(obj);
 +    MemoryRegion *mem = get_system_memory(), *io = get_system_io();
++    s->mbist_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, mbist_complete, s);
++    memory_region_init_io(&s->id_ports, obj, &product_ops, s, "f91.product-id", 3);
++    memory_region_add_subregion(io, 0, &s->id_ports);
++    memory_region_init_io(&s->mbist_ports, obj, &mbist_ops, s, "f91.mbist", 2);
++    memory_region_add_subregion(io, 0xb6, &s->mbist_ports);
 +    memory_region_init_io(&s->kit_ports, obj, &kit_ops, s, "kit.led-gpio", 3);
 +    memory_region_set_enabled(&s->kit_ports, false);
 +    memory_region_add_subregion_overlap(mem, 0x800000, &s->kit_ports, 5);
 +    memset(s->info, 0xff, sizeof(s->info));
 +    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->flash_irq);
-+    for (unsigned i = 0; i < 3; i++) {
-+        sysbus_init_irq(SYS_BUS_DEVICE(s), &s->button_irq[i]);
++    for (unsigned i = 0; i < 32; i++) {
++        sysbus_init_irq(SYS_BUS_DEVICE(s), &s->gpio_irq[i]);
++    }
++    memset(s->gpio_input, 0xff, sizeof(s->gpio_input));
++    qdev_init_gpio_in(DEVICE(s), gpio_set_input, 32);
++    qdev_init_gpio_out_named(DEVICE(s), s->gpio_pin, "pins", 32);
++    qdev_init_gpio_out_named(DEVICE(s), s->peripheral_config, "peripheral-config", 5);
++    for (unsigned p = 0; p < 4; p++) {
++        g_autofree char *name = g_strdup_printf("gpio-input-%c", 'a' + p);
++        object_property_add(obj, name, "uint8", gpio_input_get, gpio_input_set,
++                            NULL, NULL);
 +    }
 +    object_property_add(obj, "kit-buttons", "uint8", buttons_get, buttons_set,
 +                        NULL, NULL);
-+    memory_region_init_io(&s->pb_ports, obj, &pb_ops, s, "f91.port-b", 4);
-+    memory_region_add_subregion(io, 0x9a, &s->pb_ports);
-+    memory_region_init_io(&s->pb_ack_port, obj, &pb_ack_ops, s, "f91.pb-alt0", 1);
-+    memory_region_add_subregion(io, 0xa7, &s->pb_ack_port);
++    memory_region_init_io(&s->pb_ports, obj, &pb_ops, s, "f91.gpio", 16);
++    memory_region_add_subregion(io, 0x96, &s->pb_ports);
++    memory_region_init_io(&s->pb_ack_port, obj, &pb_ack_ops, s, "f91.gpio-ack", 4);
++    for (unsigned i = 0; i < 2; i++) {
++        memory_region_init_alias(&s->ack_alias[i], obj, "f91.gpio-ack-pair",
++                                 &s->pb_ack_port, i * 2, 2);
++        memory_region_add_subregion(io, i ? 0xce : 0xa6, &s->ack_alias[i]);
++    }
++    memory_region_init_io(&s->ppd_port, obj, &ppd_ops, s, "f91.ppd1", 1);
++    memory_region_add_subregion(io, 0xdb, &s->ppd_port);
 +    memory_region_init_rom_device(&s->flash, obj, &flash_array_ops, s,
 +                                  "ez80f91.flash", 256 * KiB, &error_abort);
 +    memset(memory_region_get_ram_ptr(&s->flash), 0xff, 256 * KiB);
@@ -2579,6 +2876,10 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    DEFINE_PROP_BOOL("ram-boot", EZ80F91MemoryState, ram_boot, false),
 +    DEFINE_PROP_STRING("kit-led-state", EZ80F91MemoryState, kit_led_file),
 +};
++static void memory_finalize(Object *obj)
++{
++    timer_free(EZ80F91_MEMORY(obj)->mbist_timer);
++}
 +static void memory_class_init(ObjectClass *oc, const void *data)
 +{
 +    DeviceClass *dc = DEVICE_CLASS(oc);
@@ -2592,6 +2893,7 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +    .parent = TYPE_SYS_BUS_DEVICE,
 +    .instance_size = sizeof(EZ80F91MemoryState),
 +    .instance_init = memory_init,
++    .instance_finalize = memory_finalize,
 +    .class_init = memory_class_init,
 +};
 +static void memory_register_types(void)
@@ -2614,13 +2916,13 @@ index 0000000000000000000000000000000000000000..ab5450d1d8996b21abcacfcb01d4fc6f
 +}
 diff --git a/hw/ez80/meson.build b/hw/ez80/meson.build
 new file mode 100644
-index 0000000000..327f145abdf5fe0b89474df9e9546e7a2daca78b
+index 0000000..acc44d1
 --- /dev/null
 +++ b/hw/ez80/meson.build
 @@ -0,0 +1,4 @@
 +# SPDX-License-Identifier: GPL-2.0-or-later
 +ez80_ss = ss.source_set()
-+ez80_ss.add(when: 'CONFIG_EZ80F91_MINIMAL', if_true: files('ez80f91.c', 'uart.c', 'memory.c', 'intc.c', 'timer.c', 'clock.c', 'emac.c', 'rtc.c', 'wd2797a.c'))
++ez80_ss.add(when: 'CONFIG_EZ80F91_MINIMAL', if_true: files('ez80f91.c', 'uart.c', 'memory.c', 'intc.c', 'timer.c', 'clock.c', 'emac.c', 'rtc.c', 'wd2797a.c', 'spi.c', 'i2c.c', 'watchdog.c', 'jtag.c', 'hostfs.c'))
 +hw_arch += {'ez80': ez80_ss}
 diff --git a/hw/ez80/timer.c b/hw/ez80/timer.c
 new file mode 100644
@@ -3231,17 +3533,28 @@ index 0000000..d70098e
 +type_init(uart_register_types);
 diff --git a/include/hw/ez80/ez80f91.h b/include/hw/ez80/ez80f91.h
 new file mode 100644
-index 0000000..f31d016
+index 0000000..e31eafc
 --- /dev/null
 +++ b/include/hw/ez80/ez80f91.h
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,19 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#ifndef HW_EZ80F91_H
 +#define HW_EZ80F91_H
 +#include "hw/core/qdev.h"
++uint64_t ez80f91_clock_hz(void);
 +MemoryRegion *ez80f91_emac_ram(DeviceState *dev);
 +uint32_t ez80f91_emac_base(DeviceState *dev);
 +bool ez80f91_emac_enabled(DeviceState *dev);
++bool ez80f91_peripheral_enabled(DeviceState *dev, uint8_t mask);
++bool ez80f91_gpio_alternate(DeviceState *dev, unsigned port, unsigned mask);
++uint8_t ez80f91_gpio_levels(DeviceState *dev, unsigned port);
++uint8_t ez80f91_gpio_latch(DeviceState *dev, unsigned port);
++void ez80f91_gpio_release(DeviceState *dev, unsigned port, uint8_t mask);
++uint8_t ez80f91_gpio_output_mask(DeviceState *dev, unsigned port);
++void ez80f91_gpio_boundary(DeviceState *dev, unsigned port, bool active,
++                           uint8_t drive, uint8_t value);
++void ez80f91_gpio_drive(DeviceState *dev, unsigned port, uint8_t mask,
++                        uint8_t levels);
 +#endif
 diff --git a/pc-bios/ez80-zds/dtl.py b/pc-bios/ez80-zds/dtl.py
 new file mode 100644
@@ -5853,10 +6166,10 @@ new file mode 100644
 +type_init(rtc_register_types);
 diff --git a/hw/ez80/wd2797a.c b/hw/ez80/wd2797a.c
 new file mode 100644
-index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
+index 0000000..ae53e58
 --- /dev/null
 +++ b/hw/ez80/wd2797a.c
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,493 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/* Register-level WD2797A with raw 128-byte-sector disk backends.
 + * Seek/sector transfers are functional, not rotationally timed. */
@@ -5917,6 +6230,32 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +           track < tracks(s) && track == s->cylinder[s->control & 15];
 +}
 +
++/* Native FCB and raw FDC access share the same file, without exit-time caches. */
++static bool backend_read(F91WD2797A *s, size_t offset, size_t length)
++{
++    unsigned drive = s->control & 15;
++    if (!s->paths) { return true; }
++    int fd = open(s->paths[drive], O_RDONLY | O_NOFOLLOW);
++    if (fd < 0) { return false; }
++    bool ok = pread(fd, s->images[drive] + offset, length, offset) == length;
++    close(fd); return ok;
++}
++static bool backend_write(F91WD2797A *s, const uint8_t *bytes, size_t length)
++{
++    unsigned drive = s->control & 15;
++    if (s->paths) {
++        int fd = open(s->paths[drive], O_WRONLY | O_NOFOLLOW);
++        if (fd < 0) { return false; }
++        bool ok = pwrite(fd, bytes, length, s->offset) == length;
++        close(fd);
++        if (!ok) { return false; }
++    } else {
++        s->dirty[drive] = true;
++    }
++    memcpy(s->images[drive] + s->offset, bytes, length);
++    return true;
++}
++
 +static void sector_start(F91WD2797A *s)
 +{
 +    unsigned drive = s->control & 15;
@@ -5939,6 +6278,9 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +    s->busy = s->drq = true;
 +    s->transfer = 0;
 +    if (!s->writing) {
++        if (!backend_read(s, s->offset, 128)) {
++            finish(s, FDC_NOT_FOUND); return;
++        }
 +        memcpy(s->buffer, s->images[drive] + s->offset, 128);
 +    }
 +}
@@ -6047,15 +6389,16 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +        pos += 130;
 +    }
 +    if (seen != (1ULL << count) - 1) { return FDC_NOT_FOUND; }
-+    memcpy(s->images[s->control & 15] + s->offset, formatted, count * 128);
-+    s->dirty[s->control & 15] = true;
-+    return 0;
++    return backend_write(s, formatted, count * 128) ? 0 : FDC_NOT_FOUND;
 +}
 +
 +static void command(F91WD2797A *s, uint8_t value)
 +{
 +    unsigned drive = s->control & 15;
 +    unsigned group = value >> 4;
++    if (ready(s) && !backend_read(s, 0, s->sizes[drive])) {
++        finish(s, FDC_NOT_FOUND); return;
++    }
 +    if (group == 13) { /* Force Interrupt also aborts a partial write. */
 +        timer_del(s->index_timer);
 +        s->command = value;
@@ -6139,7 +6482,6 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +
 +static void byte_done(F91WD2797A *s)
 +{
-+    unsigned drive = s->control & 15;
 +    if (s->position != s->length) {
 +        return;
 +    }
@@ -6148,8 +6490,9 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +        return;
 +    }
 +    if (s->writing) {
-+        memcpy(s->images[drive] + s->offset, s->buffer, 128);
-+        s->dirty[drive] = true;
++        if (!backend_write(s, s->buffer, 128)) {
++            finish(s, FDC_NOT_FOUND); return;
++        }
 +    }
 +    if (s->transfer == 1) {
 +        s->sector = s->track;
@@ -6294,27 +6637,38 @@ index 0000000000..8461b18f9981de55ce7f11cab66fa2e2ba382c13
 +}
 +
 +void f91_wd2797a_init(F91WD2797A *s, Object *owner, unsigned base,
-+                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly)
++                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly, char **paths)
 +{
 +    s->base = base;
 +    s->images = images;
++    s->paths = paths;
 +    s->sizes = sizes;
 +    s->dirty = dirty;
 +    s->readonly = readonly;
 +    s->index_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, index_irq, s);
 +    memory_region_init_io(&s->ports, owner, &fdc_ops, s, "wd2797a", 8);
-+    memory_region_add_subregion(get_system_io(), base, &s->ports);
++    if (base < 256) {
++        for (unsigned high = 0; high < 256; high++) {
++            g_autofree char *name = g_strdup_printf("wd2797a-8bit-%u", high);
++            memory_region_init_alias(&s->mirrors[high], owner, name, &s->ports, 0, 8);
++            memory_region_add_subregion(get_system_io(), (high << 8) | base,
++                                        &s->mirrors[high]);
++        }
++    } else {
++        memory_region_add_subregion(get_system_io(), base, &s->ports);
++    }
 +    memory_region_init_io(&s->discovery, owner, &discovery_ops, s,
 +                          "wd2797a.discovery", 8);
-+    memory_region_add_subregion(get_system_io(), 0xff00, &s->discovery);
++    memory_region_add_subregion(get_system_io(), base < 256 ? 0xfe40 : 0xff00,
++                                &s->discovery);
 +    f91_wd2797a_reset(s);
 +}
 diff --git a/hw/ez80/wd2797a.h b/hw/ez80/wd2797a.h
 new file mode 100644
-index 0000000000..4dc6f906475bae8a5694c4d62470cbad88d7085e
+index 0000000..5c59911
 --- /dev/null
 +++ b/hw/ez80/wd2797a.h
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,31 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#ifndef F91_WD2797A_H
 +#define F91_WD2797A_H
@@ -6323,9 +6677,10 @@ index 0000000000..4dc6f906475bae8a5694c4d62470cbad88d7085e
 +#include "qemu/timer.h"
 +
 +typedef struct F91WD2797A {
-+    MemoryRegion ports, discovery;
++    MemoryRegion ports, discovery, mirrors[256];
 +    uint32_t base;
 +    uint8_t **images;
++    char **paths;
 +    gsize *sizes;
 +    bool *dirty, *readonly;
 +    uint8_t command, track, sector, data, control, track_high, error;
@@ -6341,7 +6696,1114 @@ index 0000000000..4dc6f906475bae8a5694c4d62470cbad88d7085e
 +} F91WD2797A;
 +
 +void f91_wd2797a_init(F91WD2797A *s, Object *owner, unsigned base,
-+                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly);
++                     uint8_t **images, gsize *sizes, bool *dirty, bool *readonly, char **paths);
 +void f91_wd2797a_reset(F91WD2797A *s);
 +
 +#endif
+diff --git a/hw/ez80/hostfs.c b/hw/ez80/hostfs.c
+new file mode 100644
+index 0000000..220576f
+--- /dev/null
++++ b/hw/ez80/hostfs.c
+@@ -0,0 +1,1101 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* CP/M 2.2 FCB services and console, decoded on low port bytes 8c..8f. */
++#include "qemu/osdep.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/core/qdev-properties-system.h"
++#include "chardev/char-fe.h"
++#include "system/address-spaces.h"
++#include "qapi/error.h"
++#include "qemu/module.h"
++#include "qemu/cutils.h"
++#include "qemu/bswap.h"
++
++#define TYPE_HOSTFS "ez80f91-hostfs"
++#define FILE_LIMIT (16 * 1024 * 1024)
++OBJECT_DECLARE_SIMPLE_TYPE(HostFS, HOSTFS)
++
++typedef struct HostFile {
++    char *path;
++    uint8_t name[11], user;
++    size_t size;
++    mode_t mode;
++    unsigned drive;
++    bool image;
++    uint8_t attributes;
++} HostFile;
++typedef struct Match {
++    HostFile *file;
++    unsigned extent;
++} Match;
++struct HostFS {
++    SysBusDevice parent_obj;
++    MemoryRegion ports, mirrors[256];
++    char *root;
++    CharFrontend console;
++    uint8_t fifo[4096], request[512], response[256], status;
++    unsigned head, count, request_size, response_size, response_pos;
++    uint8_t drive, user, dma_bank;
++    uint16_t dma, readonly, logged;
++    GPtrArray *matches;
++    unsigned match_pos;
++    GByteArray *source;
++    unsigned source_pos;
++    GString *history, *input, *pending_line;
++    bool recording;
++    GByteArray *ccp;
++    uint8_t ccp_bank;
++    uint16_t ccp_address;
++};
++
++static bool guest_mem(uint8_t bank, uint16_t address, void *data, size_t size,
++                      bool write)
++{
++    uint8_t *bytes = data;
++    while (size) {
++        size_t n = MIN(size, 0x10000u - address);
++        MemTxResult r = write ?
++            address_space_write(&address_space_memory, (bank << 16) | address,
++                                MEMTXATTRS_UNSPECIFIED, bytes, n) :
++            address_space_read(&address_space_memory, (bank << 16) | address,
++                               MEMTXATTRS_UNSPECIFIED, bytes, n);
++        if (r != MEMTX_OK) {
++            return false;
++        }
++        bytes += n;
++        size -= n;
++        address += n;
++    }
++    return true;
++}
++
++/* The host representation has no wildcard names, path components or symlinks. */
++static bool cpm_name(const char *text, uint8_t out[11])
++{
++    const char *dot = strchr(text, '.');
++    size_t stem = dot ? dot - text : strlen(text), ext = dot ? strlen(dot + 1) : 0;
++    if (!stem || stem > 8 || ext > 3 || (dot && strchr(dot + 1, '.'))) {
++        return false;
++    }
++    memset(out, ' ', 11);
++    for (unsigned i = 0; i < strlen(text); i++) {
++        unsigned char c = text[i];
++        if (dot == text + i) {
++            continue;
++        }
++        if (c < 33 || c > 126 || strchr("<>.,;:=?*[]/\\", c)) {
++            return false;
++        }
++        out[dot && text + i > dot ? 8 + (text + i - dot - 1) : i] = g_ascii_toupper(c);
++    }
++    return true;
++}
++
++static char *unix_name(const uint8_t name[11])
++{
++    GString *s = g_string_new(NULL);
++    for (unsigned i = 0; i < 11; i++) {
++        unsigned c = name[i] & 127;
++        if (i == 8 && c != ' ') {
++            g_string_append_c(s, '.');
++        }
++        if (c != ' ') {
++            g_string_append_c(s, g_ascii_tolower(c));
++        }
++    }
++    uint8_t check[11];
++    if (!cpm_name(s->str, check) || memcmp(check, name, 11)) {
++        g_string_free(s, true);
++        return NULL;
++    }
++    return g_string_free(s, false);
++}
++
++/* One mount per CP/M drive: X/ or X (directory/image), alternatively X.img. */
++static char *drive_path(HostFS *s, unsigned drive)
++{
++    if (!s->root || drive >= 16) { return NULL; }
++    g_autofree char *letter = g_strdup_printf("%c", 'A' + drive);
++    char *path = g_build_filename(s->root, letter, NULL);
++    struct stat st;
++    if (!lstat(path, &st)) {
++        if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode)) { return path; }
++        g_free(path);
++        return NULL;
++    }
++    g_free(path);
++    g_autofree char *image = g_strdup_printf("%c.img", 'A' + drive);
++    path = g_build_filename(s->root, image, NULL);
++    if (!lstat(path, &st) && S_ISREG(st.st_mode)) { return path; }
++    g_free(path);
++    return NULL;
++}
++static bool image_drive(HostFS *s, unsigned drive)
++{
++    g_autofree char *path = drive_path(s, drive);
++    struct stat st;
++    return path && !lstat(path, &st) && S_ISREG(st.st_mode);
++}
++
++typedef struct CpmImage {
++    uint8_t *data;
++    size_t size, offset;
++    unsigned block, blocks, entries, slots;
++    int fd;
++    mode_t mode;
++} CpmImage;
++
++static void image_close(CpmImage *im)
++{
++    if (im->fd >= 0) { close(im->fd); }
++    g_free(im->data);
++}
++static void image_skew(CpmImage *im, uint8_t *raw, bool writing)
++{
++    static const uint8_t trans[26] = {
++        1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
++    };
++    for (size_t track = im->offset; track + 26 * 128 <= im->size; track += 26 * 128) {
++        for (unsigned sector = 0; sector < 26; sector++) {
++            uint8_t *logical = im->data + track + sector * 128;
++            uint8_t *physical = raw + track + (trans[sector] - 1) * 128;
++            if (writing) { memcpy(physical, logical, 128); }
++            else { memcpy(logical, physical, 128); }
++        }
++    }
++}
++static bool image_open(HostFS *s, unsigned drive, bool writing, CpmImage *im)
++{
++    memset(im, 0, sizeof(*im));
++    im->fd = -1;
++    g_autofree char *path = drive_path(s, drive);
++    if (!path) { return false; }
++    im->fd = open(path, (writing ? O_RDWR : O_RDONLY) | O_NOFOLLOW);
++    if (im->fd < 0) { return false; }
++    struct stat st;
++    if (fstat(im->fd, &st) || !S_ISREG(st.st_mode) ||
++        (writing && !(st.st_mode & 0222))) { goto fail; }
++    im->mode = st.st_mode;
++    im->size = st.st_size;
++    if (im->size == 4194304) {
++        im->block = 2048; im->blocks = 2048; im->entries = 256; im->slots = 8;
++    } else if (im->size == 256256) {
++        im->offset = drive == 0 ? 26 * 128 * 2 : 0;
++        im->block = 1024; im->blocks = drive == 0 ? 243 : 250;
++        im->entries = 64; im->slots = 16;
++    } else { goto fail; }
++    im->data = g_malloc(im->size);
++    if (pread(im->fd, im->data, im->size, 0) != im->size) { goto fail; }
++    if (im->block == 1024) {
++        g_autofree uint8_t *raw = g_memdup2(im->data, im->size);
++        image_skew(im, raw, false);
++    }
++    return true;
++fail:
++    image_close(im);
++    im->fd = -1; im->data = NULL;
++    return false;
++}
++static unsigned image_extent(const uint8_t *e)
++{
++    return (e[14] & 63) * 32 + (e[12] & 31);
++}
++static bool image_matches(const uint8_t *e, unsigned user, const uint8_t name[11])
++{
++    if (e[0] != user) { return false; }
++    for (unsigned i = 0; i < 11; i++) {
++        if ((e[1 + i] & 127) != name[i]) { return false; }
++    }
++    return true;
++}
++static unsigned image_block(CpmImage *im, const uint8_t *e, unsigned slot)
++{
++    return im->slots == 8 ? lduw_le_p(e + 16 + slot * 2) : e[16 + slot];
++}
++static void image_set_block(CpmImage *im, uint8_t *e, unsigned slot, unsigned block)
++{
++    if (im->slots == 8) { stw_le_p(e + 16 + slot * 2, block); }
++    else { e[16 + slot] = block; }
++}
++static GByteArray *image_contents(CpmImage *im, unsigned user, const uint8_t name[11])
++{
++    size_t size = 0;
++    bool found = false;
++    for (unsigned i = 0; i < im->entries; i++) {
++        uint8_t *e = im->data + im->offset + i * 32;
++        if (image_matches(e, user, name)) {
++            found = true;
++            if (e[15] > 128) { return NULL; }
++            size = MAX(size, image_extent(e) * 16384u + e[15] * 128u);
++        }
++    }
++    if (!found || size > im->size) { return NULL; }
++    GByteArray *bytes = g_byte_array_sized_new(size);
++    g_byte_array_set_size(bytes, size);
++    memset(bytes->data, 0, size);
++    for (unsigned i = 0; i < im->entries; i++) {
++        uint8_t *e = im->data + im->offset + i * 32;
++        if (!image_matches(e, user, name)) { continue; }
++        size_t start = image_extent(e) * 16384u, length = e[15] * 128u;
++        for (unsigned j = 0; j * im->block < length; j++) {
++            unsigned b = image_block(im, e, j);
++            if (!b) { continue; } /* Unallocated random-write holes read as zero. */
++            if (b < im->entries * 32 / im->block || b >= im->blocks ||
++                im->offset + (b + 1) * im->block > im->size) {
++                g_byte_array_unref(bytes); return NULL;
++            }
++            memcpy(bytes->data + start + j * im->block,
++                   im->data + im->offset + b * im->block,
++                   MIN(im->block, length - j * im->block));
++        }
++    }
++    return bytes;
++}
++/* Preflight capacity in a private copy; a full disk never removes the old file. */
++static bool image_replace(CpmImage *im, unsigned user, const uint8_t name[11],
++                          const uint8_t *bytes, size_t size, uint8_t attributes)
++{
++    unsigned used[2048] = {0}, free_entries = 0;
++    unsigned reserved = im->entries * 32 / im->block;
++    for (unsigned b = 0; b < reserved; b++) { used[b] = 1; }
++    for (unsigned i = 0; i < im->entries; i++) {
++        uint8_t *e = im->data + im->offset + i * 32;
++        if (e[0] == 0xe5 || image_matches(e, user, name)) { free_entries++; continue; }
++        if (e[0] >= 16) { continue; }
++        for (unsigned j = 0; j < im->slots; j++) {
++            unsigned b = image_block(im, e, j);
++            if (b >= im->blocks) { return false; }
++            used[b] = 1;
++        }
++    }
++    unsigned free_blocks = 0;
++    for (unsigned b = reserved; b < im->blocks; b++) { free_blocks += !used[b]; }
++    if (MAX(1, (size + 16383) / 16384) > free_entries ||
++        (size + im->block - 1) / im->block > free_blocks) { return false; }
++    for (unsigned i = 0; i < im->entries; i++) {
++        uint8_t *e = im->data + im->offset + i * 32;
++        if (image_matches(e, user, name)) { e[0] = 0xe5; }
++    }
++    size_t pos = 0;
++    unsigned next = reserved, extent = 0;
++    do {
++        uint8_t *e = NULL;
++        for (unsigned i = 0; i < im->entries; i++) {
++            uint8_t *candidate = im->data + im->offset + i * 32;
++            if (candidate[0] == 0xe5) { e = candidate; break; }
++        }
++        if (!e) { return false; }
++        memset(e, 0, 32); e[0] = user; memcpy(e + 1, name, 11);
++        for (unsigned i = 0; i < 3; i++) { e[9 + i] |= (attributes & (1 << i)) ? 128 : 0; }
++        e[12] = extent & 31; e[14] = extent >> 5;
++        size_t length = MIN(16384, size - pos);
++        e[15] = (length + 127) / 128;
++        if (im->block == 2048) { e[13] = length % 128; }
++        for (unsigned j = 0; j * im->block < length; j++) {
++            while (used[next]) { next++; }
++            used[next] = 1; image_set_block(im, e, j, next);
++            uint8_t *target = im->data + im->offset + next * im->block;
++            memset(target, 26, im->block);
++            size_t n = MIN(im->block, length - j * im->block);
++            memcpy(target, bytes + pos + j * im->block, n);
++        }
++        pos += length; extent++;
++    } while (pos < size);
++    return true;
++}
++static bool image_commit(CpmImage *im)
++{
++    /* Keep inode and image geometry stable for the floppy controller. */
++    if (im->block == 1024) {
++        g_autofree uint8_t *raw = g_memdup2(im->data, im->size);
++        image_skew(im, raw, true);
++        return pwrite(im->fd, raw, im->size, 0) == im->size;
++    }
++    return pwrite(im->fd, im->data, im->size, 0) == im->size;
++}
++
++static char *user_dir(HostFS *s, unsigned drive, unsigned user, bool create)
++{
++    if (!s->root || drive >= 16 || user >= 16) {
++        return NULL;
++    }
++    char *path = drive_path(s, drive);
++    if (!path) { return NULL; }
++    struct stat st;
++    if (lstat(path, &st) || !S_ISDIR(st.st_mode)) {
++        g_free(path);
++        return NULL;
++    }
++    if (user) {
++        g_autofree char *number = g_strdup_printf("%u", user);
++        char *sub = g_build_filename(path, number, NULL);
++        g_free(path);
++        path = sub;
++        if (create && mkdir(path, 0755) && errno != EEXIST) {
++            g_free(path);
++            return NULL;
++        }
++        if (lstat(path, &st) || !S_ISDIR(st.st_mode)) {
++            g_free(path);
++            return NULL;
++        }
++    }
++    return path;
++}
++
++static void file_free(HostFile *f)
++{
++    g_free(f->path);
++    g_free(f);
++}
++static gint file_compare(gconstpointer a, gconstpointer b)
++{
++    const HostFile *x = *(HostFile *const *)a, *y = *(HostFile *const *)b;
++    int r = x->user - y->user;
++    return r ? r : memcmp(x->name, y->name, 11);
++}
++static void image_files(HostFS *s, unsigned drive, unsigned user, GPtrArray *list)
++{
++    CpmImage im;
++    if (!image_open(s, drive, false, &im)) { return; }
++    for (unsigned i = 0; i < im.entries; i++) {
++        uint8_t *e = im.data + im.offset + i * 32;
++        if (e[0] >= 16 || (user < 16 && e[0] != user)) { continue; }
++        uint8_t name[11];
++        for (unsigned j = 0; j < 11; j++) { name[j] = e[j + 1] & 127; }
++        HostFile *f = NULL;
++        for (unsigned j = 0; j < list->len; j++) {
++            HostFile *candidate = g_ptr_array_index(list, j);
++            if (candidate->user == e[0] && !memcmp(candidate->name, name, 11)) {
++                f = candidate; break;
++            }
++        }
++        if (!f) {
++            f = g_new0(HostFile, 1);
++            memcpy(f->name, name, 11); f->user = e[0];
++            f->drive = drive; f->image = true;
++            f->mode = im.mode;
++            for (unsigned j = 0; j < 3; j++) { f->attributes |= (e[9 + j] >> 7) << j; }
++            if (e[9] & 128) { f->mode &= ~0222; }
++            g_ptr_array_add(list, f);
++        }
++        unsigned length = MIN(e[15], 128) * 128u;
++        /* p2dos records the final byte count in S1; ordinary CP/M ignores it. */
++        if (im.block == 2048 && length && e[13] && e[13] < 128) {
++            length -= 128 - e[13];
++        }
++        f->size = MAX(f->size, image_extent(e) * 16384u + length);
++    }
++    image_close(&im);
++}
++static GByteArray *file_contents(HostFS *s, HostFile *f)
++{
++    if (f->image) {
++        CpmImage im;
++        if (!image_open(s, f->drive, false, &im)) { return NULL; }
++        GByteArray *bytes = image_contents(&im, f->user, f->name);
++        image_close(&im); return bytes;
++    }
++    int fd = open(f->path, O_RDONLY | O_NOFOLLOW);
++    if (fd < 0) { return NULL; }
++    GByteArray *bytes = g_byte_array_sized_new(f->size);
++    g_byte_array_set_size(bytes, f->size);
++    ssize_t n = pread(fd, bytes->data, bytes->len, 0);
++    close(fd);
++    if (n != bytes->len) { g_byte_array_unref(bytes); return NULL; }
++    return bytes;
++}
++static bool file_replace(HostFS *s, unsigned drive, unsigned user,
++                         const uint8_t name[11], const uint8_t *bytes, size_t size,
++                         uint8_t attributes)
++{
++    if (image_drive(s, drive)) {
++        CpmImage im;
++        if (!image_open(s, drive, true, &im)) { return false; }
++        bool ok = image_replace(&im, user, name, bytes, size, attributes) && image_commit(&im);
++        image_close(&im); return ok;
++    }
++    g_autofree char *dir = user_dir(s, drive, user, true);
++    g_autofree char *base = unix_name(name);
++    g_autofree char *path = dir && base ? g_build_filename(dir, base, NULL) : NULL;
++    int fd = path ? open(path, O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW, 0644) : -1;
++    if (fd < 0) { return false; }
++    bool ok = !size || write(fd, bytes, size) == size;
++    close(fd);
++    if (!ok) { unlink(path); }
++    return ok;
++}
++static bool file_remove(HostFS *s, HostFile *f)
++{
++    if (!f->image) { return !unlink(f->path); }
++    CpmImage im;
++    if (!image_open(s, f->drive, true, &im)) { return false; }
++    for (unsigned i = 0; i < im.entries; i++) {
++        uint8_t *e = im.data + im.offset + i * 32;
++        if (image_matches(e, f->user, f->name)) { e[0] = 0xe5; }
++    }
++    bool ok = image_commit(&im); image_close(&im); return ok;
++}
++static bool file_metadata(HostFS *s, HostFile *f, const uint8_t *new_name,
++                          const uint8_t *attributes)
++{
++    if (!f->image) { return false; }
++    CpmImage im;
++    if (!image_open(s, f->drive, true, &im)) { return false; }
++    for (unsigned i = 0; i < im.entries; i++) {
++        uint8_t *e = im.data + im.offset + i * 32;
++        if (!image_matches(e, f->user, f->name)) { continue; }
++        for (unsigned j = 0; j < 11; j++) {
++            if (new_name) { e[1 + j] = new_name[j] | (e[1 + j] & 128); }
++        }
++        if (attributes) {
++            for (unsigned j = 0; j < 3; j++) { e[9 + j] = (e[9 + j] & 127) | (attributes[j] & 128); }
++        }
++    }
++    bool ok = image_commit(&im); image_close(&im); return ok;
++}
++
++static GPtrArray *files(HostFS *s, unsigned drive, unsigned user)
++{
++    GPtrArray *list = g_ptr_array_new_with_free_func((GDestroyNotify)file_free);
++    if (image_drive(s, drive)) {
++        image_files(s, drive, user, list);
++        g_ptr_array_sort(list, file_compare);
++        return list;
++    }
++    for (unsigned u = 0; u < 16; u++) {
++        if (user < 16 && u != user) {
++            continue;
++        }
++        g_autofree char *path = user_dir(s, drive, u, false);
++        GDir *dir = path ? g_dir_open(path, 0, NULL) : NULL;
++        if (!dir) {
++            continue;
++        }
++        const char *name;
++        while ((name = g_dir_read_name(dir))) {
++            uint8_t cpm[11];
++            if (!cpm_name(name, cpm)) {
++                continue;
++            }
++            g_autofree char *full = g_build_filename(path, name, NULL);
++            struct stat st;
++            if (lstat(full, &st) || !S_ISREG(st.st_mode) || st.st_size > FILE_LIMIT) {
++                continue;
++            }
++            HostFile *f = g_new0(HostFile, 1);
++            f->path = g_steal_pointer(&full);
++            memcpy(f->name, cpm, 11);
++            f->user = u;
++            f->size = st.st_size;
++            f->mode = st.st_mode;
++            g_ptr_array_add(list, f);
++        }
++        g_dir_close(dir);
++    }
++    g_ptr_array_sort(list, file_compare);
++    return list;
++}
++static HostFile *lookup(HostFS *s, unsigned drive, unsigned user, const uint8_t name[11])
++{
++    GPtrArray *list = files(s, drive, user);
++    HostFile *found = NULL;
++    for (unsigned i = 0; i < list->len; i++) {
++        HostFile *f = g_ptr_array_index(list, i);
++        if (!memcmp(name, f->name, 11)) {
++            if (found) { /* Ambiguous Unix case variants cannot be overwritten. */
++                file_free(found);
++                found = NULL;
++                break;
++            }
++            found = g_new(HostFile, 1);
++            *found = *f;
++            found->path = g_strdup(f->path);
++        }
++    }
++    g_ptr_array_free(list, true);
++    return found;
++}
++static bool pattern(const uint8_t wanted[11], const uint8_t name[11])
++{
++    for (unsigned i = 0; i < 11; i++) {
++        if ((wanted[i] & 127) != '?' && g_ascii_toupper(wanted[i] & 127) != name[i]) {
++            return false;
++        }
++    }
++    return true;
++}
++static bool name_exists(HostFS *s, unsigned drive, unsigned user, const uint8_t name[11])
++{
++    GPtrArray *list = files(s, drive, user);
++    bool exists = false;
++    for (unsigned i = 0; i < list->len; i++) {
++        HostFile *f = g_ptr_array_index(list, i);
++        exists |= !memcmp(f->name, name, 11);
++    }
++    g_ptr_array_free(list, true);
++    return exists;
++}
++static unsigned seq_record(const uint8_t fcb[36])
++{
++    return (((fcb[14] & 63) * 32 + (fcb[12] & 31)) * 128) + fcb[32];
++}
++static void set_seq(uint8_t fcb[36], unsigned record, size_t size)
++{
++    unsigned extent = record / 128;
++    fcb[12] = extent & 31;
++    fcb[14] = (fcb[14] & 0xc0) | (extent >> 5);
++    fcb[32] = record & 127;
++    unsigned records = (size + 127) / 128;
++    fcb[15] = MIN(records > extent * 128 ? records - extent * 128 : 0, 128);
++}
++static void directory_entry(HostFS *s, uint8_t entry[32], HostFile *f, unsigned extent)
++{
++    if (f->image) {
++        CpmImage im;
++        if (image_open(s, f->drive, false, &im)) {
++            for (unsigned i = 0; i < im.entries; i++) {
++                uint8_t *e = im.data + im.offset + i * 32;
++                if (image_matches(e, f->user, f->name) && image_extent(e) == extent) {
++                    memcpy(entry, e, 32); image_close(&im); return;
++                }
++            }
++            image_close(&im);
++        }
++    }
++    memset(entry, 0, 32);
++    entry[0] = f->user;
++    memcpy(entry + 1, f->name, 11);
++    if (!(f->mode & 0222)) {
++        entry[9] |= 128;
++    }
++    entry[12] = extent & 31;
++    entry[14] = extent >> 5;
++    unsigned records = (f->size + 127) / 128;
++    entry[15] = MIN(records > extent * 128 ? records - extent * 128 : 0, 128);
++    for (unsigned i = 0; i < (entry[15] + 15) / 16; i++) {
++        stw_le_p(entry + 16 + i * 2, 4 + extent * 8 + i);
++    }
++}
++static void match_free(Match *m)
++{
++    file_free(m->file);
++    g_free(m);
++}
++static uint16_t login_vector(HostFS *s)
++{
++    uint16_t bits = 0;
++    for (unsigned d = 0; d < 16; d++) {
++        g_autofree char *dir = drive_path(s, d);
++        if (dir) {
++            bits |= 1 << d;
++        }
++    }
++    return bits;
++}
++
++static uint16_t bdos(HostFS *s, uint8_t fn, uint16_t de, uint8_t bank, uint16_t scratch)
++{
++    uint8_t fcb[36], name[11];
++    unsigned drive;
++    uint16_t result = 0xff;
++    if (fn == 13) {
++        s->drive = s->readonly = 0;
++        s->dma = 0x80;
++        s->dma_bank = bank;
++        s->logged = login_vector(s) & 1;
++        return 0;
++    }
++    if (fn == 14) {
++        de &= 255;
++        if (de < 16 && (login_vector(s) & (1 << de))) {
++            s->drive = de;
++            s->logged |= 1 << de;
++            return 0;
++        }
++        return 0xff;
++    }
++    if (fn == 24) { return s->logged; }
++    if (fn == 25) { return s->drive; }
++    if (fn == 26) { s->dma = de; s->dma_bank = bank; return 0; }
++    if (fn == 28) { s->readonly |= 1 << s->drive; return 0; }
++    if (fn == 29) { return s->readonly; }
++    if (fn == 32) {
++        if ((de & 255) != 255) { s->user = de & 15; }
++        return s->user;
++    }
++    if (fn == 37) { s->readonly &= ~de; s->logged &= ~de; return 0; }
++    if (fn == 38 || fn == 39) { return 0; }
++    if (fn == 27 || fn == 31) {
++        uint8_t area[272] = {0};
++        if (image_drive(s, s->drive)) {
++            CpmImage im;
++            if (!image_open(s, s->drive, false, &im)) { return 0; }
++            for (unsigned b = 0; b < im.entries * 32 / im.block; b++) {
++                area[b / 8] |= 128 >> (b & 7);
++            }
++            for (unsigned i = 0; i < im.entries; i++) {
++                uint8_t *e = im.data + im.offset + i * 32;
++                if (e[0] >= 16) { continue; }
++                for (unsigned j = 0; j < im.slots; j++) {
++                    unsigned b = image_block(&im, e, j);
++                    if (b < im.blocks) { area[b / 8] |= 128 >> (b & 7); }
++                }
++            }
++            uint8_t *dpb = area + 256;
++            stw_le_p(dpb, im.block == 2048 ? 32 : 26);
++            dpb[2] = im.block == 2048 ? 4 : 3;
++            dpb[3] = (im.block / 128) - 1;
++            stw_le_p(dpb + 5, im.blocks - 1);
++            stw_le_p(dpb + 7, im.entries - 1);
++            dpb[9] = im.entries == 256 ? 240 : 192;
++            stw_le_p(dpb + 11, im.offset ? 16 : 0);
++            stw_le_p(dpb + 13, im.offset / (26 * 128));
++            image_close(&im);
++            return guest_mem(bank, scratch, area, sizeof(area), true) ?
++                scratch + (fn == 31 ? 256 : 0) : 0;
++        }
++        /* A synthetic 4-MiB DPB; native files are not backed by allocation blocks. */
++        unsigned used = 4;
++        GPtrArray *list = files(s, s->drive, 255);
++        for (unsigned i = 0; i < list->len; i++) {
++            HostFile *f = g_ptr_array_index(list, i);
++            used += (f->size + 2047) / 2048;
++        }
++        g_ptr_array_free(list, true);
++        for (unsigned i = 0; i < MIN(used, 2048); i++) {
++            area[i / 8] |= 128 >> (i & 7);
++        }
++        uint8_t dpb[] = {32, 0, 4, 15, 0, 255, 7, 255, 0, 240, 0, 0, 0, 0, 0};
++        memcpy(area + 256, dpb, sizeof(dpb));
++        return guest_mem(bank, scratch, area, sizeof(area), true) ?
++            scratch + (fn == 31 ? 256 : 0) : 0;
++    }
++    if (fn != 18 && !guest_mem(bank, de, fcb, sizeof(fcb), false)) {
++        return 0xff;
++    }
++    if (fn == 18) { goto search_next; }
++    drive = fcb[0] ? fcb[0] - 1 : s->drive;
++    if (fn == 17 && fcb[0] == '?') { drive = s->drive; }
++    if (drive >= 16) { return 0xff; }
++    if (login_vector(s) & (1 << drive)) { s->logged |= 1 << drive; }
++    for (unsigned i = 0; i < 11; i++) { name[i] = g_ascii_toupper(fcb[1 + i] & 127); }
++    if (fn == 17 && fcb[0] == '?') {
++        /* CP/M GETFST uses a zero-length comparison for this raw-directory scan. */
++        memset(name, '?', sizeof(name));
++        fcb[12] = '?';
++    }
++    if (fn == 17) {
++        g_ptr_array_set_size(s->matches, 0);
++        s->match_pos = 0;
++        GPtrArray *list = files(s, drive, fcb[0] == '?' ? 255 : s->user);
++        for (unsigned i = 0; i < list->len; i++) {
++            HostFile *f = g_ptr_array_index(list, i);
++            if (!pattern(name, f->name)) { continue; }
++            unsigned extents = MAX(1, (f->size + 16383) / 16384);
++            for (unsigned ex = 0; ex < extents; ex++) {
++                if (fcb[12] != '?' && ex != ((fcb[14] & 63) * 32 + (fcb[12] & 31))) {
++                    continue;
++                }
++                Match *m = g_new0(Match, 1);
++                m->file = g_new(HostFile, 1);
++                *m->file = *f;
++                m->file->path = g_strdup(f->path);
++                m->extent = ex;
++                g_ptr_array_add(s->matches, m);
++            }
++        }
++        g_ptr_array_free(list, true);
++search_next:
++        if (s->match_pos < s->matches->len) {
++            Match *m = g_ptr_array_index(s->matches, s->match_pos++);
++            uint8_t dma[128];
++            memset(dma, 0xe5, sizeof(dma));
++            directory_entry(s, dma, m->file, m->extent);
++            return guest_mem(s->dma_bank, s->dma, dma, sizeof(dma), true) ? 0 : 0xff;
++        }
++        return 0xff;
++    }
++    if (fn == 19) {
++        if (s->readonly & (1 << drive)) { return 0xff; }
++        GPtrArray *list = files(s, drive, s->user);
++        for (unsigned i = 0; i < list->len; i++) {
++            HostFile *f = g_ptr_array_index(list, i);
++            if (pattern(name, f->name) && (f->mode & 0222) && file_remove(s, f)) {
++                result = 0;
++            }
++        }
++        g_ptr_array_free(list, true);
++        return result;
++    }
++    if (fn == 36) {
++        unsigned record = seq_record(fcb);
++        fcb[33] = record; fcb[34] = record >> 8; fcb[35] = record >> 16;
++        return guest_mem(bank, de, fcb, sizeof(fcb), true) ? 0 : 0xff;
++    }
++    HostFile *f = lookup(s, drive, s->user, name);
++    if (fn == 22 && !f && !name_exists(s, drive, s->user, name) && !(s->readonly & (1 << drive))) {
++        if (file_replace(s, drive, s->user, name, NULL, 0, 0)) {
++            f = lookup(s, drive, s->user, name);
++            set_seq(fcb, 0, 0);
++            result = guest_mem(bank, de, fcb, sizeof(fcb), true) ? 0 : 0xff;
++        }
++        goto done;
++    }
++    if (!f) { return 0xff; }
++    if (fn == 15 || fn == 16) {
++        unsigned record = seq_record(fcb);
++        if (fn == 15 && record / 128 && record / 128 * 16384 >= f->size) { goto done; }
++        set_seq(fcb, record, f->size);
++        result = guest_mem(bank, de, fcb, sizeof(fcb), true) ? 0 : 0xff;
++    } else if (fn == 23) {
++        uint8_t new_name[11];
++        for (unsigned i = 0; i < 11; i++) { new_name[i] = g_ascii_toupper(fcb[17 + i] & 127); }
++        g_autofree char *dir = user_dir(s, drive, s->user, false);
++        g_autofree char *base = unix_name(new_name);
++        g_autofree char *target = dir && base ? g_build_filename(dir, base, NULL) : NULL;
++        if (!name_exists(s, drive, s->user, new_name) && (target || f->image) &&
++            !(s->readonly & (1 << drive)) && (f->mode & 0222)) {
++            if (f->image) {
++                result = file_metadata(s, f, new_name, NULL) ? 0 : 0xff;
++            } else if (!link(f->path, target)) {
++                result = unlink(f->path) ? 0xff : 0;
++            }
++        }
++    } else if (fn == 30) {
++        if (s->readonly & (1 << drive)) { goto done; }
++        if (f->image) {
++            result = file_metadata(s, f, NULL, fcb + 9) ? 0 : 0xff;
++            goto done;
++        }
++        mode_t mode = f->mode & 0777;
++        mode = fcb[9] & 128 ? mode & ~0222 : mode | 0200;
++        int fd = open(f->path, O_RDONLY | O_NOFOLLOW);
++        if (fd >= 0) {
++            result = fchmod(fd, mode) ? 0xff : 0;
++            close(fd);
++        }
++    } else if (fn == 35) {
++        unsigned records = (f->size + 127) / 128;
++        fcb[33] = records; fcb[34] = records >> 8; fcb[35] = records >> 16;
++        result = guest_mem(bank, de, fcb, sizeof(fcb), true) ? 0 : 0xff;
++    } else if (fn == 20 || fn == 21 || fn == 33 || fn == 34 || fn == 40) {
++        bool writing = fn == 21 || fn == 34 || fn == 40;
++        unsigned record = fn < 33 ? seq_record(fcb) :
++            fcb[33] | (fcb[34] << 8) | (fcb[35] << 16);
++        uint8_t data[128];
++        if (record >= FILE_LIMIT / 128) { result = 6; goto done; }
++        if (!writing && record * 128 >= f->size) { result = 1; goto done; }
++        if (writing && ((s->readonly & (1 << drive)) || !(f->mode & 0222))) { goto done; }
++        if (f->image) {
++            if (writing) {
++                GByteArray *bytes = file_contents(s, f);
++                if (!bytes) { goto done; }
++                size_t old = bytes->len, end = MAX(old, (record + 1) * 128u);
++                g_byte_array_set_size(bytes, end);
++                if (end > old) { memset(bytes->data + old, 0, end - old); }
++                result = guest_mem(s->dma_bank, s->dma, bytes->data + record * 128,
++                                   128, false) &&
++                    file_replace(s, drive, s->user, name, bytes->data, bytes->len,
++                                 f->attributes) ? 0 : 0xff;
++                if (!result) { f->size = end; }
++                g_byte_array_unref(bytes);
++            } else {
++                GByteArray *bytes = file_contents(s, f);
++                result = bytes && record * 128 + 128 <= bytes->len &&
++                    guest_mem(s->dma_bank, s->dma, bytes->data + record * 128, 128, true) ? 0 : 0xff;
++                if (bytes) { g_byte_array_unref(bytes); }
++            }
++        } else {
++            int fd = open(f->path, (writing ? O_RDWR : O_RDONLY) | O_NOFOLLOW);
++            if (fd < 0) { goto done; }
++            if (writing) {
++                result = guest_mem(s->dma_bank, s->dma, data, 128, false) &&
++                    pwrite(fd, data, 128, (off_t)record * 128) == 128 ? 0 : 0xff;
++                if (!result) { f->size = MAX(f->size, (size_t)(record + 1) * 128); }
++            } else {
++                memset(data, 26, sizeof(data));
++                ssize_t n = pread(fd, data, 128, (off_t)record * 128);
++                result = n >= 0 && guest_mem(s->dma_bank, s->dma, data, 128, true) ? 0 : 0xff;
++            }
++            close(fd);
++        }
++        if (!result) {
++            set_seq(fcb, record + (fn < 33), f->size);
++            if (!guest_mem(bank, de, fcb, sizeof(fcb), true)) { result = 0xff; }
++        }
++    }
++done:
++    if (f) { file_free(f); }
++    return result;
++}
++
++static void history_line(HostFS *s)
++{
++    g_autofree char *upper = g_ascii_strup(s->input->str, -1);
++    g_strstrip(upper);
++    if (*upper && !g_str_has_suffix(upper, " LOAD") && !g_str_has_suffix(upper, " SAVE")) {
++        g_string_append_len(s->history, s->input->str, s->input->len);
++        g_string_append_c(s->history, '\n');
++    }
++    g_string_truncate(s->input, 0);
++}
++static void source_close(HostFS *s)
++{
++    if (s->source) { g_byte_array_unref(s->source); s->source = NULL; }
++    s->source_pos = 0;
++    g_string_truncate(s->pending_line, 0);
++}
++static void execute(HostFS *s, unsigned command)
++{
++    s->status = 0;
++    s->response_size = s->response_pos = 0;
++    if (!command) { s->request_size = 0; return; }
++    if (!s->root) { s->status = 255; goto end; }
++    if (command == 1 && s->request_size == 6) {
++        uint16_t r = bdos(s, s->request[0], lduw_le_p(s->request + 1),
++                          s->request[3], lduw_le_p(s->request + 4));
++        stw_le_p(s->response, r);
++        s->response_size = 2;
++    } else if ((command == 2 || command == 6) && s->request_size >= 3) {
++        unsigned drive = s->request[0], user = s->request[1];
++        g_autofree char *text = g_strndup((char *)s->request + 2, s->request_size - 2);
++        uint8_t name[11];
++        if (drive >= 16 || user >= 16 || !cpm_name(text, name)) { s->status = 255; goto end; }
++        HostFile *f = lookup(s, drive, user, name);
++        if (command == 2) {
++            if (s->source) {
++                source_close(s);
++                s->status = 255;
++                if (f) { file_free(f); }
++                goto end;
++            }
++            source_close(s);
++            if (f) {
++                s->source = file_contents(s, f);
++                if (s->source && f->image && s->source->len > f->size) {
++                    g_byte_array_set_size(s->source, f->size);
++                }
++            }
++            if (!s->source) { s->status = 255; }
++        } else {
++            if (s->history->len > FILE_LIMIT ||
++                (s->readonly & (1 << drive)) || (f && !(f->mode & 0222)) ||
++                (!f && name_exists(s, drive, user, name))) {
++                s->status = 255;
++            } else if (image_drive(s, drive)) {
++                s->status = file_replace(s, drive, user, name,
++                    (uint8_t *)s->history->str, s->history->len,
++                    f ? f->attributes : 0) ? 0 : 255;
++            } else if (f) {
++                s->status = g_file_set_contents(f->path, s->history->str,
++                    s->history->len, NULL) ? 0 : 255;
++            } else {
++                s->status = file_replace(s, drive, user, name,
++                    (uint8_t *)s->history->str, s->history->len, 0) ? 0 : 255;
++            }
++        }
++        if (f) { file_free(f); }
++    } else if (command == 3 && s->source) {
++        if (s->pending_line->len && s->recording) {
++            g_string_append_len(s->history, s->pending_line->str, s->pending_line->len);
++            g_string_append_c(s->history, '\n');
++        }
++        g_string_truncate(s->pending_line, 0);
++        int c;
++        while (s->source_pos < s->source->len &&
++               (c = s->source->data[s->source_pos++]) != 26) {
++            if (c == '\r') { continue; }
++            if (c == '\n' && !s->pending_line->len) { continue; }
++            if (c == '\n') { break; }
++            if (!c || s->pending_line->len >= 124) {
++                s->status = 255;
++                source_close(s);
++                goto end;
++            }
++            g_string_append_c(s->pending_line, c == '\t' ? ' ' : c);
++        }
++        if (s->source_pos && s->source->data[s->source_pos - 1] == 26) {
++            s->source_pos = s->source->len;
++        }
++        s->response[0] = s->pending_line->len;
++        memcpy(s->response + 1, s->pending_line->str, s->pending_line->len);
++        s->response_size = 1 + s->pending_line->len;
++        if (!s->pending_line->len) { source_close(s); }
++    } else if (command == 5) {
++        source_close(s);
++    } else if (command == 7) {
++        g_string_truncate(s->history, 0);
++        g_string_truncate(s->input, 0);
++        s->recording = true;
++    } else if (command == 9 && s->request_size == 5) {
++        s->ccp_bank = s->request[0];
++        s->ccp_address = lduw_le_p(s->request + 1);
++        unsigned size = lduw_le_p(s->request + 3);
++        g_byte_array_set_size(s->ccp, size);
++        if (!guest_mem(s->ccp_bank, s->ccp_address, s->ccp->data, size, false)) { s->status = 255; }
++    } else if (command == 10 && s->ccp->len) {
++        if (!guest_mem(s->ccp_bank, s->ccp_address, s->ccp->data, s->ccp->len, true)) { s->status = 255; }
++    } else if (command == 11 && s->request_size == 1) {
++        g_autofree char *path = drive_path(s, s->request[0]);
++        s->status = path ? 0 : 255;
++    } else {
++        s->status = 255;
++    }
++end:
++    s->request_size = 0;
++}
++static uint64_t port_read(void *opaque, hwaddr address, unsigned size)
++{
++    HostFS *s = opaque;
++    switch (address) {
++    case 0: return (s->count ? 1 : 0) | 2 | (s->root ? 128 : 0);
++    case 1:
++        if (s->count) {
++            /* Reading a new command after an interpreter ABORT releases LOAD. */
++            if (s->source) { source_close(s); }
++            uint8_t c = s->fifo[s->head];
++            s->head = (s->head + 1) % sizeof(s->fifo);
++            s->count--;
++            qemu_chr_fe_accept_input(&s->console);
++            if (s->recording) {
++                if (c == '\r' || c == '\n') { history_line(s); }
++                else if (c == 8 || c == 127) {
++                    if (s->input->len) { g_string_truncate(s->input, s->input->len - 1); }
++                } else if (c >= 32 && c < 127 && s->input->len < 124) {
++                    g_string_append_c(s->input, c);
++                }
++            }
++            return c;
++        }
++        return 0;
++    case 2: return s->status;
++    case 3: return s->response_pos < s->response_size ? s->response[s->response_pos++] : 0;
++    }
++    return 255;
++}
++static void port_write(void *opaque, hwaddr address, uint64_t value, unsigned size)
++{
++    HostFS *s = opaque;
++    if (address == 1) {
++        uint8_t c = value;
++        qemu_chr_fe_write_all(&s->console, &c, 1);
++    } else if (address == 2) {
++        execute(s, value);
++    } else if (address == 3) {
++        if (s->request_size < sizeof(s->request)) { s->request[s->request_size++] = value; }
++        else { s->status = 255; }
++    }
++}
++static const MemoryRegionOps port_ops = {
++    .read = port_read, .write = port_write, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = {.min_access_size = 1, .max_access_size = 1},
++    .impl = {.min_access_size = 1, .max_access_size = 1},
++};
++static int console_room(void *opaque)
++{
++    HostFS *s = opaque;
++    return sizeof(s->fifo) - s->count;
++}
++static void console_rx(void *opaque, const uint8_t *bytes, int size)
++{
++    HostFS *s = opaque;
++    while (size-- && s->count < sizeof(s->fifo)) {
++        s->fifo[(s->head + s->count++) % sizeof(s->fifo)] = *bytes++;
++    }
++}
++static void hostfs_realize(DeviceState *dev, Error **errp)
++{
++    HostFS *s = HOSTFS(dev);
++    struct stat st;
++    if (s->root && (stat(s->root, &st) || !S_ISDIR(st.st_mode))) {
++        error_setg(errp, "hostfs root is not a directory: %s", s->root);
++        return;
++    }
++    if (s->root) {
++        for (unsigned d = 0; d < 16; d++) {
++            g_autofree char *name = g_strdup_printf("%c", 'A' + d);
++            g_autofree char *bare = g_build_filename(s->root, name, NULL);
++            g_autofree char *image = g_strdup_printf("%s.img", bare);
++            struct stat other;
++            if (!lstat(bare, &st) && !lstat(image, &other)) {
++                error_setg(errp, "CP/M %c: specify only one of %s and %s", 'A' + d, bare, image);
++                return;
++            }
++            if (image_drive(s, d)) {
++                CpmImage im;
++                if (!image_open(s, d, false, &im)) {
++                    error_setg(errp, "CP/M %c: unsupported or unreadable image", 'A' + d);
++                    return;
++                }
++                image_close(&im);
++            }
++        }
++    }
++    qemu_chr_fe_set_handlers(&s->console, console_room, console_rx, NULL, NULL, s, NULL, true);
++}
++static void hostfs_init(Object *obj)
++{
++    HostFS *s = HOSTFS(obj);
++    s->dma = 0x80;
++    s->logged = login_vector(s) & 1;
++    s->status = 255;
++    s->matches = g_ptr_array_new_with_free_func((GDestroyNotify)match_free);
++    s->history = g_string_new(NULL);
++    s->input = g_string_new(NULL);
++    s->pending_line = g_string_new(NULL);
++    s->ccp = g_byte_array_new();
++    memory_region_init_io(&s->ports, obj, &port_ops, s, "cpm.host-ports", 4);
++    /* Z80 IN A,(n)/OUT(n),A put A on the high address byte. Decode only n. */
++    for (unsigned bank = 0; bank < 256; bank++) {
++        g_autofree char *name = g_strdup_printf("cpm.host-port-mirror-%u", bank);
++        memory_region_init_alias(&s->mirrors[bank], obj, name, &s->ports, 0, 4);
++        memory_region_add_subregion_overlap(get_system_io(), (bank << 8) | 0x8c,
++                                           &s->mirrors[bank], -1);
++    }
++}
++static void hostfs_finalize(Object *obj)
++{
++    HostFS *s = HOSTFS(obj);
++    source_close(s);
++    g_ptr_array_free(s->matches, true);
++    g_string_free(s->history, true);
++    g_string_free(s->input, true);
++    g_string_free(s->pending_line, true);
++    g_byte_array_unref(s->ccp);
++}
++static void hostfs_reset(Object *obj, ResetType type)
++{
++    HostFS *s = HOSTFS(obj);
++    source_close(s);
++    s->drive = s->user = s->dma_bank = s->readonly = 0;
++    s->dma = 0x80;
++    s->logged = login_vector(s) & 1;
++    s->head = s->count = s->request_size = s->response_size = s->response_pos = 0;
++    s->status = 255;
++    s->recording = false;
++    g_string_truncate(s->history, 0);
++    g_string_truncate(s->input, 0);
++    g_ptr_array_set_size(s->matches, 0);
++    g_byte_array_set_size(s->ccp, 0);
++}
++static const Property properties[] = {
++    DEFINE_PROP_STRING("root", HostFS, root),
++    DEFINE_PROP_CHR("chardev", HostFS, console),
++};
++static void hostfs_class_init(ObjectClass *klass, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->realize = hostfs_realize;
++    RESETTABLE_CLASS(klass)->phases.hold = hostfs_reset;
++    device_class_set_props(dc, properties);
++    dc->user_creatable = false;
++    dc->desc = "CP/M 2.2 image/directory drives and console ports";
++}
++static const TypeInfo hostfs_type = {
++    .name = TYPE_HOSTFS, .parent = TYPE_SYS_BUS_DEVICE, .instance_size = sizeof(HostFS),
++    .instance_init = hostfs_init, .instance_finalize = hostfs_finalize,
++    .class_init = hostfs_class_init,
++};
++static void register_hostfs(void) { type_register_static(&hostfs_type); }
++type_init(register_hostfs)

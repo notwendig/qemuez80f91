@@ -1,0 +1,260 @@
+( CAMELF91 24-bit word tests. Load one line at a time. )
+( TEST-REPORT prints the assertion and failure counts. )
+( Port tests save and restore UART0 scratch register C7h. )
+DECIMAL
+VARIABLE TESTS VARIABLE FAILS VARIABLE AD
+CREATE ACTUAL 32 CELLS ALLOT
+0 TESTS ! 0 FAILS !
+: T{ ;
+: BAD 1 FAILS +! ." FAIL " TESTS @ . BEGIN DEPTH WHILE DROP REPEAT ;
+: -> DEPTH DUP AD ! ?DUP IF 0 DO ACTUAL I CELLS + ! LOOP THEN ;
+: }T 1 TESTS +! DEPTH AD @ <> IF BAD EXIT THEN DEPTH ?DUP IF 0 DO ACTUAL I CELLS + @ <> IF BAD LEAVE THEN LOOP THEN ;
+: TEST-REPORT CR ." TESTS " TESTS @ . ." FAILURES " FAILS @ . CR ;
+CREATE WB 128 ALLOT CREATE WC 128 ALLOT VARIABLE WV
+T{ 1 DUP -> 1 1 }T
+T{ 0 ?DUP -> 0 }T
+T{ 7 ?DUP -> 7 7 }T
+T{ 1 DROP ->  }T
+T{ 1 2 SWAP -> 2 1 }T
+T{ 1 2 OVER -> 1 2 1 }T
+T{ 1 2 3 ROT -> 2 3 1 }T
+T{ 1 2 NIP -> 2 }T
+T{ 1 2 TUCK -> 2 1 2 }T
+T{ 1 2 2DUP -> 1 2 1 2 }T
+T{ 1 2 2DROP ->  }T
+T{ 1 2 3 4 2SWAP -> 3 4 1 2 }T
+T{ 1 2 3 4 2OVER -> 1 2 3 4 1 2 }T
+T{ DEPTH -> 0 }T
+T{ SP@ SP! ->  }T
+T{ RP@ RP! ->  }T
+T{ DBG ->  }T
+T{ 1 2 + -> 3 }T
+T{ 8388607 1 + -> -8388608 }T
+T{ -1 1 + -> 0 }T
+T{ 5 9 - -> -4 }T
+T{ -8388608 1 - -> 8388607 }T
+T{ -5 NEGATE -> 5 }T
+T{ -8388608 NEGATE -> -8388608 }T
+T{ -1 1+ -> 0 }T
+T{ 0 1- -> -1 }T
+T{ -3 2* -> -6 }T
+T{ -3 2/ -> -2 }T
+T{ 8388607 2* -> -2 }T
+T{ 1 23 LSHIFT -> -8388608 }T
+T{ -1 23 RSHIFT -> 1 }T
+T{ 7 0 LSHIFT -> 7 }T
+T{ 7 0 RSHIFT -> 7 }T
+T{ 255 85 AND -> 85 }T
+T{ 240 15 OR -> 255 }T
+T{ 255 85 XOR -> 170 }T
+T{ 0 INVERT -> -1 }T
+T{ -1 INVERT -> 0 }T
+T{ 0 0= -> -1 }T
+T{ 1 0= -> 0 }T
+T{ -1 0< -> -1 }T
+T{ 0 0< -> 0 }T
+T{ 5 5 = -> -1 }T
+T{ 5 6 = -> 0 }T
+T{ 5 6 <> -> -1 }T
+T{ 5 5 <> -> 0 }T
+T{ -1 1 < -> -1 }T
+T{ 1 -1 > -> -1 }T
+T{ -1 1 U< -> 0 }T
+T{ -1 1 U> -> -1 }T
+T{ -8388608 8388607 < -> -1 }T
+T{ 8388607 -8388608 > -> -1 }T
+T{ 5 2 MIN -> 2 }T
+T{ -5 2 MAX -> 2 }T
+T{ -1 1 UMIN -> 1 }T
+T{ -1 1 UMAX -> -1 }T
+T{ 5 1 9 WITHIN -> -1 }T
+T{ 9 1 9 WITHIN -> 0 }T
+T{ 0 -2 2 WITHIN -> -1 }T
+T{ -7 ABS -> 7 }T
+T{ 7 ABS -> 7 }T
+T{ 7 0 ?NEGATE -> 7 }T
+T{ 7 -1 ?NEGATE -> -7 }T
+T{ -1 S>D -> -1 -1 }T
+T{ 1 S>D -> 1 0 }T
+T{ 1 0 DNEGATE -> -1 -1 }T
+T{ -1 -1 DABS -> 1 0 }T
+T{ 1 0 0 ?DNEGATE -> 1 0 }T
+T{ 1 0 -1 ?DNEGATE -> -1 -1 }T
+T{ -123 45 M* -> -5535 -1 }T
+T{ 123 45 * -> 5535 }T
+T{ -7 S>D 3 SM/REM -> -1 -2 }T
+T{ -7 S>D 3 FM/MOD -> 2 -3 }T
+T{ -6 S>D 3 FM/MOD -> 0 -2 }T
+T{ 7 -3 /MOD -> -2 -3 }T
+T{ -7 3 / -> -3 }T
+T{ -7 3 MOD -> 2 }T
+T{ 7 5 3 */MOD -> 2 11 }T
+T{ 7 5 3 */ -> 11 }T
+T{ 0 1 2 UD/MOD -> 0 -8388608 0 }T
+T{ -1 0 2 UD* -> -2 1 }T
+T{ -1 0 1 M+ -> 0 1 }T
+T{ -1 -1 UM* -> 1 -2 }T
+T{ 0 1 2 UM/MOD -> 0 -8388608 }T
+T{ CELL -> 3 }T
+T{ 0 CELL+ -> 3 }T
+T{ 5 CELLS -> 15 }T
+T{ 7 CHAR+ -> 8 }T
+T{ 7 CHARS -> 7 }T
+T{ 17 ALIGNED -> 17 }T
+T{ ALIGN ->  }T
+T{ BL -> 32 }T
+T{ TIBSIZE -> 124 }T
+T{ BASE @ -> 10 }T
+T{ STATE @ -> 0 }T
+T{ U0 @ U0 = -> -1 }T
+T{ DP @ HERE = -> -1 }T
+T{ TIB SOURCE DROP = -> -1 }T
+T{ 'SOURCE CELL+ @ TIB = -> -1 }T
+T{ SOURCE NIP 0 > -> -1 }T
+T{ >IN @ 0 > -> -1 }T
+T{ S0 @ SP@ U> -> -1 }T
+T{ R0 @ RP@ U> -> -1 }T
+T{ HP @ HOLDP @ = -> -1 }T
+T{ LP @ L0 @ = -> -1 }T
+T{ PAD @ 0 <> -> -1 }T
+T{ UINIT @ U0 = -> -1 }T
+T{ #INIT -> 45 }T
+T{ 123456 WV ! WV @ -> 123456 }T
+T{ -1 WV ! WV @ -> -1 }T
+T{ 42 WV ! 8 WV +! WV @ -> 50 }T
+T{ 255 WB C! WB C@ -> 255 }T
+T{ 11 22 WB 2! WB 2@ -> 11 22 }T
+T{ WB 8 90 FILL WB C@ WB 7 + C@ -> 90 90 }T
+T{ WB 0 0 FILL WB C@ -> 90 }T
+T{ 65 WB C! 66 WB 1 + C! WB WC 2 CMOVE WC C@ WC 1 + C@ -> 65 66 }T
+T{ WB WB 1+ 2 CMOVE> WB C@ WB 1+ C@ WB 2 + C@ -> 65 65 66 }T
+T{ WB 1+ WB 2 MOVE WB C@ WB 1+ C@ -> 65 66 }T
+T{ WB WB 1+ 2 MOVE WB C@ WB 1+ C@ WB 2 + C@ -> 65 65 66 }T
+T{ WB WC 0 CMOVE ->  }T
+T{ WB WC 0 CMOVE> ->  }T
+T{ WB WC 0 MOVE ->  }T
+T{ WB WC 0 S= -> 0 }T
+T{ WB WB 3 S= -> 0 }T
+T{ 65 WB C! 66 WC C! WB WC 1 S= 0< -> -1 }T
+T{ WC WB 1 S= 0 > -> -1 }T
+T{ WB 5 32 FILL 65 WB 2 + C! WB 5 32 SKIP SWAP WB - -> 3 2 }T
+T{ WB 5 65 SCAN SWAP WB - -> 3 2 }T
+T{ WB 0 65 SCAN SWAP WB - -> 0 0 }T
+T{ WB 0 32 SKIP SWAP WB - -> 0 0 }T
+T{ WB 3 2 /STRING SWAP WB - -> 1 2 }T
+T{ HERE 1 ALLOT HERE SWAP - -> 1 }T
+T{ HERE 123 , @ -> 123 }T
+T{ HERE 65 C, C@ -> 65 }T
+T{ 49 DIGIT? -> 1 -1 }T
+T{ 65 DIGIT? NIP -> 0 }T
+T{ 0 >DIGIT 9 >DIGIT 10 >DIGIT 35 >DIGIT -> 48 57 65 90 }T
+T{ 123 0 <# #S #> DUP >R WB SWAP CMOVE R> WB C@ WB 2 + C@ -> 3 49 51 }T
+T{ 0 0 <# 65 HOLD #> TYPE -> }T
+HEX
+T{ 123456 >< -> 125634 }T
+T{ BASE @ -> 10 }T
+DECIMAL
+T{ BASE @ -> 10 }T
+: WRRET 10 >R R@ R> ;
+T{ WRRET -> 10 10 }T
+: WREXIT 7 EXIT 8 ;
+T{ WREXIT -> 7 }T
+: WRIF IF 11 ELSE 22 THEN ;
+T{ 0 WRIF -1 WRIF -> 22 11 }T
+: WRUNTIL 0 BEGIN 1+ DUP 4 = UNTIL ;
+T{ WRUNTIL -> 4 }T
+: WRWHILE 0 BEGIN DUP 4 < WHILE 1+ REPEAT ;
+T{ WRWHILE -> 4 }T
+: WRAGAIN 0 BEGIN 1+ DUP 4 = IF EXIT THEN AGAIN ;
+T{ WRAGAIN -> 4 }T
+: WRDO 0 5 0 DO I + LOOP ;
+T{ WRDO -> 10 }T
+: WRSTEP 0 10 0 DO I + 2 +LOOP ;
+T{ WRSTEP -> 20 }T
+: WRNEG 0 0 5 DO I + -1 +LOOP ;
+T{ WRNEG -> 15 }T
+: WRLEAVE 0 10 0 DO I 3 = IF LEAVE THEN I + LOOP ;
+T{ WRLEAVE -> 3 }T
+: WRUNLOOP 10 0 DO I 3 = IF I UNLOOP EXIT THEN LOOP ;
+T{ WRUNLOOP -> 3 }T
+: WRJ 0 3 0 DO 2 0 DO I J + + LOOP LOOP ;
+T{ WRJ -> 9 }T
+: WRFAC DUP 1 > IF DUP 1- RECURSE * ELSE DROP 1 THEN ;
+T{ 6 WRFAC -> 720 }T
+: WRLIT [ 7 8 + ] LITERAL ;
+T{ WRLIT -> 15 }T
+: WRTICK ['] DUP EXECUTE ;
+T{ 5 WRTICK -> 5 5 }T
+T{ 5 ' DUP EXECUTE -> 5 5 }T
+T{ CHAR Z -> 90 }T
+: WRCHAR [CHAR] Q ;
+T{ WRCHAR -> 81 }T
+: WRIMM POSTPONE DUP ; IMMEDIATE
+: WRPOST 6 WRIMM + ;
+T{ WRPOST -> 12 }T
+: WRTHEN POSTPONE IF POSTPONE THEN ; IMMEDIATE
+: WRPOST2 -1 WRTHEN 99 ;
+T{ WRPOST2 -> 99 }T
+123 CONSTANT WRCONST 6 USER WRBASE VARIABLE WRVAR
+T{ WRCONST WRBASE BASE = -> 123 -1 }T
+T{ ' WRVAR >BODY WRVAR = -> -1 }T
+: WRMAKER CREATE , DOES> @ ; 345 WRMAKER WRMADE
+T{ WRMADE -> 345 }T
+CREATE WRCOL !COLON ' lit COMPILE, 42 , ,EXIT REVEAL
+T{ WRCOL -> 42 }T
+CREATE WRCOPY 4 ALLOT ' DUP WRCOPY !CF
+T{ WRCOPY C@ WRCOPY 1+ @ ' DUP = -> 205 -1 }T
+T{ HERE ' DUP COMPILE, @ ' DUP = -> -1 }T
+T{ HERE ' branch ,BRANCH @ ' branch = -> -1 }T
+T{ HERE 765 ,DEST DUP @ SWAP 987 SWAP !DEST -> 765 }T
+T{ HERE 1- DUP 88 SWAP C! C@ -> 88 }T
+T{ 11 >L L> -> 11 }T
+: WRSTR S" abc" ;
+T{ WRSTR DUP >R WC >COUNTED R> WC C@ WC 1+ C@ -> 3 3 97 }T
+T{ WC COUNT SWAP WC - -> 3 1 }T
+T{ WRSTR WB SWAP CMOVE WB WC 1+ 3 S= -> 0 }T
+: WRENV S" UNKNOWN-ENV" ENVIRONMENT? ;
+T{ WRENV -> 0 }T
+: WREVAL S" 12 34 +" EVALUATE ;
+T{ WREVAL -> 46 }T
+: WRINTERP 'SOURCE 2@ >R >R >IN @ >R S" 2 3 *" INTERPRET R> >IN ! R> R> 'SOURCE 2! ;
+T{ WRINTERP -> 6 }T
+: WRNUM S" 123" WC >COUNTED WC ?NUMBER ;
+T{ WRNUM -> 123 -1 }T
+: WRSIGN S" -12" ?SIGN ROT DROP ;
+T{ WRSIGN -> 2 2 }T
+: WRNUMBER 0 0 S" 123x" >NUMBER NIP ;
+T{ WRNUMBER -> 123 0 1 }T
+: WRFIND BL WORD FIND ;
+T{ WRFIND DUP SWAP ' DUP = SWAP -> -1 -1 }T
+T{ WRFIND IF NIP -> 1 }T
+T{ WRFIND NOSUCHWORD NIP -> 0 }T
+T{ LATEST @ DUP NFA>CFA ' WRFIND = SWAP IMMED? -> -1 0 }T
+T{ LATEST @ NFA>LFA @ 0 <> -> -1 }T
+: WRHIDDEN 543 ; HIDE
+T{ WRFIND WRHIDDEN NIP -> 0 }T
+REVEAL
+T{ WRHIDDEN -> 543 }T
+: WRNOABORT 0 ABORT" should-not-abort" 55 ;
+T{ WRNOABORT -> 55 }T
+T{ 1 ( ignored text ) 2 + -> 3 }T
+65 EMIT SPACE 2 SPACES CR
+PAGE
+: WRPRINT ." HELLO" ; WRPRINT
+-42 6 .R
+-42 -1 7 D.R
+1 2 .S 2DROP
+199 P0@ WV !
+T{ 85 199 P0! 199 P0@ -> 85 }T
+T{ 170 199 PC! 199 PC@ -> 170 }T
+T{ 90 199 P! 199 P@ -> 90 }T
+WV @ 199 P0!
+T{ KEY? -> 0 }T
+BUTTON-INIT
+T{ BUTTONS -> 0 }T
+T{ 1 BUTTON? 2 BUTTON? 3 BUTTON? -> 0 0 0 }T
+T{ 0 BUTTON? 4 BUTTON? -1 BUTTON? -> 0 0 0 }T
+T{ SW1? SW2? SW3? -> 0 0 0 }T
+MATRIX-INIT CHAR A MATRIX-CHAR
+WB 7 17 FILL WB MATRIX! MATRIX-CLEAR MATRIX-OFF
+TEST-REPORT

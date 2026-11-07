@@ -7,13 +7,13 @@ The implementation does not incorporate vendor ZTP driver code.
 ## Backend connection
 
 ```sh
-python3 tools/zds/f24.py --nic 'socket,connect=127.0.0.1:5555'
+tools/platform.sh f24 --nic 'socket,connect=127.0.0.1:5555'
 ```
 
 A QEMU-compatible peer must already listen on port 5555. Alternatively:
 
 ```sh
-python3 tools/zds/f24.py --nic 'socket,listen=127.0.0.1:5555'
+tools/platform.sh f24 --nic 'socket,listen=127.0.0.1:5555'
 ```
 
 For a direct QEMU command, append the backend to its machine/image/UART options:
@@ -27,10 +27,10 @@ preamble/FCS. An ordinary TCP echo server is not a compatible peer. Other QEMU
 backends are available if compiled in. This project's minimal build has no
 Slirp, so `-nic user` is unavailable.
 
-`tools/zds/f24.py` defaults to `--nic none`; registers/RAM remain present but
+`tools/platform.sh f24` defaults to `--nic none`; registers/RAM remain present but
 PHY link is down. By contrast, `start.sh` uses the existing `br0` bridge through
 the bridge helper; see [Getting started](getting-started.md). Debugger TCP 4040
-and UART TCP 4444 are independent of guest Ethernet. CAMEL does not gain a
+and the private UART Unix socket are independent of guest Ethernet. CAMEL does not gain a
 network stack merely by selecting a backend. [ZTP](ztp-tcpudp.md) and the
 [FreeRTOS network test](testing.md) exercise actual guest stacks.
 

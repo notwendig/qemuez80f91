@@ -13,7 +13,7 @@ flowchart LR
   SoC --> NIC[QEMU network backend]
   SoC --> Kit[Matrix/button model]
   Kit --> JSON[Kit state file]
-  JSON --> GUI[Tkinter kit window]
+  JSON --> GUI[Qt 6 kit window]
 ```
 
 The authoritative emulator changes are in `patches/0001-ez80f91-minimal.patch`,
@@ -62,7 +62,7 @@ The debugger uses the host's IP address; application services use the guest's.
 
 The matrix is reconstructed from actual guest writes to board latches. Seven
 completed rows form a published scan. Identical consecutive frames are not
-required, allowing scrolling text to advance every scan. Tkinter reads complete
+required, allowing scrolling text to advance every scan. Qt reads complete
 pixel masks while button/register state updates independently.
 
 CPU execution, device timers and LED integration use guest time; the window

@@ -3,7 +3,7 @@
 set -eu
 
 usage() {
-    echo "Aufruf: $0 [--run] [--kit] [--hostname <Name>] [--wd2797a <Basisport>] [--dev <Verzeichnis>] [dbgport <port>]"
+    echo "Aufruf: $0 [--run] [--kit] [--headless] [--bridge <Name|none>] [--hostname <Name>] [--wd2797a <Basisport>] [--dev <Verzeichnis>] [--fs-root <Unix-Verzeichnis>] [dbgport <port>]"
     echo "Standard: Debugport 4040; QEMU_EZ80 wählt die QEMU-Datei."
 }
 
@@ -11,14 +11,20 @@ port=4040
 run=
 kit=
 dev=
+fs_root=
 devport=0x1000
 hostname=
+bridge=br0
+headless=
 while [ $# -gt 0 ]; do
     case "$1" in
         --run) run=--run; shift ;;
         --kit) kit=--kit; shift ;;
+        --headless|--session) headless=--headless; shift ;;
+        --bridge) [ $# -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }; bridge=$2; shift 2 ;;
         --hostname) [ $# -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }; hostname=$2; shift 2 ;;
         --dev) [ $# -ge 2 ] || { usage >&2; exit 2; }; dev=$2; shift 2 ;;
+        --fs-root) [ $# -ge 2 ] || { usage >&2; exit 2; }; fs_root=$2; shift 2 ;;
         --wd2797a|--devport) [ $# -ge 2 ] || { usage >&2; exit 2; }; devport=$2; shift 2 ;;
         *) break ;;
     esac
@@ -51,9 +57,11 @@ if [ ! -x "$qemu" ]; then
     echo "QEMU nicht ausführbar: $qemu (QEMU_EZ80 setzen)." >&2
     exit 1
 fi
-set -- --launch "$port" "$qemu" --wd2797a "$devport"
+set -- start --port "$port" --qemu "$qemu" --wd2797a "$devport" --bridge "$bridge"
 [ -z "$run" ] || set -- "$@" "$run"
 [ -z "$kit" ] || set -- "$@" "$kit"
 [ -z "$dev" ] || set -- "$@" --dev "$dev"
+[ -z "$fs_root" ] || set -- "$@" --fs-root "$fs_root"
 [ -z "$hostname" ] || set -- "$@" --hostname "$hostname"
-exec python3 "$script_dir/tools/start.py" "$@"
+[ -z "$headless" ] || set -- "$@" "$headless"
+exec "$script_dir/tools/platform.sh" "$@"

@@ -4,6 +4,8 @@
 Usage: test_freertos_network.py QEMU FIRMWARE.bin [EXTERNAL_FLASH.bin]
 Add --debug-reset to test a debugger-provided stack and cleared MADL.
 Add --cpm to boot CP/M on TCP 4050 and run DIR.
+Add --cli to exercise the firmware command console on UDP 4030.
+Add --monitor to validate the actual UDP monitor output in an 80x40 screen.
 Add --hostname NAME to check a custom DHCP hostname (default ez800).
 With EXTERNAL_FLASH.bin, cold-boot internal flash and attach external flash at 0x100000.
 No bridge, external DHCP server or host TCP ports are needed.
@@ -24,6 +26,12 @@ if debug_reset:
 cpm_test = '--cpm' in sys.argv
 if cpm_test:
     sys.argv.remove('--cpm')
+cli_test = '--cli' in sys.argv
+if cli_test:
+    sys.argv.remove('--cli')
+monitor_test = '--monitor' in sys.argv
+if monitor_test:
+    sys.argv.remove('--monitor')
 SERVICE_PORT = 4050 if cpm_test else 4040
 hostname = None
 if '--hostname' in sys.argv:
@@ -60,6 +68,8 @@ class Peer:
         self.received = bytearray()
         self.local_seq = 0x12345678
         self.remote_seq = None
+        self.cli_replies = {}
+        self.monitor_packets = []
 
     def exact(self, size):
         data = bytearray()
@@ -100,6 +110,29 @@ class Peer:
                                       self.local_seq, ack, 0x50, flags, 8192, 0, 0) + payload)
         packet[16:18] = struct.pack('!H', self.transport_checksum(6, packet))
         self.ipv4(6, packet)
+
+    def cli_send(self, payload, source=40100):
+        self.udp(payload, 4030, source)
+
+    def udp(self, payload, destination, source):
+        packet = bytearray(struct.pack('!HHHH', source, destination, len(payload) + 8, 0) + payload)
+        packet[6:8] = struct.pack('!H', self.transport_checksum(17, packet))
+        self.ipv4(17, packet)
+
+    def cli_exchange(self, payload, marker, source=40100):
+        self.cli_replies[source] = []
+        for part in payload if isinstance(payload, tuple) else (payload,):
+            self.cli_send(part, source)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            assert not self.errors, self.errors
+            packets = self.cli_replies[source]
+            if packets and packets[-1] == b'\r\n':
+                output = b''.join(packets)
+                assert marker in output, (payload, marker, output)
+                return output
+            time.sleep(.05)
+        raise AssertionError(('CLI response timeout', payload, self.cli_replies[source]))
 
     def send_arp_request(self):
         packet = struct.pack('!HHBBH6s4s6s4s', 1, 0x800, 6, 4, 1,
@@ -162,6 +195,12 @@ class Peer:
         packet = ip[header_length:struct.unpack('!H', ip[2:4])[0]]
         if ip[9] == 17 and packet[:4] == struct.pack('!HH', 68, 67):
             self.dhcp_reply(packet[8:])
+        elif ip[9] == 17 and packet[:2] == struct.pack('!H', 4030):
+            destination, length = struct.unpack('!HH', packet[2:6])
+            self.cli_replies.setdefault(destination, []).append(packet[8:length])
+        elif ip[9] == 17 and packet[:2] == struct.pack('!H', 4060):
+            length = struct.unpack('!H', packet[4:6])[0]
+            self.monitor_packets.append(packet[8:length])
         elif ip[9] == 1 and packet[:2] == b'\0\0' and packet[4:8] == b'\x12\x34\0\1':
             assert packet[8:] == b'ez80-upgrade'
             self.ping = True
@@ -252,6 +291,63 @@ with tempfile.TemporaryDirectory(prefix='f91-network-') as directory:
             elif not cpm_test and peer.ping and peer.tcp_connected and b'UT ' in peer.received:
                 break
             time.sleep(.1)
+        if cli_test:
+            output = peer.cli_exchange(b'help\n', b'ip-config')
+            for command in (b'dump', b'ihex', b'date', b'time', b'ping'):
+                assert command in output, output
+            peer.cli_exchange((b'ip-', b'config\r\n'), b'192.168.77.123')
+            peer.cli_exchange(b'time 12 34 56\n', b'12:34:56')
+            peer.cli_exchange(b'date 5 6 11 2026\n', b'2026')
+            peer.cli_exchange(b'dump b 0 16\n', b'000000:')
+            peer.cli_exchange(b'dump b 0 -16\n', b'000000:')
+            peer.cli_exchange(b'dump b 0xfffff0 32\n', b'wrong addres range')
+            peer.cli_exchange(b'ihex 0 16\n', b':00000001FF')
+            peer.cli_exchange(b'echo-3-parameters first second third\n', b'3: third')
+            peer.cli_exchange(b'unknown-command\n', b'Command not recognised')
+            peer.cli_exchange(b'echo-3-parameters one\n', b'Incorrect command parameter')
+            peer.cli_exchange(b'x' * 80 + b'\n', b'Command too long')
+            peer.cli_exchange(b'ip-config\n', b'192.168.77.123')
+            peer.cli_send(b'hel')
+            peer.cli_exchange(b'help\n', b'ip-config', source=40101)
+            peer.cli_exchange(b'ip-config\n', b'192.168.77.123')
+            print('PASS: UDP CLI help, fragmented input, RTC, dump, Intel HEX, errors, overflow recovery and new clients', flush=True)
+        if monitor_test:
+            peer.udp(b'\n', 4060, 40120)
+            deadline = time.monotonic() + 20
+            retry_at = time.monotonic() + 1
+            while time.monotonic() < deadline:
+                output = b''.join(peer.monitor_packets)
+                if not output and time.monotonic() >= retry_at:
+                    peer.udp(b'\n', 4060, 40120)
+                    retry_at = time.monotonic() + 1
+                if all(marker in output for marker in (b'Ethernet', b'Real Time Clock', b'Heap', b'Platform buttons', b'Last tick', b'Right')):
+                    break
+                time.sleep(.05)
+            else:
+                raise AssertionError(('Monitor output timeout', output[-2000:], uart.read_bytes()[-2000:]))
+            # Check emitted cursor positions and field widths, including DEC save/restore.
+            tokens = re.finditer(rb'\x1b\[([0-9;?]*)([A-Za-z])|\x1b([78])|([^\x1b])', output)
+            row, column, saved = 1, 1, (1, 1)
+            for token in tokens:
+                if token[2] in (b'H', b'f'):
+                    values = token[1].split(b';')
+                    row, column = (int(value or b'1') for value in values)
+                    assert 1 <= row <= 40 and 1 <= column <= 80, token[0]
+                elif token[3] == b'7':
+                    saved = row, column
+                elif token[3] == b'8':
+                    row, column = saved
+                elif token[4]:
+                    character = token[4][0]
+                    assert character >= 32 or character in (9, 10, 13), (
+                        'Unexpected monitor control byte', row, column, token[4])
+                    if character >= 32:
+                        assert column <= 80, ('Monitor field overflows', row, column, token[4])
+                        column += 1
+            capture = Path(__file__).resolve().parents[1] / 'build/freertos-cli/monitor.ansi'
+            capture.parent.mkdir(parents=True, exist_ok=True)
+            capture.write_bytes(output)
+            print('PASS: live UDP monitor fields stay inside 80x40; captured ANSI output', flush=True)
         vm.cmd('stop')
         assert peer.ping, ('ICMP echo timeout', uart.read_bytes()[-1500:])
         service_ok = (command_sent and b'COM' in peer.received.upper() and b'a>' in peer.received.lower()) if cpm_test else b'UT ' in peer.received

@@ -6,7 +6,7 @@ tests running the actual PE32 DLL under Wine.
 
 ## Start and connect
 
-For CAMEL source debugging, use `python3 tools/zds/f24.py` as described in
+For CAMEL source debugging, use `tools/platform.sh f24` as described in
 [CAMEL launch](start-f24.md). For a direct launch after [building QEMU](getting-started.md):
 
 ```sh
@@ -127,3 +127,23 @@ The flash test uses an isolated instance/free port and checks mass erase,
 neighbors preserved and external AMD erase/program/verify. Saved flash files
 are compared byte-for-byte. The 8-KiB RAM workspace is checked without fallback.
 Installation paths can be overridden. Restart QEMU after debugger-bridge changes.
+
+### FreeRTOS Debug target
+
+`FreeRTOS-eZ80f91` **Debug** uses `MEMPART=RAMONLY` with code at
+`000000h–06AFFFh` and data at `06B000h–07FFFFh`. Select
+`eZ80F91_99C0879_RAM`, which maps CS1 to `000000h–07FFFFh` and disables
+internal flash. Keep external-flash autodetection off for this RAM target.
+The AMD flash target maps CS1 at `C00000h` and enables internal flash; it
+belongs to the **Release** memory layout.
+
+Using the flash target for the Debug image fails on unmapped RAM writes
+(for example, `06F6E4h`). The bridge logs `DTL failed: memory write failed`,
+while ZDS displays `ERR_DTLI_INVALID_TOKEN`; that message can therefore
+indicate a memory-map mismatch even when the DTL syntax is valid.
+
+After changing the target, reopen the project and run **Rebuild All** before
+downloading: ZDS puts target memory settings into the application's startup
+code through linker symbols. If the project was already open when its file
+changed, close it without saving first so cached settings do not overwrite
+the correction.

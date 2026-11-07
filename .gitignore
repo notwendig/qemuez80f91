@@ -11,3 +11,4 @@ __pycache__/
 /qemu/
 /rom-backups/
 /ez80f91_*.[0-9]*
+/cpm-files/
