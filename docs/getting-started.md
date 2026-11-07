@@ -38,7 +38,7 @@ export QEMU_EZ80="$PWD/build/ez80/qemu-system-ez80"
 ```
 
 `scripts/setup-dependencies.py` prepares both firmware projects, including the
-nested CAMEL BSP and patched FreeRTOS, TCP/IP and uzlib sources. It can be run
+nested CAMEL BSP plus patched FreeRTOS and TCP/IP sources. It can be run
 again after cloning. A plain clone or outer-submodule initialization leaves
 these nested library directories empty; ZDS then reports missing `FreeRTOS.h`
 and `No rule to make target` for library sources. Run setup before opening or
@@ -94,7 +94,7 @@ For the native project, build `libbsp/libbsp.zdsproj` first, then
 `camel_f91.zdsproj`. See [CamelForth](camelf91.md).
 
 FreeRTOS has a separate [dependency and build procedure](../subprojects/FreeRTOS-eZ80f91/BUILD.md).
-The pinned versions are kernel V11.3.2, TCP/IP V4.4.2 and uzlib `6d60d65`.
+The pinned versions are kernel V11.3.2 and TCP/IP V4.4.2.
 The [ZTP demonstration](ztp-tcpudp.md) builds a separate copy of the locally
 installed vendor example.
 

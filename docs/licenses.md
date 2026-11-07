@@ -9,7 +9,7 @@ replace their license files or source notices with a blanket workspace license.
 | CAMELF91_24 | [Project](https://github.com/notwendig/CAMELF91_24), `LICENSE`, original `ReadMe.txt` and source headers; the original has specific CamelForth usage conditions |
 | ez80f91bsp | [Project](https://github.com/notwendig/ez80f91bsp) and existing source notices; no additional license grant is asserted |
 | FreeRTOS-eZ80f91 | [Project](https://github.com/notwendig/FreeRTOS-eZ80f91), port notices and dependency licenses |
-| Kernel / Plus-TCP / uzlib | Respective upstream licenses; versions and patches in the [build guide](../subprojects/FreeRTOS-eZ80f91/BUILD.md) |
+| Kernel / Plus-TCP | Respective upstream licenses; versions and patches in the [build guide](../subprojects/FreeRTOS-eZ80f91/BUILD.md) |
 | ZDS II / Nexus SDK / ZTP | Separately installed vendor packages under their own terms; no SDK copy is included |
 
 [Sources](sources.md) lists technical references. Local vendor PDFs may reside

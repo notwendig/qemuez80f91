@@ -31,7 +31,6 @@ is an independent submodule. Its historical startup reference was
 | --- | --- | --- |
 | FreeRTOS-Kernel | V11.3.2, `8a59a4b19bf72977819feddef87d41163ced7004` | `kernel-V11.3.2.patch` |
 | FreeRTOS-Plus-TCP | V4.4.2, `b86ad086e9870099bb0ac18a75dcb7f6dd508cc7` | `network-V4.4.2-zds.patch` |
-| uzlib | master, `6d60d651a4499a64f2e5b21b4cc08d98cb84b5c1` | `uzlib-6d60d65-zds.patch` |
 
 Patches and setup instructions are in the [subproject build guide](../subprojects/FreeRTOS-eZ80f91/BUILD.md).
 The RAM target, matching linker map and original C startup provide the hardware

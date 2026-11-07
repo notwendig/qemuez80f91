@@ -54,18 +54,6 @@ The frame test pauses after every row and changes each complete scan, checking
 both retained partial-scan display and continuously progressing scrolling text.
 See [Kit behavior](kit.md).
 
-## Host CP/M decompression
-
-After FreeRTOS/uzlib setup:
-
-```sh
-python3 tests/test_freertos_unzip.py
-```
-
-This compiles the actual wrapper and uzlib with the host compiler. It tests the
-original 256256-byte disk, callbacks, CRC, truncation and output bounds. It needs
-neither QEMU nor a running guest.
-
 ## Original ZDS/Nexus DLL
 
 With vendor SDK, Wine and MinGW installed:
@@ -136,7 +124,7 @@ Enter afterwards to resume viewing there.
 
 ## Updated full FreeRTOS application
 
-The project uses kernel V11.3.2, Plus-TCP V4.4.2 and uzlib `6d60d65`.
+The project uses kernel V11.3.2 and Plus-TCP V4.4.2.
 Build the full board image first and convert HEX with `scripts/ihex_to_bin.py`.
 For the locally generated validation image:
 

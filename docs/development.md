@@ -8,7 +8,7 @@
 | `patches/0001-ez80f91-minimal.patch` | Complete QEMU changes relative to the pinned base |
 | `qemu/` | Ignored local QEMU repository; export its changes into the patch |
 | `subprojects/CAMELF91_24/` | Independent submodule with nested `libbsp/` |
-| `subprojects/FreeRTOS-eZ80f91/` | Independent submodule with kernel, TCP/IP and uzlib dependencies |
+| `subprojects/FreeRTOS-eZ80f91/` | Independent submodule with kernel and TCP/IP dependencies |
 | `examples/` | Reproduction sources and deliberately tracked test images |
 | `tests/` | Directly executable scripts; requirements in the test catalog |
 | `tools/`, `scripts/` | Launchers, debugger bridge and build/setup tools |

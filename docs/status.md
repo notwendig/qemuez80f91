@@ -22,7 +22,7 @@ instruction-set or hardware compatibility.
 | CamelForth | Corrected core; 237 executed dictionary entries, 201 checks and 89 cases before/after reset |
 | FreeRTOS | V11.3.2; original C/board startup, task switching, blocking, critical sections and 24-bit rollover |
 | FreeRTOS networking | Plus-TCP V4.4.2; isolated DHCP, ARP, ICMP and TCP-console tests; full-width IPv4 diagnostics |
-| CP/M 2.2 | uzlib `6d60d65`, gzip disk, CRC/size error tests, BIOS TRAPs and a separate live console test |
+| CP/M 2.2 | Raw image or Unix directory drives, native BIOS I/O ports and live console tests |
 | ZTP | Original RAM-filesystem example, nadibox DHCP and UDP/TCP echo |
 
 See [Validation](validation.md) for dated evidence and [Testing](testing.md)

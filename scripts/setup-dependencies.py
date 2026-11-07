@@ -23,7 +23,6 @@ def main():
         ROOT / 'subprojects/CAMELF91_24/libbsp/libbsp.zdsproj',
         project / 'kernel/include/FreeRTOS.h',
         project / 'network/source/portable/BufferManagement/BufferAllocation_2.c',
-        project / 'uzlib/src/adler32.c',
     )
     missing = [str(path.relative_to(ROOT)) for path in required if not path.is_file()]
     if missing:

@@ -1,6 +1,10 @@
 # Validation records
 
-The FreeRTOS Release profile now places its compressed CP/M disk image in external
+The records below are historical. The current firmware uses raw image or Unix
+directory drives; the former decompression dependency and its host test have
+been removed. Both current build configurations start from flash.
+
+The earlier FreeRTOS Release profile placed its compressed CP/M disk image in external
 AMD flash at `0x100000`, with program code in internal flash. The RAM Debug profile
 is retained. The split Flash image passed the isolated cold-boot DHCP, ARP, ICMP
 and TCP-console test, including an external-image read at `0x100000`. CP/M

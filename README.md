@@ -45,7 +45,7 @@ cd qemuez80f91
 python3 scripts/setup-dependencies.py
 ```
 
-The setup command also downloads the nested BSP, kernel, TCP/IP and uzlib
+The setup command also downloads the nested BSP, kernel and TCP/IP
 sources and applies the required compatibility patches. A plain clone or
 outer-submodule initialization alone is not enough to build the ZDS firmware.
 
@@ -140,10 +140,10 @@ tools/platform.sh demo --prepare-only
 ```
 
 Build FreeRTOS in `EZ80F910300ZCOG.zdsproj`, configuration **Debug** or
-**Release**. Debug uses RAM. Release places code in internal flash and the compressed CP/M
-disk image in external AMD flash at `0x100000`.
-Its dependencies are FreeRTOS-Kernel **V11.3.2**, FreeRTOS-Plus-TCP **V4.4.2**
-and uzlib commit **6d60d65**. ZDS compatibility changes are supplied as patches.
+**Release**. Both configurations start from internal/external flash; CP/M uses
+raw images or Unix directory drives. Its dependencies are FreeRTOS-Kernel
+**V11.3.2** and FreeRTOS-Plus-TCP **V4.4.2**. ZDS compatibility changes are
+supplied as patches. VSCodium can also [build and program QEMU flash](docs/vscodium.md).
 `tools/platform.sh demo` runs the installed ZTP TCP/UDP example instead.
 Both require the appropriate [ZDS and network setup](docs/getting-started.md).
 

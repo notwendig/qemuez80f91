@@ -27,7 +27,7 @@ after system reset.
 
 `main.c` contains only initial stack frames, critical sections, Timer0 startup
 and static-memory callbacks. Three stacks have 512 24-bit words each (1536 bytes).
-The full application `port.c`, networking, uzlib and heap setup are not linked.
+The full application `port.c`, networking and heap setup are not linked.
 Software timers and dynamic allocation are disabled. The basic probe uses the
 already tested RAM-boot preparation; [board startup](board-startup.md) tests
 the complete original clock/memory initialization separately.
